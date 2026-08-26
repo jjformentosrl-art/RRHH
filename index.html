@@ -414,17 +414,18 @@
 
   /* FICHADAS / ASISTENCIA */
   .fichada-row {
-    display: grid; grid-template-columns: 1fr 90px 90px 100px 110px 90px 40px;
+    display: grid; grid-template-columns: 1fr 90px 70px 80px 90px 110px 100px 40px;
     align-items: center; gap: 8px; padding: 10px 12px;
     border-bottom: 1px solid var(--border); font-size: 13px;
   }
   .fichada-row:hover { background: var(--surface2); }
   .fichada-header {
-    display: grid; grid-template-columns: 1fr 90px 90px 100px 110px 90px 40px;
+    display: grid; grid-template-columns: 1fr 90px 70px 80px 90px 110px 100px 40px;
     gap: 8px; padding: 8px 12px; background: var(--surface2);
     border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600;
     text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3);
   }
+  .turno-pill { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; white-space: nowrap; display:inline-block; background: rgba(146,141,171,0.14); color: var(--text2); }
   .tipo-pill { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; display:inline-block; }
   .tipo-entrada { background: rgba(16,185,129,0.12); color: #047857; }
   .tipo-salida { background: rgba(99,102,241,0.12); color: #4338ca; }
@@ -438,7 +439,7 @@
   .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap: 12px; }
   .config-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
   .config-field input, .config-field select { width: 100%; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; font-size: 13px; background: var(--surface); color: var(--text); }
-  .horario-row { display: grid; grid-template-columns: 1fr 130px 110px 90px; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .horario-row { display: grid; grid-template-columns: 1fr 120px 120px 110px 90px; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
   .horario-row:hover { background: var(--surface2); }
   .link-box { display: flex; gap: 8px; align-items: center; background: var(--surface2); border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px; font-family: 'DM Mono', monospace; font-size: 12px; word-break: break-all; }
 
@@ -470,12 +471,17 @@
   .kiosk-geo.ok .dot { background: var(--success); }
   .kiosk-geo.bad .dot { background: var(--danger); }
   .kiosk-geo.loading .dot { background: var(--warning); animation: pulse 1s infinite; }
+  .kiosk-shift-group { display: flex; flex-direction: column; gap: 8px; }
+  .kiosk-shift-label { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; }
   .kiosk-btns { display: flex; flex-direction: column; gap: 10px; }
-  .kiosk-btn { padding: 18px; border-radius: 14px; border: none; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform 0.1s, opacity 0.15s; }
+  .kiosk-btn { padding: 16px; border-radius: 14px; border: none; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform 0.1s, opacity 0.15s; }
   .kiosk-btn:active { transform: scale(0.98); }
   .kiosk-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .kiosk-btn.done { background: var(--surface2) !important; color: var(--text3) !important; opacity: 1; cursor: default; }
   .kiosk-btn.entrada { background: linear-gradient(135deg, var(--success), #34d399); color: #fff; }
   .kiosk-btn.salida { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; }
+  .kiosk-progress { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; font-weight: 600; color: var(--text3); background: var(--surface2); border-radius: 10px; padding: 8px 10px; }
+  .kiosk-progress span.done { color: var(--success); }
   .kiosk-result { text-align: center; font-size: 13px; padding: 12px; border-radius: 12px; }
   .kiosk-result.ok { background: rgba(16,185,129,0.1); color: #047857; }
   .kiosk-result.warn { background: rgba(245,158,11,0.14); color: #b45309; }
@@ -951,7 +957,7 @@
         </div>
         <div class="table-wrap">
           <div class="fichada-header">
-            <span>Empleado</span><span>Fecha</span><span>Hora</span><span>Tipo</span><span>Ubicación</span><span>Tardanza</span><span></span>
+            <span>Empleado</span><span>Fecha</span><span>Hora</span><span>Turno</span><span>Tipo</span><span>Ubicación</span><span>Demora</span><span></span>
           </div>
           <div id="fichadasList"></div>
         </div>
@@ -967,8 +973,8 @@
         <div class="stats" id="tardanzasStats"></div>
         <div class="chart-grid" id="tardanzasChartGrid"></div>
         <div class="table-wrap">
-          <div class="fichada-header" style="grid-template-columns:1fr 90px 90px 110px;">
-            <span>Empleado</span><span>Fecha</span><span>Hora</span><span>Min. Tarde</span>
+          <div class="fichada-header" style="grid-template-columns:1fr 90px 90px 80px 110px;">
+            <span>Empleado</span><span>Fecha</span><span>Hora</span><span>Turno</span><span>Demora</span>
           </div>
           <div id="tardanzasList"></div>
         </div>
@@ -990,10 +996,11 @@
         </div>
 
         <div class="config-card">
-          <h3>⏰ Horario y tolerancia</h3>
-          <p class="hint">Hora de entrada esperada por defecto y minutos de tolerancia antes de marcar "tardanza". Podés definir un horario distinto por empleado más abajo.</p>
+          <h3>⏰ Horarios y tolerancia</h3>
+          <p class="hint">Hora de entrada esperada por defecto para el turno mañana y para el turno tarde, y minutos de tolerancia antes de marcar "tardanza". Podés definir un horario distinto por empleado más abajo.</p>
           <div class="config-grid">
-            <div class="config-field"><label>Hora de entrada por defecto</label><input type="time" id="cfg_hora_default"></div>
+            <div class="config-field"><label>Entrada mañana (por defecto)</label><input type="time" id="cfg_hora_manana"></div>
+            <div class="config-field"><label>Entrada tarde (por defecto)</label><input type="time" id="cfg_hora_tarde"></div>
             <div class="config-field"><label>Tolerancia (minutos)</label><input type="number" id="cfg_tolerancia" placeholder="10"></div>
           </div>
           <div style="margin-top:14px;">
@@ -1020,7 +1027,7 @@
           <p class="hint">Si un empleado tiene un horario distinto al general, definilo acá. El PIN de 4 dígitos evita que un compañero marque por otro.</p>
           <div class="table-wrap">
             <div class="horario-row" style="background:var(--surface2);font-size:11px;font-weight:600;text-transform:uppercase;color:var(--text3);">
-              <span>Empleado</span><span>Hora entrada</span><span>PIN</span><span></span>
+              <span>Empleado</span><span>Entrada mañana</span><span>Entrada tarde</span><span>PIN</span><span></span>
             </div>
             <div id="horariosPinesList"></div>
           </div>
@@ -1052,9 +1059,20 @@
     <div class="kiosk-geo loading" id="kioskGeoStatus">
       <span class="dot"></span><span id="kioskGeoText">Obteniendo tu ubicación...</span>
     </div>
-    <div class="kiosk-btns">
-      <button class="kiosk-btn entrada" id="kioskBtnEntrada" onclick="kioskMarcar('Entrada')" disabled>🟢 MARCAR ENTRADA</button>
-      <button class="kiosk-btn salida" id="kioskBtnSalida" onclick="kioskMarcar('Salida')" disabled>🔴 MARCAR SALIDA</button>
+    <div id="kioskProgress" class="kiosk-progress" style="display:none;"></div>
+    <div class="kiosk-shift-group">
+      <div class="kiosk-shift-label">🌅 Turno mañana</div>
+      <div class="kiosk-btns">
+        <button class="kiosk-btn entrada" id="kioskBtnEntradaManana" onclick="kioskMarcar('Entrada','Mañana')" disabled>🟢 ENTRADA MAÑANA</button>
+        <button class="kiosk-btn salida" id="kioskBtnSalidaManana" onclick="kioskMarcar('Salida','Mañana')" disabled>🔴 SALIDA MAÑANA</button>
+      </div>
+    </div>
+    <div class="kiosk-shift-group">
+      <div class="kiosk-shift-label">🌇 Turno tarde</div>
+      <div class="kiosk-btns">
+        <button class="kiosk-btn entrada" id="kioskBtnEntradaTarde" onclick="kioskMarcar('Entrada','Tarde')" disabled>🟢 ENTRADA TARDE</button>
+        <button class="kiosk-btn salida" id="kioskBtnSalidaTarde" onclick="kioskMarcar('Salida','Tarde')" disabled>🔴 SALIDA TARDE</button>
+      </div>
     </div>
     <div id="kioskResultBox"></div>
     <div class="kiosk-last" id="kioskLastFichada"></div>
@@ -1601,7 +1619,7 @@ let planAccionData = [];
 let fichadasData = [];
 let horariosData = [];
 let pinesData = [];
-let configData = { depot_lat: '', depot_lng: '', radio_m: '150', hora_entrada_default: '08:00', tolerancia_min: '10' };
+let configData = { depot_lat: '', depot_lng: '', radio_m: '150', hora_entrada_manana_default: '08:00', hora_entrada_tarde_default: '14:00', tolerancia_min: '10' };
 let filteredEmployees = [];
 let currentPage = 0;
 const PAGE_SIZE = 20;
@@ -1698,6 +1716,7 @@ function handleRequest(e) {
     else if (action === 'updatePlanAccion')    result = updateRow('PLANACCION', body.id, body.data);
     else if (action === 'deletePlanAccion')    result = deleteRow('PLANACCION', body.id);
     else if (action === 'addFichada')          result = addFichada(body.data);
+    else if (action === 'getFichadasHoy')      result = getFichadasHoy(body.data);
     else if (action === 'deleteFichada')       result = deleteRow('FICHADAS', body.id);
     else if (action === 'addVacacion')         result = addRow('VACACIONES', body.data);
     else if (action === 'deleteVacacion')      result = deleteRow('VACACIONES', body.id);
@@ -1724,8 +1743,8 @@ function getAllData() {
   var reclamosHeaders = ['empleado','fecha','motivo','observaciones'];
   var encuestasHeaders = ['fecha','encuestados','score_calidad','score_entrega','score_atencion','score_precio','score_vendedor','score_repartidor','score_recomendacion','promedio','observaciones'];
   var planHeaders = ['fecha','aspecto','accion','responsable','fecha_limite','estado','notas'];
-  var fichadasHeaders = ['empleado','fecha','hora','tipo','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde'];
-  var horariosHeaders = ['empleado','hora_entrada'];
+  var fichadasHeaders = ['empleado','fecha','hora','tipo','turno','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde'];
+  var horariosHeaders = ['empleado','hora_entrada_manana','hora_entrada_tarde'];
   var pinesHeaders = ['empleado','pin'];
   var vacacionesHeaders = ['empleado','fecha_desde','fecha_hasta','dias','observaciones'];
   var nSheet = getOrCreateSheet('NOMINA',       nominaHeaders);
@@ -1790,21 +1809,26 @@ function saveConfig(data) {
   return { success: true };
 }
 
-// ─── HORARIOS (por empleado) — columna A = __ID__, B = empleado, C = hora_entrada ───
+// ─── HORARIOS (por empleado) — columna A = __ID__, B = empleado, C = hora_entrada_manana, D = hora_entrada_tarde ───
 function saveHorario(data) {
   if (!data || !data.empleado) return { error: 'Sin datos' };
-  var sheet = getOrCreateSheet('HORARIOS', ['empleado','hora_entrada']);
+  var headers = ['empleado','hora_entrada_manana','hora_entrada_tarde'];
+  var sheet = getOrCreateSheet('HORARIOS', headers);
   var rows = sheet.getDataRange().getValues();
+  var hm = data.hora_entrada_manana || '', ht = data.hora_entrada_tarde || '';
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][1] === data.empleado) {
-      if (!data.hora_entrada) { sheet.deleteRow(i+1); return { success: true }; }
-      sheet.getRange(i+1, 3).setValue(data.hora_entrada);
+      if (!hm && !ht) { sheet.deleteRow(i+1); return { success: true }; }
+      sheet.getRange(i+1, 3).setValue(hm);
+      sheet.getRange(i+1, 4).setValue(ht);
+      forceDateColumnsAsText(sheet, i+1, headers, { empleado: data.empleado, hora_entrada_manana: hm, hora_entrada_tarde: ht });
       return { success: true };
     }
   }
-  if (data.hora_entrada) {
+  if (hm || ht) {
     var id = Date.now().toString() + Math.floor(Math.random()*1000);
-    sheet.appendRow([id, data.empleado, data.hora_entrada]);
+    sheet.appendRow([id, data.empleado, hm, ht]);
+    forceDateColumnsAsText(sheet, sheet.getLastRow(), headers, { empleado: data.empleado, hora_entrada_manana: hm, hora_entrada_tarde: ht });
   }
   return { success: true };
 }
@@ -1865,8 +1889,23 @@ function getVacacionesPublicas() {
   return { employees: employees, vacaciones: vacaciones };
 }
 
+// Orden obligatorio de fichadas dentro de un mismo día:
+// 1) Entrada Mañana  2) Salida Mañana  3) Entrada Tarde  4) Salida Tarde.
+// Devuelve el próximo paso esperado ({tipo, turno}) o null si el día ya está completo.
+function getSiguientePasoFichada(fichadasDelDia) {
+  var paso = function(tipo, turno) {
+    return fichadasDelDia.some(function(f) { return f.tipo === tipo && f.turno === turno; });
+  };
+  if (!paso('Entrada', 'Mañana')) return { tipo: 'Entrada', turno: 'Mañana' };
+  if (!paso('Salida', 'Mañana'))  return { tipo: 'Salida',  turno: 'Mañana' };
+  if (!paso('Entrada', 'Tarde'))  return { tipo: 'Entrada', turno: 'Tarde'  };
+  if (!paso('Salida', 'Tarde'))   return { tipo: 'Salida',  turno: 'Tarde'  };
+  return null;
+}
+
 function addFichada(data) {
   if (!data || !data.empleado || !data.tipo) return { error: 'Sin datos' };
+  if (data.turno !== 'Mañana' && data.turno !== 'Tarde') return { error: 'Falta indicar el turno (Mañana o Tarde)' };
   var cfg = getConfig();
 
   // Validar PIN si el empleado tiene uno configurado
@@ -1877,6 +1916,23 @@ function addFichada(data) {
     return { error: 'PIN incorrecto' };
   }
 
+  // Traba de secuencia: no se puede dar una fichada fuera de orden (por
+  // ejemplo, entrada de la tarde sin haber dado antes la salida de la mañana).
+  // Se valida siempre en el servidor, sin confiar en lo que mande el cliente.
+  var fechaHoy = data.fecha || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var fichadasSheetPrevia = getOrCreateSheet('FICHADAS', ['empleado','fecha','hora','tipo','turno','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde']);
+  var fichadasDelDia = sheetToJson(fichadasSheetPrevia).filter(function(f) {
+    return f.empleado === data.empleado && f.fecha === fechaHoy;
+  });
+  var siguiente = getSiguientePasoFichada(fichadasDelDia);
+  if (!siguiente) {
+    return { error: 'Ya se registraron las 4 fichadas de hoy (entrada y salida de mañana y tarde).' };
+  }
+  if (siguiente.tipo !== data.tipo || siguiente.turno !== data.turno) {
+    var nombres = { Mañana: 'la mañana', Tarde: 'la tarde' };
+    return { error: 'Corresponde registrar ' + (siguiente.tipo === 'Entrada' ? 'la entrada' : 'la salida') + ' de ' + nombres[siguiente.turno] + ' antes de continuar.' };
+  }
+
   // Calcular distancia al depósito
   var distancia_m = '', dentro_geocerca = '';
   if (cfg.depot_lat && cfg.depot_lng && data.lat && data.lng) {
@@ -1885,12 +1941,14 @@ function addFichada(data) {
     dentro_geocerca = distancia_m <= radio ? 'Sí' : 'No';
   }
 
-  // Calcular tardanza (solo para Entrada)
+  // Calcular tardanza (solo para Entrada), usando el horario esperado del turno correspondiente
   var tardanza = '', minutos_tarde = 0;
   if (data.tipo === 'Entrada') {
-    var horariosSheet = getOrCreateSheet('HORARIOS', ['empleado','hora_entrada']);
+    var horariosSheet = getOrCreateSheet('HORARIOS', ['empleado','hora_entrada_manana','hora_entrada_tarde']);
     var horarioRow = sheetToJson(horariosSheet).find(function(h) { return h.empleado === data.empleado; });
-    var horaEsperada = (horarioRow && horarioRow.hora_entrada) ? horarioRow.hora_entrada : (cfg.hora_entrada_default || '08:00');
+    var campoTurno = data.turno === 'Tarde' ? 'hora_entrada_tarde' : 'hora_entrada_manana';
+    var defaultTurno = data.turno === 'Tarde' ? (cfg.hora_entrada_tarde_default || '14:00') : (cfg.hora_entrada_manana_default || '08:00');
+    var horaEsperada = (horarioRow && horarioRow[campoTurno]) ? horarioRow[campoTurno] : defaultTurno;
     var tolerancia = parseInt(cfg.tolerancia_min) || 10;
     var esp = horaEsperada.split(':').map(Number);
     var act = (data.hora || '00:00').split(':').map(Number);
@@ -1900,11 +1958,24 @@ function addFichada(data) {
     else { tardanza = 'No'; }
   }
 
-  var headers = ['empleado','fecha','hora','tipo','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde'];
+  var headers = ['empleado','fecha','hora','tipo','turno','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde'];
   var sheet = getOrCreateSheet('FICHADAS', headers);
   var id = Date.now().toString() + Math.floor(Math.random()*1000);
-  sheet.appendRow([id, data.empleado, data.fecha||'', data.hora||'', data.tipo, data.lat||'', data.lng||'', distancia_m, dentro_geocerca, tardanza, minutos_tarde]);
+  var rowData = { empleado: data.empleado, fecha: fechaHoy, hora: data.hora||'', tipo: data.tipo, turno: data.turno, lat: data.lat||'', lng: data.lng||'', distancia_m: distancia_m, dentro_geocerca: dentro_geocerca, tardanza: tardanza, minutos_tarde: minutos_tarde };
+  sheet.appendRow([id, rowData.empleado, rowData.fecha, rowData.hora, rowData.tipo, rowData.turno, rowData.lat, rowData.lng, rowData.distancia_m, rowData.dentro_geocerca, rowData.tardanza, rowData.minutos_tarde]);
+  forceDateColumnsAsText(sheet, sheet.getLastRow(), headers, rowData);
   return { success: true, id: id, distancia_m: distancia_m, dentro_geocerca: dentro_geocerca, tardanza: tardanza, minutos_tarde: minutos_tarde };
+}
+
+// Devuelve las fichadas de hoy de un empleado, para que el kiosko sepa
+// qué botón (entrada/salida de mañana o tarde) debe habilitar.
+function getFichadasHoy(data) {
+  if (!data || !data.empleado) return { error: 'Sin datos' };
+  var fechaHoy = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var sheet = getOrCreateSheet('FICHADAS', ['empleado','fecha','hora','tipo','turno','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde']);
+  var fichadasDelDia = sheetToJson(sheet).filter(function(f) { return f.empleado === data.empleado && f.fecha === fechaHoy; });
+  var siguiente = getSiguientePasoFichada(fichadasDelDia);
+  return { fecha: fechaHoy, fichadas: fichadasDelDia, siguiente: siguiente };
 }
 
 function sheetToJson(sheet) {
@@ -1917,10 +1988,17 @@ function sheetToJson(sheet) {
     headers.forEach(function(h, i) {
       var v = row[i];
       if (v instanceof Date) {
-        // Google Sheets a veces autoconvierte texto tipo "2026-08-01" en un
-        // objeto Date interno. Lo devolvemos siempre en formato YYYY-MM-DD
-        // para que las comparaciones de fechas del frontend sigan funcionando.
-        obj[h] = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+        // Google Sheets a veces autoconvierte texto tipo "2026-08-01" o "14:35"
+        // en un objeto Date interno. Cuando la celda es una HORA pura (sin
+        // fecha), Sheets la guarda usando como "fecha base" el 30/12/1899:
+        // eso es lo que hacía que la hora de entrada apareciera como una
+        // fecha en vez de como horario. Detectamos ese caso y la devolvemos
+        // en formato HH:mm; si es una fecha real, en formato YYYY-MM-DD.
+        if (v.getFullYear() === 1899) {
+          obj[h] = Utilities.formatDate(v, tz, 'HH:mm');
+        } else {
+          obj[h] = Utilities.formatDate(v, tz, 'yyyy-MM-dd');
+        }
       } else {
         obj[h] = v !== undefined && v !== null ? v.toString() : '';
       }
@@ -1935,7 +2013,10 @@ function sheetToJson(sheet) {
 function forceDateColumnsAsText(sheet, rowIndex, headers, data) {
   headers.forEach(function(h, idx) {
     var val = data[h];
-    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+    // Fechas (YYYY-MM-DD) y horas (HH:mm) se fuerzan como texto plano para
+    // que Sheets no las autoconvierta a un objeto Date/hora interno, que es
+    // lo que rompía la columna "hora" de las fichadas.
+    if (typeof val === 'string' && (/^\d{4}-\d{2}-\d{2}$/.test(val) || /^\d{1,2}:\d{2}$/.test(val))) {
       var col = idx + 2; // +1 por __ID__, +1 porque las columnas son 1-indexadas
       var cell = sheet.getRange(rowIndex, col);
       cell.setNumberFormat('@');
@@ -4578,9 +4659,10 @@ function renderFichadasRegistros() {
       <span>${f.empleado || ''}</span>
       <span>${fmtDate(f.fecha)}</span>
       <span>${f.hora || ''}</span>
+      <span><span class="turno-pill">${f.turno || '—'}</span></span>
       <span><span class="tipo-pill ${f.tipo === 'Entrada' ? 'tipo-entrada' : 'tipo-salida'}">${f.tipo === 'Entrada' ? '🟢 Entrada' : '🔴 Salida'}</span></span>
       <span class="${f.dentro_geocerca === 'No' ? 'geo-bad' : 'geo-ok'}">${f.dentro_geocerca === 'No' ? `⚠️ Fuera (${Math.round(f.distancia_m||0)}m)` : '✅ En depósito'}</span>
-      <span class="${f.tardanza === 'Sí' ? 'tarde-si' : 'tarde-no'}">${f.tardanza === 'Sí' ? `+${f.minutos_tarde}m` : (f.tipo === 'Entrada' ? 'A tiempo' : '—')}</span>
+      <span class="${f.tardanza === 'Sí' ? 'tarde-si' : 'tarde-no'}">${f.tardanza === 'Sí' ? `+${f.minutos_tarde}m tarde` : (f.tipo === 'Entrada' ? 'A tiempo' : '—')}</span>
       <span><button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="deleteFichada('${f.__ID__}')">🗑️</button></span>
     </div>
   `).join('');
@@ -4597,8 +4679,8 @@ async function deleteFichada(id) {
 }
 
 function exportFichadasCSV() {
-  const headers = ['Empleado','Fecha','Hora','Tipo','Latitud','Longitud','Distancia (m)','Dentro del depósito','Tardanza','Minutos tarde'];
-  const rows = getFichadasFiltered().map(f => [f.empleado,f.fecha,f.hora,f.tipo,f.lat,f.lng,f.distancia_m,f.dentro_geocerca,f.tardanza,f.minutos_tarde]);
+  const headers = ['Empleado','Fecha','Hora','Turno','Tipo','Latitud','Longitud','Distancia (m)','Dentro del depósito','Tardanza','Minutos de demora'];
+  const rows = getFichadasFiltered().map(f => [f.empleado,f.fecha,f.hora,f.turno,f.tipo,f.lat,f.lng,f.distancia_m,f.dentro_geocerca,f.tardanza,f.minutos_tarde]);
   const csv = [headers, ...rows].map(r => r.map(v => `"${(v??'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
@@ -4646,8 +4728,8 @@ function renderTardanzas() {
   `;
   if (chartBox) chartBox.innerHTML = barChart('Tardanzas por Empleado', porEmpleado);
   if (listBox) listBox.innerHTML = tardanzas.map(t => `
-    <div class="fichada-row" style="grid-template-columns:1fr 90px 90px 110px;">
-      <span>${t.empleado}</span><span>${fmtDate(t.fecha)}</span><span>${t.hora}</span><span class="tarde-si">+${t.minutos_tarde} min</span>
+    <div class="fichada-row" style="grid-template-columns:1fr 90px 90px 80px 110px;">
+      <span>${t.empleado}</span><span>${fmtDate(t.fecha)}</span><span>${t.hora}</span><span><span class="turno-pill">${t.turno || '—'}</span></span><span class="tarde-si">+${t.minutos_tarde} min</span>
     </div>
   `).join('');
 }
@@ -4657,7 +4739,8 @@ function renderFichadasConfig() {
   const l = document.getElementById('cfg_lat'); if (l && !l.value) l.value = configData.depot_lat || '';
   const g = document.getElementById('cfg_lng'); if (g && !g.value) g.value = configData.depot_lng || '';
   const r = document.getElementById('cfg_radio'); if (r && !r.value) r.value = configData.radio_m || '150';
-  const h = document.getElementById('cfg_hora_default'); if (h && !h.value) h.value = configData.hora_entrada_default || '08:00';
+  const hm = document.getElementById('cfg_hora_manana'); if (hm && !hm.value) hm.value = configData.hora_entrada_manana_default || '08:00';
+  const ht = document.getElementById('cfg_hora_tarde'); if (ht && !ht.value) ht.value = configData.hora_entrada_tarde_default || '14:00';
   const t = document.getElementById('cfg_tolerancia'); if (t && !t.value) t.value = configData.tolerancia_min || '10';
   renderHorariosPinesList();
 }
@@ -4679,7 +4762,8 @@ async function saveConfigForm() {
     depot_lat: document.getElementById('cfg_lat').value.trim(),
     depot_lng: document.getElementById('cfg_lng').value.trim(),
     radio_m: document.getElementById('cfg_radio').value || '150',
-    hora_entrada_default: document.getElementById('cfg_hora_default').value || '08:00',
+    hora_entrada_manana_default: document.getElementById('cfg_hora_manana').value || '08:00',
+    hora_entrada_tarde_default: document.getElementById('cfg_hora_tarde').value || '14:00',
     tolerancia_min: document.getElementById('cfg_tolerancia').value || '10'
   };
   if (!data.depot_lat || !data.depot_lng) { showToast('Definí la latitud y longitud del depósito', 'error'); return; }
@@ -4729,10 +4813,12 @@ function renderHorariosPinesList() {
     const h = horariosData.find(x => x.empleado === n);
     const tienePin = pinesData.some(x => x.empleado === n);
     const safeN = n.replace(/'/g, "\\'");
+    const b64 = btoa(unescape(encodeURIComponent(n)));
     return `
     <div class="horario-row">
       <span>${n}</span>
-      <span><input type="time" id="hor_${btoa(unescape(encodeURIComponent(n)))}" value="${h?.hora_entrada || ''}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;width:100%"></span>
+      <span><input type="time" id="horM_${b64}" value="${h?.hora_entrada_manana || ''}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;width:100%"></span>
+      <span><input type="time" id="horT_${b64}" value="${h?.hora_entrada_tarde || ''}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;width:100%"></span>
       <span>${tienePin ? '🔒 Con PIN' : '— Sin PIN'}</span>
       <span style="display:flex;gap:6px;">
         <button class="btn btn-secondary btn-sm" style="padding:4px 8px" onclick="saveHorarioRow('${safeN}')">💾</button>
@@ -4743,15 +4829,18 @@ function renderHorariosPinesList() {
 }
 
 async function saveHorarioRow(nombre) {
-  const el = document.getElementById('hor_' + btoa(unescape(encodeURIComponent(nombre))));
-  const hora_entrada = el ? el.value : '';
-  const data = { empleado: nombre, hora_entrada };
+  const b64 = btoa(unescape(encodeURIComponent(nombre)));
+  const elM = document.getElementById('horM_' + b64);
+  const elT = document.getElementById('horT_' + b64);
+  const hora_entrada_manana = elM ? elM.value : '';
+  const hora_entrada_tarde = elT ? elT.value : '';
+  const data = { empleado: nombre, hora_entrada_manana, hora_entrada_tarde };
   if (API_URL) {
     const res = await apiCall('saveHorario', { data });
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
   }
   horariosData = horariosData.filter(h => h.empleado !== nombre);
-  if (hora_entrada) horariosData.push(data);
+  if (hora_entrada_manana || hora_entrada_tarde) horariosData.push(data);
   if (!API_URL) localStorage.setItem('rrhh_horarios', JSON.stringify(horariosData));
   showToast('Horario guardado ✓', 'success');
 }
@@ -4787,6 +4876,8 @@ async function setPinRow(nombre, tienePin) {
 let kioskApiUrl = '';
 let kioskEmployees = [];
 let kioskConfig = {};
+let kioskFichadasHoy = [];
+let kioskSiguiente = null; // { tipo, turno } — próximo paso permitido, o null si el día ya está completo
 
 function initKiosk(apiUrl) {
   document.getElementById('kioskScreen').classList.add('active');
@@ -4841,12 +4932,39 @@ async function kioskLoadEmployees() {
   sel.innerHTML = '<option value="">Seleccioná tu nombre...</option>' + kioskEmployees.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
 }
 
-function kioskOnEmployeeChange() {
+async function kioskOnEmployeeChange() {
   const nombre = document.getElementById('kioskEmpleado').value;
   const emp = kioskEmployees.find(e => e.nombre === nombre);
   document.getElementById('kioskPinField').style.display = emp && emp.tienePin ? 'block' : 'none';
   document.getElementById('kioskPin').value = '';
+  kioskFichadasHoy = [];
+  kioskSiguiente = null;
+  if (!nombre) { kioskUpdateButtons(); return; }
+  const res = await kioskApiCall('getFichadasHoy', { data: { empleado: nombre } });
+  if (res && !res.error) {
+    kioskFichadasHoy = res.fichadas || [];
+    kioskSiguiente = res.siguiente || null;
+  }
   kioskUpdateButtons();
+}
+
+// Traba de secuencia en el cliente (además de la validación del servidor):
+// arma el estado de las 4 fichadas del día y habilita solo el próximo paso.
+function kioskRenderProgress() {
+  const box = document.getElementById('kioskProgress');
+  const hecha = (tipo, turno) => kioskFichadasHoy.find(f => f.tipo === tipo && f.turno === turno);
+  const pasos = [
+    ['Entrada', 'Mañana', 'Ent. mañana'],
+    ['Salida', 'Mañana', 'Sal. mañana'],
+    ['Entrada', 'Tarde', 'Ent. tarde'],
+    ['Salida', 'Tarde', 'Sal. tarde']
+  ];
+  if (!document.getElementById('kioskEmpleado').value) { box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  box.innerHTML = pasos.map(([tipo, turno, label]) => {
+    const f = hecha(tipo, turno);
+    return `<span class="${f ? 'done' : ''}">${f ? '✅' : '⬜'} ${label}${f ? ' ' + f.hora : ''}</span>`;
+  }).join('');
 }
 
 function kioskGetLocation() {
@@ -4880,20 +4998,45 @@ function setKioskGeoStatus(state, text) {
 
 function kioskUpdateButtons() {
   const ready = !!document.getElementById('kioskEmpleado').value && !!kioskGeo;
-  document.getElementById('kioskBtnEntrada').disabled = !ready;
-  document.getElementById('kioskBtnSalida').disabled = !ready;
+  const botones = {
+    'Entrada-Mañana': 'kioskBtnEntradaManana',
+    'Salida-Mañana':  'kioskBtnSalidaManana',
+    'Entrada-Tarde':  'kioskBtnEntradaTarde',
+    'Salida-Tarde':   'kioskBtnSalidaTarde'
+  };
+  const hecha = (tipo, turno) => kioskFichadasHoy.find(f => f.tipo === tipo && f.turno === turno);
+  Object.keys(botones).forEach(key => {
+    const [tipo, turno] = key.split('-');
+    const btn = document.getElementById(botones[key]);
+    if (!btn) return;
+    const yaHecha = !!hecha(tipo, turno);
+    const esElSiguiente = !!kioskSiguiente && kioskSiguiente.tipo === tipo && kioskSiguiente.turno === turno;
+    btn.disabled = !ready || !esElSiguiente;
+    btn.classList.toggle('done', yaHecha);
+    if (yaHecha) {
+      const f = hecha(tipo, turno);
+      btn.textContent = `✅ ${tipo === 'Entrada' ? 'Entrada' : 'Salida'} ${turno.toLowerCase()} — ${f.hora}`;
+    } else {
+      btn.textContent = `${tipo === 'Entrada' ? '🟢' : '🔴'} ${tipo === 'Entrada' ? 'ENTRADA' : 'SALIDA'} ${turno.toUpperCase()}`;
+    }
+  });
+  kioskRenderProgress();
 }
 
-async function kioskMarcar(tipo) {
+async function kioskMarcar(tipo, turno) {
   const empleado = document.getElementById('kioskEmpleado').value;
   if (!empleado) { showKioskResult('error', 'Seleccioná tu nombre.'); return; }
   if (!kioskGeo) { showKioskResult('error', 'Todavía no se detectó tu ubicación.'); return; }
+  if (!kioskSiguiente || kioskSiguiente.tipo !== tipo || kioskSiguiente.turno !== turno) {
+    showKioskResult('error', 'Ese paso no corresponde todavía. Seguí el orden: entrada mañana → salida mañana → entrada tarde → salida tarde.');
+    kioskUpdateButtons();
+    return;
+  }
   const emp = kioskEmployees.find(e => e.nombre === empleado);
   const pin = document.getElementById('kioskPin').value;
   if (emp && emp.tienePin && !/^\d{4}$/.test(pin)) { showKioskResult('error', 'Ingresá tu PIN de 4 dígitos.'); return; }
 
-  document.getElementById('kioskBtnEntrada').disabled = true;
-  document.getElementById('kioskBtnSalida').disabled = true;
+  document.querySelectorAll('.kiosk-btn').forEach(b => b.disabled = true);
   showKioskResult('', 'Enviando fichada...');
 
   // Refrescamos la ubicación justo antes de marcar, para que sea lo más precisa posible
@@ -4905,28 +5048,40 @@ async function kioskMarcar(tipo) {
   });
 
   const now = new Date();
+  // Usamos la fecha en horario LOCAL del celular (no UTC) para que la fichada
+  // quede agrupada en el día que realmente corresponde — así la traba de
+  // secuencia (mañana/tarde) no se rompe cerca de la medianoche.
+  const pad = n => n.toString().padStart(2, '0');
   const data = {
-    empleado, tipo,
-    fecha: now.toISOString().split('T')[0],
+    empleado, tipo, turno,
+    fecha: `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,
     hora: now.toTimeString().split(' ')[0].slice(0,5),
     lat: kioskGeo.lat, lng: kioskGeo.lng,
     pin: pin || ''
   };
   const res = await kioskApiCall('addFichada', { data });
-  kioskUpdateButtons();
   if (!res || res.error) {
     showKioskResult('error', 'Error: ' + (res?.error || 'no se pudo registrar la fichada.'));
+    kioskUpdateButtons();
     return;
   }
+  // Actualizamos el estado local con lo recién registrado y recalculamos el próximo paso
+  kioskFichadasHoy.push({ tipo, turno, hora: data.hora });
+  const pasos = [['Entrada','Mañana'],['Salida','Mañana'],['Entrada','Tarde'],['Salida','Tarde']];
+  const hechaLocal = (t, tu) => kioskFichadasHoy.some(f => f.tipo === t && f.turno === tu);
+  kioskSiguiente = null;
+  for (const [t, tu] of pasos) { if (!hechaLocal(t, tu)) { kioskSiguiente = { tipo: t, turno: tu }; break; } }
+
   if (res.dentro_geocerca === false || res.dentro_geocerca === 'No') {
     showKioskResult('warn', `⚠️ Fichada registrada, pero estás fuera del rango del depósito (${Math.round(res.distancia_m||0)}m). Quedó marcada para revisión.`);
   } else if (res.tardanza === 'Sí') {
-    showKioskResult('warn', `✅ Entrada registrada — llegaste ${res.minutos_tarde} minutos tarde.`);
+    showKioskResult('warn', `✅ Entrada de ${turno.toLowerCase()} registrada — llegaste ${res.minutos_tarde} minutos tarde.`);
   } else {
-    showKioskResult('ok', `✅ ${tipo === 'Entrada' ? 'Entrada' : 'Salida'} registrada correctamente a las ${data.hora}.`);
+    showKioskResult('ok', `✅ ${tipo === 'Entrada' ? 'Entrada' : 'Salida'} de ${turno.toLowerCase()} registrada correctamente a las ${data.hora}.`);
   }
-  document.getElementById('kioskLastFichada').textContent = `Última fichada: ${tipo} — ${data.hora} hs`;
+  document.getElementById('kioskLastFichada').textContent = `Última fichada: ${tipo} ${turno.toLowerCase()} — ${data.hora} hs`;
   document.getElementById('kioskPin').value = '';
+  kioskUpdateButtons();
 }
 
 function showKioskResult(type, msg) {
