@@ -1790,8 +1790,20 @@ function getOrCreateConfigSheet() {
 function getConfig() {
   var sheet = getOrCreateConfigSheet();
   var data = sheet.getDataRange().getValues();
+  var tz = Session.getScriptTimeZone();
   var cfg = {};
-  for (var i = 1; i < data.length; i++) { if (data[i][0]) cfg[data[i][0]] = data[i][1] !== undefined ? data[i][1].toString() : ''; }
+  for (var i = 1; i < data.length; i++) {
+    if (!data[i][0]) continue;
+    var v = data[i][1];
+    if (v instanceof Date) {
+      // Mismo problema que con las fichadas: Sheets puede autoconvertir un
+      // valor tipo "07:30" a un objeto Date/hora interno. Lo devolvemos
+      // siempre como HH:mm para que las comparaciones de horario funcionen.
+      cfg[data[i][0]] = Utilities.formatDate(v, tz, 'HH:mm');
+    } else {
+      cfg[data[i][0]] = v !== undefined && v !== null ? v.toString() : '';
+    }
+  }
   return cfg;
 }
 
@@ -1802,9 +1814,18 @@ function saveConfig(data) {
   Object.keys(data).forEach(function(key) {
     var found = false;
     for (var i = 1; i < rows.length; i++) {
-      if (rows[i][0] === key) { sheet.getRange(i+1, 2).setValue(data[key]); found = true; break; }
+      if (rows[i][0] === key) {
+        var cell = sheet.getRange(i+1, 2);
+        cell.setNumberFormat('@'); // fuerza texto plano, evita que Sheets convierta "07:30" en una hora interna
+        cell.setValue(data[key]);
+        found = true;
+        break;
+      }
     }
-    if (!found) sheet.appendRow([key, data[key]]);
+    if (!found) {
+      sheet.appendRow([key, data[key]]);
+      sheet.getRange(sheet.getLastRow(), 2).setNumberFormat('@').setValue(data[key]);
+    }
   });
   return { success: true };
 }
