@@ -1003,9 +1003,33 @@
             <div class="config-field"><label>Entrada tarde (por defecto)</label><input type="time" id="cfg_hora_tarde"></div>
             <div class="config-field"><label>Tolerancia (minutos)</label><input type="number" id="cfg_tolerancia" placeholder="10"></div>
           </div>
+          <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+            <p class="hint" style="margin-bottom:8px"><strong>📅 Horario distinto los lunes</strong> — completá esto solo si TODO el personal entra a otra hora los lunes. Dejalo vacío para usar siempre el horario por defecto de arriba.</p>
+            <div class="config-grid">
+              <div class="config-field"><label>Entrada mañana los lunes</label><input type="time" id="cfg_hora_manana_lunes"></div>
+              <div class="config-field"><label>Entrada tarde los lunes</label><input type="time" id="cfg_hora_tarde_lunes"></div>
+            </div>
+          </div>
           <div style="margin-top:14px;">
             <button class="btn btn-primary" onclick="saveConfigForm()">💾 Guardar configuración</button>
           </div>
+        </div>
+
+        <div class="config-card">
+          <h3>🗓️ Excepciones puntuales de horario</h3>
+          <p class="hint">Para un día específico (por ejemplo, un feriado trasladado o un evento) en que TODO el personal entra a otra hora. Mientras esté cargada, esa fecha usa esta hora en lugar del horario habitual — y nadie de esa fecha figura como tardanza por eso.</p>
+          <div class="config-grid">
+            <div class="config-field"><label>Fecha</label><input type="date" id="exc_fecha"></div>
+            <div class="config-field"><label>Entrada mañana</label><input type="time" id="exc_hora_manana"></div>
+            <div class="config-field"><label>Entrada tarde</label><input type="time" id="exc_hora_tarde"></div>
+          </div>
+          <div class="config-grid" style="margin-top:10px">
+            <div class="config-field" style="grid-column:1/-1"><label>Motivo (opcional)</label><input type="text" id="exc_motivo" placeholder="Ej: martes en vez de lunes"></div>
+          </div>
+          <div style="margin-top:14px;">
+            <button class="btn btn-primary" onclick="addExcepcionForm()">💾 Guardar excepción</button>
+          </div>
+          <div id="excepcionesList" style="margin-top:16px;display:flex;flex-direction:column;gap:8px;"></div>
         </div>
 
         <div class="config-card">
@@ -1604,6 +1628,34 @@
   </div>
 </div>
 
+<!-- EDITAR FICHADA (corrección manual) -->
+<div class="modal-overlay" id="editFichadaModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Corregir fichada</span>
+      <button class="modal-close" onclick="closeEditFichadaModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint" id="editFichadaInfo" style="margin-bottom:12px"></p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="config-field"><label>Hora registrada</label><input type="time" id="editFichHora"></div>
+        <div class="config-field">
+          <label>¿Marcar como tardanza?</label>
+          <select class="filter-select" id="editFichTardanza" style="width:100%">
+            <option value="No">No — llegó a tiempo</option>
+            <option value="Sí">Sí — llegó tarde</option>
+          </select>
+        </div>
+        <div class="config-field" id="editFichMinutosWrap"><label>Minutos de demora</label><input type="number" id="editFichMinutos" min="0"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeEditFichadaModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEditFichada()">💾 Guardar corrección</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1619,7 +1671,8 @@ let planAccionData = [];
 let fichadasData = [];
 let horariosData = [];
 let pinesData = [];
-let configData = { depot_lat: '', depot_lng: '', radio_m: '150', hora_entrada_manana_default: '08:00', hora_entrada_tarde_default: '14:00', tolerancia_min: '10' };
+let configData = { depot_lat: '', depot_lng: '', radio_m: '150', hora_entrada_manana_default: '08:00', hora_entrada_tarde_default: '14:00', tolerancia_min: '10', hora_entrada_manana_lunes: '', hora_entrada_tarde_lunes: '' };
+let excepcionesData = [];
 let filteredEmployees = [];
 let currentPage = 0;
 const PAGE_SIZE = 20;
@@ -1718,6 +1771,9 @@ function handleRequest(e) {
     else if (action === 'addFichada')          result = addFichada(body.data);
     else if (action === 'getFichadasHoy')      result = getFichadasHoy(body.data);
     else if (action === 'deleteFichada')       result = deleteRow('FICHADAS', body.id);
+    else if (action === 'updateFichada')       result = updateRow('FICHADAS', body.id, body.data);
+    else if (action === 'addExcepcion')        result = addExcepcion(body.data);
+    else if (action === 'deleteExcepcion')     result = deleteRow('EXCEPCIONES', body.id);
     else if (action === 'addVacacion')         result = addRow('VACACIONES', body.data);
     else if (action === 'deleteVacacion')      result = deleteRow('VACACIONES', body.id);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
@@ -1745,6 +1801,7 @@ function getAllData() {
   var planHeaders = ['fecha','aspecto','accion','responsable','fecha_limite','estado','notas'];
   var fichadasHeaders = ['empleado','fecha','hora','tipo','turno','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde'];
   var horariosHeaders = ['empleado','hora_entrada_manana','hora_entrada_tarde'];
+  var excepcionesHeaders = ['fecha','hora_entrada_manana','hora_entrada_tarde','motivo'];
   var pinesHeaders = ['empleado','pin'];
   var vacacionesHeaders = ['empleado','fecha_desde','fecha_hasta','dias','observaciones'];
   var nSheet = getOrCreateSheet('NOMINA',       nominaHeaders);
@@ -1756,6 +1813,7 @@ function getAllData() {
   var pSheet = getOrCreateSheet('PLANACCION',   planHeaders);
   var fSheet = getOrCreateSheet('FICHADAS',     fichadasHeaders);
   var hSheet = getOrCreateSheet('HORARIOS',     horariosHeaders);
+  var exSheet = getOrCreateSheet('EXCEPCIONES', excepcionesHeaders);
   var pinSheet = getOrCreateSheet('PINES',      pinesHeaders);
   var vSheet = getOrCreateSheet('VACACIONES',   vacacionesHeaders);
   getOrCreateConfigSheet();
@@ -1769,6 +1827,7 @@ function getAllData() {
     planAccion:   sheetToJson(pSheet),
     fichadas:     sheetToJson(fSheet),
     horarios:     sheetToJson(hSheet),
+    excepciones:  sheetToJson(exSheet),
     pines:        sheetToJson(pinSheet),
     vacaciones:   sheetToJson(vSheet),
     config:       getConfig()
@@ -1850,6 +1909,32 @@ function saveHorario(data) {
     var id = Date.now().toString() + Math.floor(Math.random()*1000);
     sheet.appendRow([id, data.empleado, hm, ht]);
     forceDateColumnsAsText(sheet, sheet.getLastRow(), headers, { empleado: data.empleado, hora_entrada_manana: hm, hora_entrada_tarde: ht });
+  }
+  return { success: true };
+}
+
+// ─── EXCEPCIONES (horario especial para una fecha puntual, aplica a TODO el personal) ───
+// columna A = __ID__, B = fecha (yyyy-MM-dd), C = hora_entrada_manana, D = hora_entrada_tarde, E = motivo
+function addExcepcion(data) {
+  if (!data || !data.fecha) return { error: 'Falta la fecha' };
+  var headers = ['fecha','hora_entrada_manana','hora_entrada_tarde','motivo'];
+  var sheet = getOrCreateSheet('EXCEPCIONES', headers);
+  var rows = sheet.getDataRange().getValues();
+  var hm = data.hora_entrada_manana || '', ht = data.hora_entrada_tarde || '', mot = data.motivo || '';
+  for (var i = 1; i < rows.length; i++) {
+    if (rows[i][1] === data.fecha) {
+      if (!hm && !ht) { sheet.deleteRow(i+1); return { success: true }; }
+      sheet.getRange(i+1, 3).setValue(hm);
+      sheet.getRange(i+1, 4).setValue(ht);
+      sheet.getRange(i+1, 5).setValue(mot);
+      forceDateColumnsAsText(sheet, i+1, headers, { fecha: data.fecha, hora_entrada_manana: hm, hora_entrada_tarde: ht, motivo: mot });
+      return { success: true };
+    }
+  }
+  if (hm || ht) {
+    var id = Date.now().toString() + Math.floor(Math.random()*1000);
+    sheet.appendRow([id, data.fecha, hm, ht, mot]);
+    forceDateColumnsAsText(sheet, sheet.getLastRow(), headers, { fecha: data.fecha, hora_entrada_manana: hm, hora_entrada_tarde: ht, motivo: mot });
   }
   return { success: true };
 }
@@ -1962,14 +2047,33 @@ function addFichada(data) {
     dentro_geocerca = distancia_m <= radio ? 'Sí' : 'No';
   }
 
-  // Calcular tardanza (solo para Entrada), usando el horario esperado del turno correspondiente
+  // Calcular tardanza (solo para Entrada), usando el horario esperado del turno correspondiente.
+  // Orden de prioridad para determinar la hora esperada:
+  //   1) Excepción puntual cargada para esa fecha exacta (aplica a TODO el personal)
+  //   2) Horario especial de los lunes, si está configurado (aplica a TODO el personal)
+  //   3) Horario particular del empleado (si se le cargó uno en HORARIOS)
+  //   4) Horario por defecto general
   var tardanza = '', minutos_tarde = 0;
   if (data.tipo === 'Entrada') {
-    var horariosSheet = getOrCreateSheet('HORARIOS', ['empleado','hora_entrada_manana','hora_entrada_tarde']);
-    var horarioRow = sheetToJson(horariosSheet).find(function(h) { return h.empleado === data.empleado; });
     var campoTurno = data.turno === 'Tarde' ? 'hora_entrada_tarde' : 'hora_entrada_manana';
     var defaultTurno = data.turno === 'Tarde' ? (cfg.hora_entrada_tarde_default || '14:00') : (cfg.hora_entrada_manana_default || '08:00');
-    var horaEsperada = (horarioRow && horarioRow[campoTurno]) ? horarioRow[campoTurno] : defaultTurno;
+
+    var horaEsperada = '';
+    var excepcionesSheet = getOrCreateSheet('EXCEPCIONES', ['fecha','hora_entrada_manana','hora_entrada_tarde','motivo']);
+    var excepcionHoy = sheetToJson(excepcionesSheet).find(function(x) { return x.fecha === fechaHoy; });
+    if (excepcionHoy && excepcionHoy[campoTurno]) {
+      horaEsperada = excepcionHoy[campoTurno];
+    } else {
+      var esLunes = new Date(fechaHoy + 'T00:00:00').getDay() === 1;
+      var campoLunes = data.turno === 'Tarde' ? 'hora_entrada_tarde_lunes' : 'hora_entrada_manana_lunes';
+      if (esLunes && cfg[campoLunes]) {
+        horaEsperada = cfg[campoLunes];
+      } else {
+        var horariosSheet = getOrCreateSheet('HORARIOS', ['empleado','hora_entrada_manana','hora_entrada_tarde']);
+        var horarioRow = sheetToJson(horariosSheet).find(function(h) { return h.empleado === data.empleado; });
+        horaEsperada = (horarioRow && horarioRow[campoTurno]) ? horarioRow[campoTurno] : defaultTurno;
+      }
+    }
     var tolerancia = parseInt(cfg.tolerancia_min) || 10;
     var esp = horaEsperada.split(':').map(Number);
     var act = (data.hora || '00:00').split(':').map(Number);
@@ -2294,6 +2398,7 @@ async function loadAllData() {
   planAccionData = data.planAccion || [];
   fichadasData = data.fichadas || [];
   horariosData = data.horarios || [];
+  excepcionesData = data.excepciones || [];
   pinesData = data.pines || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   setSyncStatus('ok', 'Conectado a Google Sheets');
@@ -4684,9 +4789,49 @@ function renderFichadasRegistros() {
       <span><span class="tipo-pill ${f.tipo === 'Entrada' ? 'tipo-entrada' : 'tipo-salida'}">${f.tipo === 'Entrada' ? '🟢 Entrada' : '🔴 Salida'}</span></span>
       <span class="${f.dentro_geocerca === 'No' ? 'geo-bad' : 'geo-ok'}">${f.dentro_geocerca === 'No' ? `⚠️ Fuera (${Math.round(f.distancia_m||0)}m)` : '✅ En depósito'}</span>
       <span class="${f.tardanza === 'Sí' ? 'tarde-si' : 'tarde-no'}">${f.tardanza === 'Sí' ? `+${f.minutos_tarde}m tarde` : (f.tipo === 'Entrada' ? 'A tiempo' : '—')}</span>
-      <span><button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="deleteFichada('${f.__ID__}')">🗑️</button></span>
+      <span style="display:flex;gap:6px">
+        ${f.tipo === 'Entrada' ? `<button class="btn btn-secondary btn-sm" style="padding:4px 8px" onclick="openEditFichadaModal('${f.__ID__}')">✏️</button>` : ''}
+        <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="deleteFichada('${f.__ID__}')">🗑️</button>
+      </span>
     </div>
   `).join('');
+}
+
+// ── Corrección manual de una fichada ya registrada (ej: se marcó tardanza por error) ──
+let editFichadaId = null;
+function openEditFichadaModal(id) {
+  const f = fichadasData.find(x => x.__ID__ == id);
+  if (!f) return;
+  editFichadaId = id;
+  document.getElementById('editFichadaInfo').textContent = `${f.empleado} — ${fmtDate(f.fecha)} — ${f.turno}`;
+  document.getElementById('editFichHora').value = f.hora || '';
+  document.getElementById('editFichTardanza').value = f.tardanza === 'Sí' ? 'Sí' : 'No';
+  document.getElementById('editFichMinutos').value = f.minutos_tarde || 0;
+  document.getElementById('editFichadaModal').classList.add('open');
+}
+
+function closeEditFichadaModal() {
+  document.getElementById('editFichadaModal').classList.remove('open');
+  editFichadaId = null;
+}
+
+async function saveEditFichada() {
+  if (!editFichadaId) return;
+  const hora = document.getElementById('editFichHora').value;
+  const tardanza = document.getElementById('editFichTardanza').value;
+  const minutos_tarde = tardanza === 'Sí' ? (parseInt(document.getElementById('editFichMinutos').value) || 0) : 0;
+  const data = { hora, tardanza, minutos_tarde };
+  if (API_URL) {
+    const res = await apiCall('updateFichada', { id: editFichadaId, data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  const f = fichadasData.find(x => x.__ID__ == editFichadaId);
+  if (f) Object.assign(f, data);
+  if (!API_URL) localStorage.setItem('rrhh_fichadas', JSON.stringify(fichadasData));
+  closeEditFichadaModal();
+  renderFichadasRegistros();
+  renderTardanzas();
+  showToast('Fichada corregida ✓', 'success');
 }
 
 async function deleteFichada(id) {
@@ -4763,7 +4908,57 @@ function renderFichadasConfig() {
   const hm = document.getElementById('cfg_hora_manana'); if (hm && !hm.value) hm.value = configData.hora_entrada_manana_default || '08:00';
   const ht = document.getElementById('cfg_hora_tarde'); if (ht && !ht.value) ht.value = configData.hora_entrada_tarde_default || '14:00';
   const t = document.getElementById('cfg_tolerancia'); if (t && !t.value) t.value = configData.tolerancia_min || '10';
+  const hml = document.getElementById('cfg_hora_manana_lunes'); if (hml && !hml.value) hml.value = configData.hora_entrada_manana_lunes || '';
+  const htl = document.getElementById('cfg_hora_tarde_lunes'); if (htl && !htl.value) htl.value = configData.hora_entrada_tarde_lunes || '';
   renderHorariosPinesList();
+  renderExcepcionesList();
+}
+
+function renderExcepcionesList() {
+  const box = document.getElementById('excepcionesList');
+  if (!box) return;
+  const lista = [...excepcionesData].sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+  if (!lista.length) { box.innerHTML = `<p class="hint">No hay excepciones cargadas.</p>`; return; }
+  box.innerHTML = lista.map(x => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;flex-wrap:wrap;">
+      <span class="badge badge-purple">${fmtDate(x.fecha)}</span>
+      <span style="font-size:12px;color:var(--text2)">Mañana: ${x.hora_entrada_manana || '—'} · Tarde: ${x.hora_entrada_tarde || '—'}</span>
+      ${x.motivo ? `<span style="font-size:12px;color:var(--text3);font-style:italic">${x.motivo}</span>` : ''}
+      <button class="btn btn-danger btn-sm" style="padding:4px 8px;margin-left:auto" onclick="deleteExcepcion('${x.__ID__}')">🗑️</button>
+    </div>
+  `).join('');
+}
+
+async function addExcepcionForm() {
+  const fecha = document.getElementById('exc_fecha').value;
+  const hora_entrada_manana = document.getElementById('exc_hora_manana').value;
+  const hora_entrada_tarde = document.getElementById('exc_hora_tarde').value;
+  const motivo = document.getElementById('exc_motivo').value.trim();
+  if (!fecha) { showToast('Elegí una fecha', 'error'); return; }
+  if (!hora_entrada_manana && !hora_entrada_tarde) { showToast('Cargá al menos un horario', 'error'); return; }
+  const data = { fecha, hora_entrada_manana, hora_entrada_tarde, motivo };
+  if (API_URL) {
+    const res = await apiCall('addExcepcion', { data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  excepcionesData = excepcionesData.filter(x => x.fecha !== fecha);
+  excepcionesData.push(data);
+  if (!API_URL) localStorage.setItem('rrhh_excepciones', JSON.stringify(excepcionesData));
+  document.getElementById('exc_fecha').value = '';
+  document.getElementById('exc_hora_manana').value = '';
+  document.getElementById('exc_hora_tarde').value = '';
+  document.getElementById('exc_motivo').value = '';
+  renderExcepcionesList();
+  showToast('Excepción guardada ✓', 'success');
+}
+
+async function deleteExcepcion(id) {
+  if (!confirm('¿Eliminar esta excepción?')) return;
+  if (API_URL) await apiCall('deleteExcepcion', { id });
+  excepcionesData = excepcionesData.filter(x => x.__ID__ != id);
+  if (!API_URL) localStorage.setItem('rrhh_excepciones', JSON.stringify(excepcionesData));
+  renderExcepcionesList();
+  showToast('Eliminada ✓', 'success');
 }
 
 function useMyLocationForConfig() {
@@ -4785,7 +4980,9 @@ async function saveConfigForm() {
     radio_m: document.getElementById('cfg_radio').value || '150',
     hora_entrada_manana_default: document.getElementById('cfg_hora_manana').value || '08:00',
     hora_entrada_tarde_default: document.getElementById('cfg_hora_tarde').value || '14:00',
-    tolerancia_min: document.getElementById('cfg_tolerancia').value || '10'
+    tolerancia_min: document.getElementById('cfg_tolerancia').value || '10',
+    hora_entrada_manana_lunes: document.getElementById('cfg_hora_manana_lunes').value || '',
+    hora_entrada_tarde_lunes: document.getElementById('cfg_hora_tarde_lunes').value || ''
   };
   if (!data.depot_lat || !data.depot_lng) { showToast('Definí la latitud y longitud del depósito', 'error'); return; }
   configData = data;
@@ -4840,13 +5037,26 @@ function renderHorariosPinesList() {
       <span>${n}</span>
       <span><input type="time" id="horM_${b64}" value="${h?.hora_entrada_manana || ''}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;width:100%"></span>
       <span><input type="time" id="horT_${b64}" value="${h?.hora_entrada_tarde || ''}" style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;width:100%"></span>
-      <span>${tienePin ? '🔒 Con PIN' : '— Sin PIN'}</span>
+      <span id="pinStatus_${b64}">${tienePin ? '🔒 Con PIN' : '— Sin PIN'}</span>
       <span style="display:flex;gap:6px;">
         <button class="btn btn-secondary btn-sm" style="padding:4px 8px" onclick="saveHorarioRow('${safeN}')">💾</button>
-        <button class="btn btn-secondary btn-sm" style="padding:4px 8px" onclick="setPinRow('${safeN}', ${tienePin})">${tienePin ? '🔁' : '🔒'}</button>
+        <button class="btn btn-secondary btn-sm" style="padding:4px 8px" id="pinBtn_${b64}" onclick="setPinRow('${safeN}', ${tienePin})">${tienePin ? '🔁' : '🔒'}</button>
       </span>
     </div>`;
   }).join('');
+}
+
+// Actualiza solo la columna de PIN de una fila (sin re-renderizar toda la lista),
+// para no perder horarios que el usuario haya tipeado pero todavía no guardado.
+function updatePinStatusInPlace(nombre, tienePin) {
+  const b64 = btoa(unescape(encodeURIComponent(nombre)));
+  const statusEl = document.getElementById('pinStatus_' + b64);
+  const btnEl = document.getElementById('pinBtn_' + b64);
+  if (statusEl) statusEl.textContent = tienePin ? '🔒 Con PIN' : '— Sin PIN';
+  if (btnEl) {
+    btnEl.textContent = tienePin ? '🔁' : '🔒';
+    btnEl.setAttribute('onclick', `setPinRow('${nombre.replace(/'/g, "\\'")}', ${tienePin})`);
+  }
 }
 
 async function saveHorarioRow(nombre) {
@@ -4872,7 +5082,7 @@ async function setPinRow(nombre, tienePin) {
     if (API_URL) await apiCall('deletePin', { data: { empleado: nombre } });
     pinesData = pinesData.filter(p => p.empleado !== nombre);
     if (!API_URL) localStorage.setItem('rrhh_pines', JSON.stringify(pinesData));
-    renderHorariosPinesList();
+    updatePinStatusInPlace(nombre, false);
     showToast('PIN eliminado ✓', 'success');
     return;
   }
@@ -4887,7 +5097,7 @@ async function setPinRow(nombre, tienePin) {
   pinesData = pinesData.filter(p => p.empleado !== nombre);
   pinesData.push(data);
   if (!API_URL) localStorage.setItem('rrhh_pines', JSON.stringify(pinesData));
-  renderHorariosPinesList();
+  updatePinStatusInPlace(nombre, true);
   showToast('PIN asignado ✓', 'success');
 }
 
