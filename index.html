@@ -487,6 +487,34 @@
   .kiosk-result.warn { background: rgba(245,158,11,0.14); color: #b45309; }
   .kiosk-result.error { background: rgba(239,68,68,0.12); color: #b91c1c; }
   .kiosk-last { font-size: 12px; color: var(--text3); text-align: center; }
+
+  /* LOGIN / AUTENTICACIÓN */
+  .auth-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+  .auth-status .auth-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); }
+  .auth-status.logged .auth-dot { background: var(--success); }
+  .login-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(20,10,50,0.45);
+    z-index: 999; align-items: center; justify-content: center; padding: 16px;
+  }
+  .login-overlay.open { display: flex; }
+  .login-box {
+    background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-md);
+    width: 100%; max-width: 340px; padding: 28px 26px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .login-box h2 { font-size: 16px; font-weight: 700; }
+  .login-box p { font-size: 13px; color: var(--text2); margin-top: -8px; }
+  .login-box label { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 4px; display: block; }
+  .login-box input {
+    width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px;
+    font-size: 14px; font-family: inherit; background: var(--surface2);
+  }
+  .login-box input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .login-error {
+    display: none; background: rgba(239,68,68,0.1); color: #b91c1c;
+    font-size: 12px; padding: 8px 10px; border-radius: 8px;
+  }
+  .login-actions { display: flex; gap: 10px; margin-top: 4px; }
+  .login-actions button { flex: 1; }
 </style>
 </head>
 <body>
@@ -504,9 +532,28 @@
         <div class="sync-dot" id="syncDot"></div>
         <span id="syncText">Sin configurar</span>
       </div>
+      <div class="auth-status" id="authStatus"><span class="auth-dot"></span><span id="authStatusText">Solo lectura</span></div>
       <button class="btn btn-secondary btn-sm" onclick="showSetup()">⚙️ Configuración</button>
     </div>
   </header>
+
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <h2>🔒 Iniciar sesión</h2>
+      <p>Ingresá tu usuario y contraseña para modificar datos.</p>
+      <div class="login-error" id="loginError"></div>
+      <form id="loginForm">
+        <label for="loginUsuario">Usuario</label>
+        <input type="text" id="loginUsuario" autocomplete="username" required>
+        <label for="loginPassword" style="margin-top:10px;">Contraseña</label>
+        <input type="password" id="loginPassword" autocomplete="current-password" required>
+        <div class="login-actions">
+          <button type="button" class="btn btn-secondary" id="loginCancelBtn">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="loginSubmitBtn">Ingresar</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <div class="tabs">
     <button class="tab active" onclick="showTab('nomina')">📋 Nómina</button>
@@ -1679,6 +1726,112 @@ const PAGE_SIZE = 20;
 let editingId = null;
 let kioskGeo = null; // {lat, lng} última posición obtenida en el kiosko
 
+// ─── AUTENTICACIÓN ──────────────────────────────────
+let authToken = sessionStorage.getItem('rrhh_auth_token') || null;
+let authUser = sessionStorage.getItem('rrhh_auth_user') || null;
+// Acciones que modifican datos: exigen usuario y contraseña (validado también en el backend)
+const WRITE_ACTIONS = [
+  'addEmployee','updateEmployee','deleteEmployee',
+  'addConducta','deleteConducta',
+  'addDeposito','deleteDeposito',
+  'addDistribucion','deleteDistribucion',
+  'addReclamo','deleteReclamo',
+  'addEncuesta','updateEncuesta','deleteEncuesta',
+  'addPlanAccion','updatePlanAccion','deletePlanAccion',
+  'deleteFichada','updateFichada',
+  'addExcepcion','deleteExcepcion',
+  'addVacacion','deleteVacacion',
+  'saveConfig','saveHorario','savePin','deletePin'
+];
+
+function isLoggedIn() { return !!authToken; }
+
+function updateAuthUI() {
+  const el = document.getElementById('authStatus');
+  const txt = document.getElementById('authStatusText');
+  if (!el || !txt) return;
+  if (isLoggedIn()) {
+    el.classList.add('logged');
+    txt.textContent = authUser + ' · cerrar sesión';
+    el.style.cursor = 'pointer';
+    el.onclick = logout;
+    el.title = 'Click para cerrar sesión';
+  } else {
+    el.classList.remove('logged');
+    txt.textContent = 'Solo lectura';
+    el.style.cursor = 'default';
+    el.onclick = null;
+    el.title = '';
+  }
+}
+
+function logout() {
+  authToken = null;
+  authUser = null;
+  sessionStorage.removeItem('rrhh_auth_token');
+  sessionStorage.removeItem('rrhh_auth_user');
+  updateAuthUI();
+  showToast('Sesión cerrada. Modo solo lectura.', 'success');
+}
+
+function requestLogin() {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('loginOverlay');
+    const form = document.getElementById('loginForm');
+    const errorEl = document.getElementById('loginError');
+    const userInput = document.getElementById('loginUsuario');
+    const passInput = document.getElementById('loginPassword');
+    const cancelBtn = document.getElementById('loginCancelBtn');
+    const submitBtn = document.getElementById('loginSubmitBtn');
+
+    errorEl.style.display = 'none';
+    userInput.value = '';
+    passInput.value = '';
+    overlay.classList.add('open');
+    setTimeout(() => userInput.focus(), 50);
+
+    function cleanup() {
+      form.removeEventListener('submit', onSubmit);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.classList.remove('open');
+    }
+    async function onSubmit(e) {
+      e.preventDefault();
+      const usuario = userInput.value.trim();
+      const password = passInput.value;
+      if (!usuario || !password) return;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verificando...';
+      let res;
+      try {
+        res = await apiCall('login', { data: { usuario, password } });
+      } catch (err) {
+        res = { error: 'Error de conexión' };
+      }
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Ingresar';
+      if (res && res.success) {
+        authToken = res.token;
+        authUser = res.usuario;
+        sessionStorage.setItem('rrhh_auth_token', authToken);
+        sessionStorage.setItem('rrhh_auth_user', authUser);
+        updateAuthUI();
+        cleanup();
+        resolve(true);
+      } else {
+        errorEl.textContent = (res && res.error) || 'Usuario o contraseña incorrectos';
+        errorEl.style.display = 'block';
+      }
+    }
+    function onCancel() {
+      cleanup();
+      resolve(false);
+    }
+    form.addEventListener('submit', onSubmit);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+
 // ─── INITIAL DATA ──────────────────────────────────
 const INITIAL_EMPLOYEES = [
   ["ACOSTA RAUL AMERICO","HOMBRE","20174066915","17406691","3463-411359","CANALS","1965-12-05",60,"2017-05-12","2008-08-14",17,"VENDEDOR"],
@@ -1748,9 +1901,14 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
-    if      (action === 'getAll')              result = getAllData();
+    if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
+      result = { error: 'No autorizado: inicie sesión para modificar datos' };
+    }
+    else if (action === 'login')               result = login(body.data);
+    else if (action === 'getAll')              result = getAllData();
     else if (action === 'addEmployee')         result = addEmployee(body.data);
     else if (action === 'updateEmployee')      result = updateEmployee(body.id, body.data);
     else if (action === 'deleteEmployee')      result = deleteRow('NOMINA', body.id);
@@ -1817,6 +1975,7 @@ function getAllData() {
   var pinSheet = getOrCreateSheet('PINES',      pinesHeaders);
   var vSheet = getOrCreateSheet('VACACIONES',   vacacionesHeaders);
   getOrCreateConfigSheet();
+  getOrCreateUsersSheet();
   return {
     employees:    sheetToJson(nSheet),
     conducta:     sheetToJson(cSheet),
@@ -2161,6 +2320,43 @@ function getOrCreateSheet(name, headers) {
   return sheet;
 }
 
+// ─── AUTENTICACIÓN (usuarios que pueden modificar datos) ───
+// Hoja USUARIOS con columnas: usuario | password
+// Si la hoja no existe o está vacía, se crea con un usuario admin/admin123 por defecto (¡cambiarlo desde la hoja de cálculo!).
+function getOrCreateUsersSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('USUARIOS');
+  if (!sheet) {
+    sheet = ss.insertSheet('USUARIOS');
+    sheet.appendRow(['usuario', 'password']);
+    sheet.getRange(1, 1, 1, 2).setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
+    sheet.appendRow(['admin', 'admin123']);
+  }
+  return sheet;
+}
+
+function login(data) {
+  if (!data || !data.usuario || !data.password) return { error: 'Faltan usuario o contraseña' };
+  var sheet = getOrCreateUsersSheet();
+  var rows = sheet.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]).trim().toLowerCase() === String(data.usuario).trim().toLowerCase() &&
+        String(rows[i][1]) === String(data.password)) {
+      var token = Utilities.getUuid();
+      // El cache de Apps Script guarda hasta 6 horas (21600 s); pasado ese tiempo hay que volver a iniciar sesión.
+      CacheService.getScriptCache().put('auth_' + token, String(rows[i][0]).trim(), 21600);
+      return { success: true, token: token, usuario: String(rows[i][0]).trim() };
+    }
+  }
+  return { error: 'Usuario o contraseña incorrectos' };
+}
+
+function validateToken(token, usuario) {
+  if (!token || !usuario) return false;
+  var cached = CacheService.getScriptCache().get('auth_' + token);
+  return cached === usuario;
+}
+
 function addEmployee(data) {
   if (!data) return { error: 'Sin datos' };
   var headers = ['nombre','genero','cuil','dni','tel','localidad','nacimiento','edad','art','alta','antiguedad','sector'];
@@ -2290,6 +2486,7 @@ window.onload = () => {
     const el = document.getElementById(id);
     if (el && !el.value) el.value = today;
   });
+  updateAuthUI();
   if (API_URL) {
     loadAllData();
   } else {
@@ -2342,8 +2539,18 @@ function loadLocalData() {
 async function apiCall(action, body = {}) {
   if (!API_URL) return null;
 
+  // Si la acción modifica datos, exigimos usuario y contraseña antes de continuar
+  if (WRITE_ACTIONS.includes(action)) {
+    if (!isLoggedIn()) {
+      const ok = await requestLogin();
+      if (!ok) return { error: 'Operación cancelada: se requiere iniciar sesión' };
+    }
+    body = { ...body, authUser, authToken };
+  }
+
   // Google Apps Script requiere no-cors en algunos contextos,
   // usamos siempre GET con parámetros para máxima compatibilidad
+  let result;
   try {
     const params = new URLSearchParams();
     params.set('action', action);
@@ -2366,17 +2573,23 @@ async function apiCall(action, body = {}) {
         redirect: 'follow'
       });
       const text = await res.text();
-      return JSON.parse(text);
+      result = JSON.parse(text);
     } catch(postErr) {
       // Fallback GET
       const url = API_URL + '?' + params.toString();
       const res = await fetch(url, { redirect: 'follow' });
       const text = await res.text();
-      return JSON.parse(text);
+      result = JSON.parse(text);
     }
   } catch (e) {
     return { error: e.message };
   }
+
+  // Si el backend rechazó la sesión (vencida o inválida), volvemos a modo solo lectura
+  if (result && result.error && /no autorizad/i.test(result.error) && action !== 'login') {
+    logout();
+  }
+  return result;
 }
 
 async function loadAllData() {
