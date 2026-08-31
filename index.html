@@ -981,6 +981,7 @@
       <div class="desempeño-tabs">
         <button class="dtab active" onclick="showDTabFichadas('registros', this)">📋 Registros</button>
         <button class="dtab" onclick="showDTabFichadas('tardanzas', this)">⏰ Llegadas Tarde</button>
+        <button class="dtab" onclick="showDTabFichadas('ausentes', this)">🚫 Ausentes</button>
         <button class="dtab" onclick="showDTabFichadas('config', this)">⚙️ Configuración</button>
       </div>
 
@@ -1024,6 +1025,28 @@
             <span>Empleado</span><span>Fecha</span><span>Hora</span><span>Turno</span><span>Demora</span>
           </div>
           <div id="tardanzasList"></div>
+        </div>
+      </div>
+
+      <!-- SUB-PANEL: AUSENTES / SIN MARCAR -->
+      <div class="dpanel" id="dpanel-fichadas-ausentes">
+        <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
+          <input type="date" class="filter-select" id="ausFecha" onchange="renderAusentes()" style="max-width:150px">
+          <select class="filter-select" id="ausSectorFilter" onchange="renderAusentes()">
+            <option value="">Todas las áreas</option>
+          </select>
+          <select class="filter-select" id="ausModoFilter" onchange="renderAusentes()">
+            <option value="">Falta algún turno (mañana o tarde)</option>
+            <option value="ambos">No marcó nada en todo el día</option>
+          </select>
+          <button class="btn btn-secondary btn-sm" onclick="exportAusentesCSV()">⬇ Exportar CSV</button>
+        </div>
+        <div class="stats" id="ausentesStats"></div>
+        <div class="table-wrap">
+          <div class="fichada-header" style="grid-template-columns:1.3fr 1fr 100px 100px;">
+            <span>Empleado</span><span>Área</span><span>Mañana</span><span>Tarde</span>
+          </div>
+          <div id="ausentesList"></div>
         </div>
       </div>
 
@@ -4957,6 +4980,7 @@ function showDTabFichadas(tab, el) {
   document.getElementById('dpanel-fichadas-' + tab).classList.add('active');
   if (tab === 'registros') { populateFichEmpleadoFilter(); renderFichadasRegistros(); }
   if (tab === 'tardanzas') renderTardanzas();
+  if (tab === 'ausentes') renderAusentes();
   if (tab === 'config') renderFichadasConfig();
 }
 
@@ -5111,6 +5135,81 @@ function renderTardanzas() {
       <span>${t.empleado}</span><span>${fmtDate(t.fecha)}</span><span>${t.hora}</span><span><span class="turno-pill">${t.turno || '—'}</span></span><span class="tarde-si">+${t.minutos_tarde} min</span>
     </div>
   `).join('');
+}
+
+// ── AUSENTES / SIN MARCAR ──
+function populateAusSectorFilter() {
+  const sel = document.getElementById('ausSectorFilter');
+  if (!sel) return;
+  const v = sel.value;
+  const sectors = [...new Set(employees.map(e => e.sector).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas las áreas</option>' + sectors.map(s => `<option value="${s}">${s}</option>`).join('');
+  sel.value = v;
+}
+
+function getAusentesData() {
+  const fechaInput = document.getElementById('ausFecha');
+  if (fechaInput && !fechaInput.value) fechaInput.value = new Date().toISOString().split('T')[0];
+  const fecha = fechaInput?.value || new Date().toISOString().split('T')[0];
+  const sector = document.getElementById('ausSectorFilter')?.value || '';
+  const modo = document.getElementById('ausModoFilter')?.value || '';
+
+  const entradasDelDia = fichadasData.filter(f => f.fecha === fecha && f.tipo === 'Entrada');
+  const marco = (nombre, turno) => entradasDelDia.some(f => f.empleado === nombre && f.turno === turno);
+
+  let list = employees
+    .filter(e => !sector || e.sector === sector)
+    .map(e => ({ nombre: e.nombre, sector: e.sector, manana: marco(e.nombre, 'Mañana'), tarde: marco(e.nombre, 'Tarde') }));
+
+  list = list.filter(e => modo === 'ambos' ? (!e.manana && !e.tarde) : (!e.manana || !e.tarde));
+  list.sort((a, b) => (a.sector || '').localeCompare(b.sector || '') || (a.nombre || '').localeCompare(b.nombre || ''));
+  return { fecha, list };
+}
+
+function renderAusentes() {
+  populateAusSectorFilter();
+  const { list } = getAusentesData();
+
+  const statsBox = document.getElementById('ausentesStats');
+  const listBox = document.getElementById('ausentesList');
+
+  const ningunTurno = list.filter(e => !e.manana && !e.tarde).length;
+  const soloFaltaManana = list.filter(e => !e.manana && e.tarde).length;
+  const soloFaltaTarde = list.filter(e => e.manana && !e.tarde).length;
+
+  if (statsBox) statsBox.innerHTML = `
+    <div class="stat-card"><span class="stat-icon">🚫</span><div><div class="stat-value">${list.length}</div><div class="stat-label">Con turnos sin marcar</div></div></div>
+    <div class="stat-card"><span class="stat-icon">❌</span><div><div class="stat-value">${ningunTurno}</div><div class="stat-label">No marcaron nada</div></div></div>
+    <div class="stat-card"><span class="stat-icon">🌅</span><div><div class="stat-value">${soloFaltaManana}</div><div class="stat-label">Sin marcar mañana</div></div></div>
+    <div class="stat-card"><span class="stat-icon">🌇</span><div><div class="stat-value">${soloFaltaTarde}</div><div class="stat-label">Sin marcar tarde</div></div></div>
+  `;
+
+  if (!list.length) {
+    if (listBox) listBox.innerHTML = `<div class="empty-state"><div class="icon">✅</div><p>Todos los empleados marcaron su asistencia ese día. ✨</p></div>`;
+    return;
+  }
+
+  if (listBox) listBox.innerHTML = list.map(e => `
+    <div class="fichada-row" style="grid-template-columns:1.3fr 1fr 100px 100px;">
+      <span>${e.nombre || ''}</span>
+      <span>${sectorBadge(e.sector)}</span>
+      <span class="${e.manana ? 'geo-ok' : 'tarde-si'}">${e.manana ? '✅ Marcó' : '❌ No marcó'}</span>
+      <span class="${e.tarde ? 'geo-ok' : 'tarde-si'}">${e.tarde ? '✅ Marcó' : '❌ No marcó'}</span>
+    </div>
+  `).join('');
+}
+
+function exportAusentesCSV() {
+  const { fecha, list } = getAusentesData();
+  if (!list.length) { showToast('No hay nadie sin marcar ese día', 'info'); return; }
+  const headers = ['Empleado', 'Área', 'Fecha', 'Mañana', 'Tarde'];
+  const rows = list.map(e => [e.nombre, e.sector, fecha, e.manana ? 'Marcó' : 'No marcó', e.tarde ? 'Marcó' : 'No marcó']);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = `ausentes_${fecha}.csv`;
+  a.click();
+  showToast('CSV exportado ✓', 'success');
 }
 
 // ── CONFIGURACIÓN ──
