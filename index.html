@@ -466,6 +466,12 @@
   .kiosk-clock { text-align: center; font-family: 'DM Mono', monospace; font-size: 32px; font-weight: 700; letter-spacing: 1px; }
   .kiosk-field select, .kiosk-field input { width: 100%; padding: 14px; font-size: 16px; border-radius: 12px; border: 1px solid var(--border); font-family: inherit; background: var(--surface); color: var(--text); }
   .kiosk-field label { display:block; font-size: 12px; font-weight: 600; color: var(--text3); margin-bottom: 6px; }
+  .kiosk-combo { position: relative; }
+  .kiosk-combo-dropdown { display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; max-height: 220px; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-md); z-index: 20; }
+  .kiosk-combo-dropdown.open { display: block; }
+  .kiosk-combo-option { padding: 12px 14px; font-size: 15px; cursor: pointer; }
+  .kiosk-combo-option:hover, .kiosk-combo-option.active { background: var(--surface2); }
+  .kiosk-combo-empty { padding: 12px 14px; font-size: 13px; color: var(--text3); }
   .kiosk-geo { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 10px 12px; border-radius: 10px; background: var(--surface2); }
   .kiosk-geo .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
   .kiosk-geo.ok .dot { background: var(--success); }
@@ -1140,9 +1146,14 @@
       <p>Marcá tu entrada o salida desde el depósito</p>
     </div>
     <div class="kiosk-clock" id="kioskClock">--:--:--</div>
-    <div class="kiosk-field">
+    <div class="kiosk-field kiosk-combo">
       <label>Tu nombre</label>
-      <select id="kioskEmpleado" onchange="kioskOnEmployeeChange()">
+      <input type="text" id="kioskEmpleadoBuscar" placeholder="Escribí para buscar tu nombre..." autocomplete="off"
+        oninput="kioskFilterEmpleados(this.value)"
+        onfocus="kioskFilterEmpleados(this.value)"
+        onblur="setTimeout(()=>kioskCloseDropdown(),150)">
+      <div id="kioskEmpleadoDropdown" class="kiosk-combo-dropdown"></div>
+      <select id="kioskEmpleado" style="display:none">
         <option value="">Seleccioná tu nombre...</option>
       </select>
     </div>
@@ -5473,6 +5484,41 @@ async function kioskLoadEmployees() {
   if (res.companyName) document.getElementById('kioskCompanyName').textContent = res.companyName;
   const sel = document.getElementById('kioskEmpleado');
   sel.innerHTML = '<option value="">Seleccioná tu nombre...</option>' + kioskEmployees.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
+}
+
+function kioskNormalizar(txt) {
+  return (txt || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+function kioskFilterEmpleados(texto) {
+  const box = document.getElementById('kioskEmpleadoDropdown');
+  const q = kioskNormalizar(texto);
+  // Si el texto escrito ya no coincide con el nombre seleccionado, se pierde la selección
+  const selActual = document.getElementById('kioskEmpleado').value;
+  if (selActual && kioskNormalizar(texto) !== kioskNormalizar(selActual)) {
+    document.getElementById('kioskEmpleado').value = '';
+    kioskOnEmployeeChange();
+  }
+  const coincidencias = kioskEmployees.filter(e => kioskNormalizar(e.nombre).includes(q));
+  if (!coincidencias.length) {
+    box.innerHTML = '<div class="kiosk-combo-empty">Sin coincidencias</div>';
+  } else {
+    box.innerHTML = coincidencias.map(e =>
+      `<div class="kiosk-combo-option" onmousedown="kioskSeleccionarEmpleado('${e.nombre.replace(/'/g, "\\'")}')">${e.nombre}</div>`
+    ).join('');
+  }
+  box.classList.add('open');
+}
+
+function kioskCloseDropdown() {
+  document.getElementById('kioskEmpleadoDropdown').classList.remove('open');
+}
+
+function kioskSeleccionarEmpleado(nombre) {
+  document.getElementById('kioskEmpleadoBuscar').value = nombre;
+  document.getElementById('kioskEmpleado').value = nombre;
+  kioskCloseDropdown();
+  kioskOnEmployeeChange();
 }
 
 async function kioskOnEmployeeChange() {
