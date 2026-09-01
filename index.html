@@ -988,6 +988,7 @@
         <button class="dtab active" onclick="showDTabFichadas('registros', this)">📋 Registros</button>
         <button class="dtab" onclick="showDTabFichadas('tardanzas', this)">⏰ Llegadas Tarde</button>
         <button class="dtab" onclick="showDTabFichadas('ausentes', this)">🚫 Ausentes</button>
+        <button class="dtab" onclick="showDTabFichadas('horas', this)">⏱️ Horas Trabajadas</button>
         <button class="dtab" onclick="showDTabFichadas('config', this)">⚙️ Configuración</button>
       </div>
 
@@ -1053,6 +1054,34 @@
             <span>Empleado</span><span>Área</span><span>Mañana</span><span>Tarde</span>
           </div>
           <div id="ausentesList"></div>
+        </div>
+      </div>
+
+      <!-- SUB-PANEL: HORAS TRABAJADAS -->
+      <div class="dpanel" id="dpanel-fichadas-horas">
+        <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
+          <select class="filter-select" id="horasVistaFilter" onchange="renderHorasTrabajadas()">
+            <option value="diario">Vista diaria</option>
+            <option value="semanal">Vista semanal</option>
+            <option value="mensual" selected>Vista mensual</option>
+          </select>
+          <select class="filter-select" id="horasEmpleadoFilter" onchange="renderHorasTrabajadas()">
+            <option value="">Todos los empleados</option>
+          </select>
+          <select class="filter-select" id="horasSectorFilter" onchange="renderHorasTrabajadas()">
+            <option value="">Todas las áreas</option>
+          </select>
+          <input type="date" class="filter-select" id="horasDesde" onchange="renderHorasTrabajadas()" style="max-width:150px">
+          <input type="date" class="filter-select" id="horasHasta" onchange="renderHorasTrabajadas()" style="max-width:150px">
+          <button class="btn btn-secondary btn-sm" onclick="exportHorasCSV()">⬇ Exportar CSV</button>
+        </div>
+        <p class="hint" style="margin:4px 0 10px;">Las horas se calculan emparejando cada Entrada con su Salida del mismo turno (mañana/tarde) y día. Los turnos sin salida marcada no se contabilizan.</p>
+        <div class="stats" id="horasStats"></div>
+        <div class="table-wrap">
+          <div class="fichada-header" style="grid-template-columns:1.3fr 1fr 1fr 90px 110px;">
+            <span>Empleado</span><span>Área</span><span>Período</span><span>Días</span><span>Horas</span>
+          </div>
+          <div id="horasList"></div>
         </div>
       </div>
 
@@ -4992,6 +5021,7 @@ function showDTabFichadas(tab, el) {
   if (tab === 'registros') { populateFichEmpleadoFilter(); renderFichadasRegistros(); }
   if (tab === 'tardanzas') renderTardanzas();
   if (tab === 'ausentes') renderAusentes();
+  if (tab === 'horas') renderHorasTrabajadas();
   if (tab === 'config') renderFichadasConfig();
 }
 
@@ -5219,6 +5249,158 @@ function exportAusentesCSV() {
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
   a.download = `ausentes_${fecha}.csv`;
+  a.click();
+  showToast('CSV exportado ✓', 'success');
+}
+
+// ── HORAS TRABAJADAS ──
+function timeToMinutes(hora) {
+  if (!hora) return null;
+  const parts = hora.split(':');
+  const h = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+  if (isNaN(h) || isNaN(m)) return null;
+  return h * 60 + m;
+}
+
+function fmtHoras(mins) {
+  if (!mins || mins < 0) mins = 0;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return `${h}h ${m}m`;
+}
+
+const MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function fmtMonthLabel(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return `${MESES_LARGO[m - 1] || ''} ${y}`;
+}
+
+function getWeekInfo(fecha) {
+  const d = new Date(fecha + 'T00:00:00');
+  const dow = (d.getDay() + 6) % 7; // 0 = lunes
+  const monday = new Date(d); monday.setDate(d.getDate() - dow);
+  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+  const key = monday.toISOString().split('T')[0];
+  const label = `${fmtDate(key)} al ${fmtDate(sunday.toISOString().split('T')[0])}`;
+  return { key, label };
+}
+
+// Empareja cada Entrada con su Salida del mismo empleado/fecha/turno y devuelve
+// los minutos trabajados por día (sumando mañana + tarde).
+function getHorasPorDia() {
+  const entradas = fichadasData.filter(f => f.tipo === 'Entrada');
+  const salidas = fichadasData.filter(f => f.tipo === 'Salida');
+  const porDia = {};
+  entradas.forEach(e => {
+    const s = salidas.find(x => x.empleado === e.empleado && x.fecha === e.fecha && x.turno === e.turno);
+    if (!s) return;
+    const mIn = timeToMinutes(e.hora), mOut = timeToMinutes(s.hora);
+    if (mIn === null || mOut === null) return;
+    let mins = mOut - mIn;
+    if (mins < 0) mins += 24 * 60; // por si el turno cruza la medianoche
+    const key = e.empleado + '|' + e.fecha;
+    if (!porDia[key]) porDia[key] = { empleado: e.empleado, fecha: e.fecha, minutos: 0 };
+    porDia[key].minutos += mins;
+  });
+  return Object.values(porDia);
+}
+
+function populateHorasFilters() {
+  const selEmp = document.getElementById('horasEmpleadoFilter');
+  if (selEmp) {
+    const v = selEmp.value;
+    const nombres = [...new Set(employees.map(e => e.nombre))].sort();
+    selEmp.innerHTML = '<option value="">Todos los empleados</option>' + nombres.map(n => `<option value="${n}">${n}</option>`).join('');
+    selEmp.value = v;
+  }
+  const selSector = document.getElementById('horasSectorFilter');
+  if (selSector) {
+    const v = selSector.value;
+    const sectores = [...new Set(employees.map(e => e.sector).filter(Boolean))].sort();
+    selSector.innerHTML = '<option value="">Todas las áreas</option>' + sectores.map(s => `<option value="${s}">${s}</option>`).join('');
+    selSector.value = v;
+  }
+}
+
+function getHorasTrabajadasData() {
+  const vista = document.getElementById('horasVistaFilter')?.value || 'mensual';
+  const emp = document.getElementById('horasEmpleadoFilter')?.value || '';
+  const sector = document.getElementById('horasSectorFilter')?.value || '';
+  const desde = document.getElementById('horasDesde')?.value || '';
+  const hasta = document.getElementById('horasHasta')?.value || '';
+
+  let dias = getHorasPorDia();
+  if (emp) dias = dias.filter(d => d.empleado === emp);
+  if (desde) dias = dias.filter(d => d.fecha >= desde);
+  if (hasta) dias = dias.filter(d => d.fecha <= hasta);
+
+  const sectorPorNombre = {};
+  employees.forEach(e => { sectorPorNombre[e.nombre] = e.sector; });
+  if (sector) {
+    const nombresSector = new Set(employees.filter(e => e.sector === sector).map(e => e.nombre));
+    dias = dias.filter(d => nombresSector.has(d.empleado));
+  }
+
+  const grupos = {};
+  dias.forEach(d => {
+    let key, label, orden;
+    if (vista === 'diario') { key = d.empleado + '|' + d.fecha; label = fmtDate(d.fecha); orden = d.fecha; }
+    else if (vista === 'semanal') { const w = getWeekInfo(d.fecha); key = d.empleado + '|' + w.key; label = w.label; orden = w.key; }
+    else { const ym = d.fecha.slice(0, 7); key = d.empleado + '|' + ym; label = fmtMonthLabel(ym); orden = ym; }
+    if (!grupos[key]) grupos[key] = { empleado: d.empleado, sector: sectorPorNombre[d.empleado] || '', label, orden, minutos: 0, dias: 0 };
+    grupos[key].minutos += d.minutos;
+    grupos[key].dias += 1;
+  });
+
+  return Object.values(grupos).sort((a, b) =>
+    (a.empleado || '').localeCompare(b.empleado || '') || (a.orden || '').localeCompare(b.orden || '')
+  );
+}
+
+function renderHorasTrabajadas() {
+  populateHorasFilters();
+  const list = getHorasTrabajadasData();
+
+  const statsBox = document.getElementById('horasStats');
+  const listBox = document.getElementById('horasList');
+
+  const totalMinutos = list.reduce((s, x) => s + x.minutos, 0);
+  const empleadosUnicos = new Set(list.map(x => x.empleado)).size;
+  const promedio = list.length ? totalMinutos / list.length : 0;
+
+  if (statsBox) statsBox.innerHTML = `
+    <div class="stat-card"><span class="stat-icon">⏱️</span><div><div class="stat-value">${fmtHoras(totalMinutos)}</div><div class="stat-label">Horas totales (filtro actual)</div></div></div>
+    <div class="stat-card"><span class="stat-icon">👥</span><div><div class="stat-value">${empleadosUnicos}</div><div class="stat-label">Empleados con fichaje</div></div></div>
+    <div class="stat-card"><span class="stat-icon">📊</span><div><div class="stat-value">${fmtHoras(promedio)}</div><div class="stat-label">Promedio por período mostrado</div></div></div>
+  `;
+
+  if (!list.length) {
+    if (listBox) listBox.innerHTML = `<div class="empty-state"><div class="icon">⏱️</div><p>No hay fichadas con entrada y salida completas para calcular horas todavía.</p></div>`;
+    return;
+  }
+
+  if (listBox) listBox.innerHTML = list.map(x => `
+    <div class="fichada-row" style="grid-template-columns:1.3fr 1fr 1fr 90px 110px;">
+      <span>${x.empleado || ''}</span>
+      <span>${sectorBadge(x.sector)}</span>
+      <span>${x.label}</span>
+      <span>${x.dias}</span>
+      <span><strong>${fmtHoras(x.minutos)}</strong></span>
+    </div>
+  `).join('');
+}
+
+function exportHorasCSV() {
+  const list = getHorasTrabajadasData();
+  if (!list.length) { showToast('No hay datos para exportar', 'info'); return; }
+  const vista = document.getElementById('horasVistaFilter')?.value || 'mensual';
+  const headers = ['Empleado', 'Área', 'Período', 'Días con fichaje', 'Minutos trabajados', 'Horas trabajadas'];
+  const rows = list.map(x => [x.empleado, x.sector, x.label, x.dias, Math.round(x.minutos), fmtHoras(x.minutos)]);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${(v ?? '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = `horas_trabajadas_${vista}.csv`;
   a.click();
   showToast('CSV exportado ✓', 'success');
 }
