@@ -1011,6 +1011,7 @@
           <button class="btn btn-secondary btn-sm" onclick="exportFichadasCSV()">⬇ Exportar CSV</button>
         </div>
         <div class="stats" id="fichadasRegStats"></div>
+        <div id="fichadasSinSalidaBox"></div>
         <div class="table-wrap">
           <div class="fichada-header">
             <span>Empleado</span><span>Fecha</span><span>Hora</span><span>Turno</span><span>Tipo</span><span>Ubicación</span><span>Demora</span><span></span>
@@ -5071,16 +5072,83 @@ function renderFichadasRegStats() {
 
   const entradas = enPeriodo.filter(f => f.tipo === 'Entrada').length;
   const salidas = enPeriodo.filter(f => f.tipo === 'Salida').length;
-  const diff = entradas - salidas;
+
+  const entradasM = enPeriodo.filter(f => f.tipo === 'Entrada' && f.turno === 'Mañana').length;
+  const salidasM = enPeriodo.filter(f => f.tipo === 'Salida' && f.turno === 'Mañana').length;
+  const diffM = entradasM - salidasM;
+
+  const entradasT = enPeriodo.filter(f => f.tipo === 'Entrada' && f.turno === 'Tarde').length;
+  const salidasT = enPeriodo.filter(f => f.tipo === 'Salida' && f.turno === 'Tarde').length;
+  const diffT = entradasT - salidasT;
 
   const periodoLabel = desde === hasta ? (desde === today ? 'Hoy' : fmtDate(desde)) : `${fmtDate(desde)} - ${fmtDate(hasta)}`;
-  const diffColor = diff === 0 ? 'var(--success)' : 'var(--danger)';
-  const diffLabel = diff === 0 ? 'Todo emparejado' : (diff > 0 ? `${diff} sin marcar salida` : `${Math.abs(diff)} sin marcar entrada`);
+
+  const diffColorM = diffM === 0 ? 'var(--success)' : 'var(--danger)';
+  const diffLabelM = diffM === 0 ? 'Todo emparejado' : (diffM > 0 ? `${diffM} sin marcar salida` : `${Math.abs(diffM)} sin marcar entrada`);
+  const diffColorT = diffT === 0 ? 'var(--success)' : 'var(--danger)';
+  const diffLabelT = diffT === 0 ? 'Todo emparejado' : (diffT > 0 ? `${diffT} sin marcar salida` : `${Math.abs(diffT)} sin marcar entrada`);
 
   statsBox.innerHTML = `
-    <div class="stat-card"><span class="stat-icon">🟢</span><div><div class="stat-value" style="color:var(--success)">${entradas}</div><div class="stat-label">Entradas · ${periodoLabel}</div></div></div>
-    <div class="stat-card"><span class="stat-icon">🔴</span><div><div class="stat-value" style="color:#4338ca">${salidas}</div><div class="stat-label">Salidas · ${periodoLabel}</div></div></div>
-    <div class="stat-card"><span class="stat-icon">${diff === 0 ? '✅' : '⚠️'}</span><div><div class="stat-value" style="color:${diffColor}">${diff > 0 ? '+' : ''}${diff}</div><div class="stat-label">${diffLabel}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">🌅</span><div><div class="stat-value" style="color:var(--success)">${entradasM}</div><div class="stat-label">Entraron Mañana · ${periodoLabel}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">🌅</span><div><div class="stat-value" style="color:#4338ca">${salidasM}</div><div class="stat-label">Salieron Mañana · ${periodoLabel}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">${diffM === 0 ? '✅' : '⚠️'}</span><div><div class="stat-value" style="color:${diffColorM}">${diffM > 0 ? '+' : ''}${diffM}</div><div class="stat-label">${diffLabelM}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">🌇</span><div><div class="stat-value" style="color:var(--success)">${entradasT}</div><div class="stat-label">Entraron Tarde · ${periodoLabel}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">🌇</span><div><div class="stat-value" style="color:#4338ca">${salidasT}</div><div class="stat-label">Salieron Tarde · ${periodoLabel}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">${diffT === 0 ? '✅' : '⚠️'}</span><div><div class="stat-value" style="color:${diffColorT}">${diffT > 0 ? '+' : ''}${diffT}</div><div class="stat-label">${diffLabelT}</div></div></div>
+  `;
+
+  renderFichadasSinSalidaList(enPeriodo, periodoLabel);
+}
+
+// Lista los nombres de empleados cuyas entradas superan a sus salidas en el
+// período mostrado, separados por turno Mañana / Tarde (se registraron sin
+// haber marcado la salida de ese turno).
+function renderFichadasSinSalidaList(enPeriodo, periodoLabel) {
+  const box = document.getElementById('fichadasSinSalidaBox');
+  if (!box) return;
+
+  function calcularSinSalida(turno) {
+    const porEmpleado = {};
+    enPeriodo.filter(f => f.turno === turno).forEach(f => {
+      if (!f.empleado) return;
+      if (!porEmpleado[f.empleado]) porEmpleado[f.empleado] = { entradas: 0, salidas: 0 };
+      if (f.tipo === 'Entrada') porEmpleado[f.empleado].entradas++;
+      else if (f.tipo === 'Salida') porEmpleado[f.empleado].salidas++;
+    });
+    return Object.keys(porEmpleado)
+      .filter(nombre => porEmpleado[nombre].entradas > porEmpleado[nombre].salidas)
+      .sort((a, b) => a.localeCompare(b))
+      .map(nombre => {
+        const dif = porEmpleado[nombre].entradas - porEmpleado[nombre].salidas;
+        return dif > 1 ? `${nombre} (${dif} entradas sin salida)` : nombre;
+      });
+  }
+
+  const sinSalidaManana = calcularSinSalida('Mañana');
+  const sinSalidaTarde = calcularSinSalida('Tarde');
+
+  if (!sinSalidaManana.length && !sinSalidaTarde.length) {
+    box.innerHTML = '';
+    return;
+  }
+
+  function bloque(titulo, lista) {
+    if (!lista.length) return '';
+    return `
+      <div style="margin-bottom:8px;">
+        <div style="font-weight:600;color:#c2410c;margin-bottom:6px;">⚠️ Sin marcar salida · ${titulo} · ${periodoLabel} (${lista.length})</div>
+        <ul style="margin:0 0 4px;padding-left:20px;color:#7c2d12;">
+          ${lista.map(item => `<li>${item}</li>`).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  box.innerHTML = `
+    <div class="alert-box" style="background:#fff7ed;border:1px solid #fdba74;border-radius:10px;padding:12px 16px;margin:12px 0;">
+      ${bloque('Mañana', sinSalidaManana)}
+      ${bloque('Tarde', sinSalidaTarde)}
+    </div>
   `;
 }
 
