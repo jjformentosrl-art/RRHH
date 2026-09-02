@@ -1010,6 +1010,7 @@
           </label>
           <button class="btn btn-secondary btn-sm" onclick="exportFichadasCSV()">⬇ Exportar CSV</button>
         </div>
+        <div class="stats" id="fichadasRegStats"></div>
         <div class="table-wrap">
           <div class="fichada-header">
             <span>Empleado</span><span>Fecha</span><span>Hora</span><span>Turno</span><span>Tipo</span><span>Ubicación</span><span>Demora</span><span></span>
@@ -5050,7 +5051,41 @@ function getFichadasFiltered() {
   }).sort((a,b) => (b.fecha+b.hora).localeCompare(a.fecha+a.hora));
 }
 
+// Cuenta entradas y salidas del período mostrado (por defecto, el día de hoy),
+// respetando el filtro de empleado pero ignorando el filtro de tipo, para que
+// siempre se puedan comparar ambos totales y detectar a alguien sin marcar salida.
+function renderFichadasRegStats() {
+  const statsBox = document.getElementById('fichadasRegStats');
+  if (!statsBox) return;
+
+  const emp = document.getElementById('fichEmpleadoFilter')?.value || '';
+  const today = new Date().toISOString().split('T')[0];
+  const desde = document.getElementById('fichDesde')?.value || today;
+  const hasta = document.getElementById('fichHasta')?.value || today;
+
+  const enPeriodo = fichadasData.filter(f => {
+    if (emp && f.empleado !== emp) return false;
+    if (f.fecha < desde || f.fecha > hasta) return false;
+    return true;
+  });
+
+  const entradas = enPeriodo.filter(f => f.tipo === 'Entrada').length;
+  const salidas = enPeriodo.filter(f => f.tipo === 'Salida').length;
+  const diff = entradas - salidas;
+
+  const periodoLabel = desde === hasta ? (desde === today ? 'Hoy' : fmtDate(desde)) : `${fmtDate(desde)} - ${fmtDate(hasta)}`;
+  const diffColor = diff === 0 ? 'var(--success)' : 'var(--danger)';
+  const diffLabel = diff === 0 ? 'Todo emparejado' : (diff > 0 ? `${diff} sin marcar salida` : `${Math.abs(diff)} sin marcar entrada`);
+
+  statsBox.innerHTML = `
+    <div class="stat-card"><span class="stat-icon">🟢</span><div><div class="stat-value" style="color:var(--success)">${entradas}</div><div class="stat-label">Entradas · ${periodoLabel}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">🔴</span><div><div class="stat-value" style="color:#4338ca">${salidas}</div><div class="stat-label">Salidas · ${periodoLabel}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">${diff === 0 ? '✅' : '⚠️'}</span><div><div class="stat-value" style="color:${diffColor}">${diff > 0 ? '+' : ''}${diff}</div><div class="stat-label">${diffLabel}</div></div></div>
+  `;
+}
+
 function renderFichadasRegistros() {
+  renderFichadasRegStats();
   const box = document.getElementById('fichadasList');
   if (!box) return;
   const data = getFichadasFiltered();
