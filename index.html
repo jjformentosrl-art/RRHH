@@ -4574,6 +4574,15 @@ function diasVacPorAntig(antig) {
   return 35;
 }
 
+// Días que corresponden según antigüedad, ya descontando los sábados y
+// domingos comprendidos en esas semanas (no son días laborables en la empresa).
+// Ej: 14 días corridos = 2 semanas → se descuentan 4 días de fin de semana → 10 días.
+function diasVacHabiles(antig) {
+  const corridos    = diasVacPorAntig(antig);
+  const finDeSemana = Math.round(corridos / 7) * 2;
+  return corridos - finDeSemana;
+}
+
 function diasTomados(nombre) {
   return vacacionesData
     .filter(v => v.empleado === nombre)
@@ -4613,7 +4622,7 @@ function renderVacStats() {
     return vacacionesData.some(v => v.empleado === emp.nombre && v.fecha_desde <= hoy && v.fecha_hasta >= hoy);
   }).length;
   const conSaldo = employees.filter(emp => {
-    const correspond = diasVacPorAntig(emp.antiguedad);
+    const correspond = diasVacHabiles(emp.antiguedad);
     const tomados    = diasTomados(emp.nombre);
     return (correspond - tomados) > 0;
   }).length;
@@ -4653,7 +4662,7 @@ function renderVacResumen() {
   }
 
   body.innerHTML = list.map(emp => {
-    const correspond = diasVacPorAntig(emp.antiguedad);
+    const correspond = diasVacHabiles(emp.antiguedad);
     const tomados    = diasTomados(emp.nombre);
     const saldo      = correspond - tomados;
     const pct        = correspond > 0 ? Math.max(0, Math.min(100, Math.round(saldo / correspond * 100))) : 0;
@@ -4770,7 +4779,7 @@ function renderVacFiltroMes() {
   grid.innerHTML = Object.entries(byEmp).sort((a,b) => a[0].localeCompare(b[0])).map(([empName, periodos]) => {
     const emp = employees.find(e => e.nombre === empName);
     const sector = emp ? emp.sector : '';
-    const correspond = diasVacPorAntig(emp ? emp.antiguedad : 0);
+    const correspond = diasVacHabiles(emp ? emp.antiguedad : 0);
     const tomados    = diasTomados(empName);
     const saldo      = correspond - tomados;
 
@@ -4833,7 +4842,7 @@ function updateVacInfo() {
   const emp = employees.find(e => e.nombre === nombre);
   if (!emp) { box.style.display = 'none'; return; }
 
-  const correspond = diasVacPorAntig(emp.antiguedad);
+  const correspond = diasVacHabiles(emp.antiguedad);
   const tomados    = diasTomados(nombre);
   const saldo      = correspond - tomados;
   const saldoCls   = saldo > 0 ? 'var(--success)' : 'var(--danger)';
@@ -4904,7 +4913,7 @@ async function saveVacacion() {
   // Validate saldo
   const emp = employees.find(e => e.nombre === nombre);
   if (emp) {
-    const correspond = diasVacPorAntig(emp.antiguedad);
+    const correspond = diasVacHabiles(emp.antiguedad);
     const tomados    = diasTomados(nombre);
     const saldo      = correspond - tomados;
     if (dias > saldo) {
@@ -4955,7 +4964,7 @@ async function deleteVacacion(id) {
 function exportVacCSV() {
   const headers = ['Empleado','Sector','Antigüedad','Días Corresponden','Días Tomados','Saldo'];
   const rows = employees.map(emp => {
-    const correspond = diasVacPorAntig(emp.antiguedad);
+    const correspond = diasVacHabiles(emp.antiguedad);
     const tomados    = diasTomados(emp.nombre);
     return [emp.nombre, emp.sector, emp.antiguedad || 0, correspond, tomados, correspond - tomados];
   });
