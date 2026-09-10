@@ -543,6 +543,7 @@
         <span id="syncText">Sin configurar</span>
       </div>
       <div class="auth-status" id="authStatus"><span class="auth-dot"></span><span id="authStatusText">Solo lectura</span></div>
+      <button class="btn btn-secondary btn-sm" id="loginBtn" onclick="requestLogin()">🔑 Iniciar sesión</button>
       <button class="btn btn-secondary btn-sm" onclick="showSetup()">⚙️ Configuración</button>
     </div>
   </header>
@@ -1858,6 +1859,7 @@ function isLoggedIn() { return !!authToken; }
 function updateAuthUI() {
   const el = document.getElementById('authStatus');
   const txt = document.getElementById('authStatusText');
+  const loginBtn = document.getElementById('loginBtn');
   if (!el || !txt) return;
   if (isLoggedIn()) {
     el.classList.add('logged');
@@ -1865,12 +1867,14 @@ function updateAuthUI() {
     el.style.cursor = 'pointer';
     el.onclick = logout;
     el.title = 'Click para cerrar sesión';
+    if (loginBtn) loginBtn.style.display = 'none';
   } else {
     el.classList.remove('logged');
     txt.textContent = 'Solo lectura';
     el.style.cursor = 'default';
     el.onclick = null;
     el.title = '';
+    if (loginBtn) loginBtn.style.display = '';
   }
 }
 
@@ -1926,6 +1930,7 @@ function requestLogin() {
         sessionStorage.setItem('rrhh_auth_user', authUser);
         updateAuthUI();
         cleanup();
+        showToast('Sesión iniciada como ' + authUser, 'success');
         resolve(true);
       } else {
         errorEl.textContent = (res && res.error) || 'Usuario o contraseña incorrectos';
