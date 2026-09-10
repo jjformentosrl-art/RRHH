@@ -1032,6 +1032,8 @@
           <select class="filter-select" id="tardMesFilter" onchange="renderTardanzas()">
             <option value="">Todos los meses</option>
           </select>
+          <input type="date" class="filter-select" id="tardDiaFilter" onchange="renderTardanzas()" style="max-width:150px" title="Filtrar por un día específico">
+          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tardDiaFilter').value='';renderTardanzas()">✕ Limpiar día</button>
         </div>
         <div class="stats" id="tardanzasStats"></div>
         <div class="chart-grid" id="tardanzasChartGrid"></div>
@@ -5415,8 +5417,11 @@ function populateTardMesFilter() {
 
 function renderTardanzas() {
   populateTardMesFilter();
-  const mes = document.getElementById('tardMesFilter')?.value || '';
-  const tardanzas = fichadasData.filter(f => f.tardanza === 'Sí' && (!mes || (f.fecha||'').startsWith(mes)))
+  const dia = document.getElementById('tardDiaFilter')?.value || '';
+  const mesSel = document.getElementById('tardMesFilter');
+  if (mesSel) mesSel.disabled = !!dia;
+  const mes = mesSel?.value || '';
+  const tardanzas = fichadasData.filter(f => f.tardanza === 'Sí' && (dia ? f.fecha === dia : (!mes || (f.fecha||'').startsWith(mes))))
     .sort((a,b) => (b.fecha).localeCompare(a.fecha));
 
   const statsBox = document.getElementById('tardanzasStats');
@@ -5424,7 +5429,9 @@ function renderTardanzas() {
   const listBox = document.getElementById('tardanzasList');
 
   if (!tardanzas.length) {
-    if (statsBox) statsBox.innerHTML = '';
+    if (statsBox) statsBox.innerHTML = `
+      <div class="stat-card"><span class="stat-icon">⏰</span><div><div class="stat-value">0</div><div class="stat-label">${dia ? 'Llegadas tarde el ' + fmtDate(dia) : 'Llegadas tarde'}</div></div></div>
+    `;
     if (chartBox) chartBox.innerHTML = '';
     if (listBox) listBox.innerHTML = `<div class="empty-state"><div class="icon">⏰</div><p>Sin llegadas tarde registradas en este período. ✨</p></div>`;
     return;
@@ -5436,11 +5443,11 @@ function renderTardanzas() {
   const peor = Object.entries(porEmpleado).sort((a,b)=>b[1]-a[1])[0];
 
   if (statsBox) statsBox.innerHTML = `
-    <div class="stat-card"><span class="stat-icon">⏰</span><div><div class="stat-value">${tardanzas.length}</div><div class="stat-label">Llegadas tarde</div></div></div>
+    <div class="stat-card"><span class="stat-icon">⏰</span><div><div class="stat-value">${tardanzas.length}</div><div class="stat-label">${dia ? 'Llegadas tarde el ' + fmtDate(dia) : 'Llegadas tarde'}</div></div></div>
     <div class="stat-card"><span class="stat-icon">📉</span><div><div class="stat-value">${Math.round(totalMin/tardanzas.length)}m</div><div class="stat-label">Promedio de atraso</div></div></div>
     <div class="stat-card"><span class="stat-icon">🚩</span><div><div class="stat-value" style="font-size:16px">${peor ? peor[0] : '—'}</div><div class="stat-label">${peor ? peor[1] + ' tardanzas' : ''}</div></div></div>
   `;
-  if (chartBox) chartBox.innerHTML = barChart('Tardanzas por Empleado', porEmpleado);
+  if (chartBox) chartBox.innerHTML = dia ? '' : barChart('Tardanzas por Empleado', porEmpleado);
   if (listBox) listBox.innerHTML = tardanzas.map(t => `
     <div class="fichada-row" style="grid-template-columns:1fr 90px 90px 80px 110px;">
       <span>${t.empleado}</span><span>${fmtDate(t.fecha)}</span><span>${t.hora}</span><span><span class="turno-pill">${t.turno || '—'}</span></span><span class="tarde-si">+${t.minutos_tarde} min</span>
