@@ -1012,6 +1012,7 @@
           <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);white-space:nowrap;">
             <input type="checkbox" id="fichSoloProblemas" onchange="renderFichadasRegistros()"> Solo tardanzas / fuera de zona
           </label>
+          <button class="btn btn-primary btn-sm" onclick="openManualFichadaModal()">🖊️ Fichada manual</button>
           <button class="btn btn-secondary btn-sm" onclick="exportFichadasCSV()">⬇ Exportar CSV</button>
         </div>
         <div class="stats" id="fichadasRegStats"></div>
@@ -1755,9 +1756,9 @@
       <p class="hint" id="editFichadaInfo" style="margin-bottom:12px"></p>
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="config-field"><label>Hora registrada</label><input type="time" id="editFichHora"></div>
-        <div class="config-field">
+        <div class="config-field" id="editFichTardanzaWrap">
           <label>¿Marcar como tardanza?</label>
-          <select class="filter-select" id="editFichTardanza" style="width:100%">
+          <select class="filter-select" id="editFichTardanza" style="width:100%" onchange="document.getElementById('editFichMinutosWrap').style.display = this.value === 'Sí' ? '' : 'none'">
             <option value="No">No — llegó a tiempo</option>
             <option value="Sí">Sí — llegó tarde</option>
           </select>
@@ -1768,6 +1769,45 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeEditFichadaModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveEditFichada()">💾 Guardar corrección</button>
+    </div>
+  </div>
+</div>
+
+<!-- FICHADA MANUAL (dar entrada/salida a mano desde el panel) -->
+<div class="modal-overlay" id="manualFichadaModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <span class="modal-title">🖊️ Fichada manual</span>
+      <button class="modal-close" onclick="closeManualFichadaModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint" style="margin-bottom:12px">Registra una entrada o salida a mano, por ejemplo cuando el empleado se olvidó de fichar.</p>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="config-field">
+          <label>Empleado</label>
+          <select class="filter-select" id="manualFichEmpleado" style="width:100%"></select>
+        </div>
+        <div class="config-field"><label>Fecha</label><input type="date" id="manualFichFecha"></div>
+        <div class="config-field">
+          <label>Turno</label>
+          <select class="filter-select" id="manualFichTurno" style="width:100%">
+            <option value="Mañana">Mañana</option>
+            <option value="Tarde">Tarde</option>
+          </select>
+        </div>
+        <div class="config-field">
+          <label>Tipo</label>
+          <select class="filter-select" id="manualFichTipo" style="width:100%">
+            <option value="Entrada">🟢 Entrada</option>
+            <option value="Salida">🔴 Salida</option>
+          </select>
+        </div>
+        <div class="config-field"><label>Hora</label><input type="time" id="manualFichHora"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeManualFichadaModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveManualFichada()">💾 Registrar fichada</button>
     </div>
   </div>
 </div>
@@ -1970,7 +2010,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -1999,6 +2039,7 @@ function handleRequest(e) {
     else if (action === 'getFichadasHoy')      result = getFichadasHoy(body.data);
     else if (action === 'deleteFichada')       result = deleteRow('FICHADAS', body.id);
     else if (action === 'updateFichada')       result = updateRow('FICHADAS', body.id, body.data);
+    else if (action === 'addFichadaManual')    result = addFichadaManual(body.data);
     else if (action === 'addExcepcion')        result = addExcepcion(body.data);
     else if (action === 'deleteExcepcion')     result = deleteRow('EXCEPCIONES', body.id);
     else if (action === 'addVacacion')         result = addRow('VACACIONES', body.data);
@@ -2318,6 +2359,67 @@ function addFichada(data) {
   sheet.appendRow([id, rowData.empleado, rowData.fecha, rowData.hora, rowData.tipo, rowData.turno, rowData.lat, rowData.lng, rowData.distancia_m, rowData.dentro_geocerca, rowData.tardanza, rowData.minutos_tarde]);
   forceDateColumnsAsText(sheet, sheet.getLastRow(), headers, rowData);
   return { success: true, id: id, distancia_m: distancia_m, dentro_geocerca: dentro_geocerca, tardanza: tardanza, minutos_tarde: minutos_tarde };
+}
+
+// Carga manual de una fichada desde el panel de administración (ej: el
+// empleado se olvidó de fichar). A diferencia de addFichada (usada por el
+// kiosko), no exige PIN ni respeta el orden estricto de pasos del día,
+// porque quien la carga ya es un admin autenticado corrigiendo una omisión.
+// Sí evita duplicar una fichada exacta (mismo empleado/fecha/tipo/turno).
+function addFichadaManual(data) {
+  if (!data || !data.empleado || !data.tipo || !data.turno || !data.fecha || !data.hora) {
+    return { error: 'Faltan datos (empleado, fecha, turno, tipo y hora son obligatorios)' };
+  }
+  if (data.turno !== 'Mañana' && data.turno !== 'Tarde') return { error: 'Turno inválido' };
+  if (data.tipo !== 'Entrada' && data.tipo !== 'Salida') return { error: 'Tipo inválido' };
+  var cfg = getConfig();
+
+  var headers = ['empleado','fecha','hora','tipo','turno','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde'];
+  var sheet = getOrCreateSheet('FICHADAS', headers);
+  var existentes = sheetToJson(sheet).filter(function(f) {
+    return f.empleado === data.empleado && f.fecha === data.fecha && f.tipo === data.tipo && f.turno === data.turno;
+  });
+  if (existentes.length) {
+    return { error: 'Ya existe una fichada de ' + (data.tipo === 'Entrada' ? 'entrada' : 'salida') + ' de ' + data.turno.toLowerCase() + ' para ese empleado en esa fecha. Editala desde el lápiz en vez de duplicarla.' };
+  }
+
+  // Calcular tardanza igual que en addFichada, solo para Entrada.
+  var tardanza = '', minutos_tarde = 0;
+  if (data.tipo === 'Entrada') {
+    var campoTurno = data.turno === 'Tarde' ? 'hora_entrada_tarde' : 'hora_entrada_manana';
+    var defaultTurno = data.turno === 'Tarde' ? (cfg.hora_entrada_tarde_default || '14:00') : (cfg.hora_entrada_manana_default || '08:00');
+    var horaEsperada = '';
+    var excepcionesSheet = getOrCreateSheet('EXCEPCIONES', ['fecha','hora_entrada_manana','hora_entrada_tarde','motivo']);
+    var excepcionHoy = sheetToJson(excepcionesSheet).find(function(x) { return x.fecha === data.fecha; });
+    if (excepcionHoy && excepcionHoy[campoTurno]) {
+      horaEsperada = excepcionHoy[campoTurno];
+    } else {
+      var esLunes = new Date(data.fecha + 'T00:00:00').getDay() === 1;
+      var campoLunes = data.turno === 'Tarde' ? 'hora_entrada_tarde_lunes' : 'hora_entrada_manana_lunes';
+      if (esLunes && cfg[campoLunes]) {
+        horaEsperada = cfg[campoLunes];
+      } else {
+        var horariosSheet = getOrCreateSheet('HORARIOS', ['empleado','hora_entrada_manana','hora_entrada_tarde']);
+        var horarioRow = sheetToJson(horariosSheet).find(function(h) { return h.empleado === data.empleado; });
+        horaEsperada = (horarioRow && horarioRow[campoTurno]) ? horarioRow[campoTurno] : defaultTurno;
+      }
+    }
+    var tolerancia = parseInt(cfg.tolerancia_min) || 10;
+    var esp = horaEsperada.split(':').map(Number);
+    var act = data.hora.split(':').map(Number);
+    var minEsperado = esp[0]*60 + (esp[1]||0) + tolerancia;
+    var minActual = act[0]*60 + (act[1]||0);
+    if (minActual > minEsperado) { tardanza = 'Sí'; minutos_tarde = minActual - (esp[0]*60 + (esp[1]||0)); }
+    else { tardanza = 'No'; }
+  }
+
+  var id = Date.now().toString() + Math.floor(Math.random()*1000);
+  // dentro_geocerca se marca 'Manual' (en vez de Sí/No) para que quede claro
+  // en los registros que esta fichada no vino del kiosko con GPS.
+  var rowData = { empleado: data.empleado, fecha: data.fecha, hora: data.hora, tipo: data.tipo, turno: data.turno, lat: '', lng: '', distancia_m: '', dentro_geocerca: 'Manual', tardanza: tardanza, minutos_tarde: minutos_tarde };
+  sheet.appendRow([id, rowData.empleado, rowData.fecha, rowData.hora, rowData.tipo, rowData.turno, rowData.lat, rowData.lng, rowData.distancia_m, rowData.dentro_geocerca, rowData.tardanza, rowData.minutos_tarde]);
+  forceDateColumnsAsText(sheet, sheet.getLastRow(), headers, rowData);
+  return { success: true, id: id, tardanza: tardanza, minutos_tarde: minutos_tarde };
 }
 
 // Devuelve las fichadas de hoy de un empleado, para que el kiosko sepa
@@ -5181,10 +5283,10 @@ function renderFichadasRegistros() {
       <span>${f.hora || ''}</span>
       <span><span class="turno-pill">${f.turno || '—'}</span></span>
       <span><span class="tipo-pill ${f.tipo === 'Entrada' ? 'tipo-entrada' : 'tipo-salida'}">${f.tipo === 'Entrada' ? '🟢 Entrada' : '🔴 Salida'}</span></span>
-      <span class="${f.dentro_geocerca === 'No' ? 'geo-bad' : 'geo-ok'}">${f.dentro_geocerca === 'No' ? `⚠️ Fuera (${Math.round(f.distancia_m||0)}m)` : '✅ En depósito'}</span>
+      <span class="${f.dentro_geocerca === 'No' ? 'geo-bad' : (f.dentro_geocerca === 'Sí' ? 'geo-ok' : '')}">${f.dentro_geocerca === 'No' ? `⚠️ Fuera (${Math.round(f.distancia_m||0)}m)` : (f.dentro_geocerca === 'Sí' ? '✅ En depósito' : '🖊️ Manual')}</span>
       <span class="${f.tardanza === 'Sí' ? 'tarde-si' : 'tarde-no'}">${f.tardanza === 'Sí' ? `+${f.minutos_tarde}m tarde` : (f.tipo === 'Entrada' ? 'A tiempo' : '—')}</span>
       <span style="display:flex;gap:6px">
-        ${f.tipo === 'Entrada' ? `<button class="btn btn-secondary btn-sm" style="padding:4px 8px" onclick="openEditFichadaModal('${f.__ID__}')">✏️</button>` : ''}
+        <button class="btn btn-secondary btn-sm" style="padding:4px 8px" onclick="openEditFichadaModal('${f.__ID__}')" title="Corregir">✏️</button>
         <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="deleteFichada('${f.__ID__}')">🗑️</button>
       </span>
     </div>
@@ -5197,10 +5299,14 @@ function openEditFichadaModal(id) {
   const f = fichadasData.find(x => x.__ID__ == id);
   if (!f) return;
   editFichadaId = id;
-  document.getElementById('editFichadaInfo').textContent = `${f.empleado} — ${fmtDate(f.fecha)} — ${f.turno}`;
+  document.getElementById('editFichadaInfo').textContent = `${f.empleado} — ${fmtDate(f.fecha)} — ${f.turno} — ${f.tipo === 'Entrada' ? '🟢 Entrada' : '🔴 Salida'}`;
   document.getElementById('editFichHora').value = f.hora || '';
   document.getElementById('editFichTardanza').value = f.tardanza === 'Sí' ? 'Sí' : 'No';
   document.getElementById('editFichMinutos').value = f.minutos_tarde || 0;
+  // La tardanza solo aplica a las entradas; en salidas se oculta ese bloque.
+  const esEntrada = f.tipo === 'Entrada';
+  document.getElementById('editFichTardanzaWrap').style.display = esEntrada ? '' : 'none';
+  document.getElementById('editFichMinutosWrap').style.display = (esEntrada && document.getElementById('editFichTardanza').value === 'Sí') ? '' : 'none';
   document.getElementById('editFichadaModal').classList.add('open');
 }
 
@@ -5211,15 +5317,16 @@ function closeEditFichadaModal() {
 
 async function saveEditFichada() {
   if (!editFichadaId) return;
+  const f = fichadasData.find(x => x.__ID__ == editFichadaId);
+  const esEntrada = f && f.tipo === 'Entrada';
   const hora = document.getElementById('editFichHora').value;
-  const tardanza = document.getElementById('editFichTardanza').value;
-  const minutos_tarde = tardanza === 'Sí' ? (parseInt(document.getElementById('editFichMinutos').value) || 0) : 0;
-  const data = { hora, tardanza, minutos_tarde };
+  const tardanza = esEntrada ? document.getElementById('editFichTardanza').value : '';
+  const minutos_tarde = (esEntrada && tardanza === 'Sí') ? (parseInt(document.getElementById('editFichMinutos').value) || 0) : 0;
+  const data = esEntrada ? { hora, tardanza, minutos_tarde } : { hora };
   if (API_URL) {
     const res = await apiCall('updateFichada', { id: editFichadaId, data });
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
   }
-  const f = fichadasData.find(x => x.__ID__ == editFichadaId);
   if (f) Object.assign(f, data);
   if (!API_URL) localStorage.setItem('rrhh_fichadas', JSON.stringify(fichadasData));
   closeEditFichadaModal();
@@ -5236,6 +5343,48 @@ async function deleteFichada(id) {
   renderFichadasRegistros();
   renderTardanzas();
   showToast('Eliminado ✓', 'success');
+}
+
+// ── Fichada manual: dar entrada o salida a mano desde el panel de administración ──
+function openManualFichadaModal() {
+  const sel = document.getElementById('manualFichEmpleado');
+  const nombres = [...new Set(employees.map(e => e.nombre))].sort();
+  sel.innerHTML = nombres.map(n => `<option value="${n}">${n}</option>`).join('');
+  document.getElementById('manualFichFecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('manualFichTurno').value = 'Mañana';
+  document.getElementById('manualFichTipo').value = 'Entrada';
+  document.getElementById('manualFichHora').value = new Date().toTimeString().slice(0,5);
+  document.getElementById('manualFichadaModal').classList.add('open');
+}
+
+function closeManualFichadaModal() {
+  document.getElementById('manualFichadaModal').classList.remove('open');
+}
+
+async function saveManualFichada() {
+  const empleado = document.getElementById('manualFichEmpleado').value;
+  const fecha = document.getElementById('manualFichFecha').value;
+  const turno = document.getElementById('manualFichTurno').value;
+  const tipo = document.getElementById('manualFichTipo').value;
+  const hora = document.getElementById('manualFichHora').value;
+  if (!empleado || !fecha || !hora) { showToast('Completá empleado, fecha y hora', 'error'); return; }
+
+  const data = { empleado, fecha, turno, tipo, hora };
+  let nuevo = { __ID__: Date.now().toString(), empleado, fecha, hora, tipo, turno, lat: '', lng: '', distancia_m: '', dentro_geocerca: 'Manual', tardanza: '', minutos_tarde: 0 };
+
+  if (API_URL) {
+    const res = await apiCall('addFichadaManual', { data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+    nuevo.__ID__ = res.id;
+    nuevo.tardanza = res.tardanza || '';
+    nuevo.minutos_tarde = res.minutos_tarde || 0;
+  }
+  fichadasData.push(nuevo);
+  if (!API_URL) localStorage.setItem('rrhh_fichadas', JSON.stringify(fichadasData));
+  closeManualFichadaModal();
+  renderFichadasRegistros();
+  renderTardanzas();
+  showToast('Fichada manual registrada ✓', 'success');
 }
 
 function exportFichadasCSV() {
