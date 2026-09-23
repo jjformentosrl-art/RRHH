@@ -1235,8 +1235,6 @@
 
     <!-- ENTREGA ROPA -->
     <div class="panel" id="panel-ropa">
-      <div class="stats" id="ropaStats"></div>
-
       <!-- Sub-tabs (3 divisiones) -->
       <div class="desempeño-tabs" style="flex-shrink:0">
         <button class="dtab active" onclick="showRopaTab('consulta', this)">🔍 Consulta Rápida</button>
@@ -1245,23 +1243,20 @@
       </div>
 
       <!-- DIVISIÓN 0: CONSULTA RÁPIDA DE STOCK -->
-      <div class="dpanel active" id="rpanel-consulta" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px">
+      <div class="dpanel active" id="rpanel-consulta" style="flex:0 0 auto;overflow:hidden;display:flex;flex-direction:column;gap:6px">
         <div class="toolbar">
           <label style="font-weight:600;color:var(--text);margin-right:12px">Seleccioná una prenda:</label>
           <select class="filter-select" id="ropaConsultaPrendaSelect" onchange="renderRopaConsulta()" style="min-width:180px">
             <option value="">-- Elegir prenda --</option>
           </select>
         </div>
-        <div id="ropaConsultaResultado" style="flex:1;overflow:auto;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:20px;display:flex;align-items:center;justify-content:center">
-          <div style="text-align:center;color:var(--text3)">
-            <div style="font-size:40px;margin-bottom:8px">👕</div>
-            <p>Seleccioná una prenda para ver todos los talles disponibles</p>
-          </div>
+        <div id="ropaConsultaResultado" style="flex:0 0 auto;max-height:110px;overflow:auto;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:8px 12px;display:flex;align-items:center;justify-content:center">
+          <div style="text-align:center;color:var(--text3);font-size:12px">👕 Seleccioná una prenda para ver todos los talles disponibles</div>
         </div>
       </div>
 
       <!-- DIVISIÓN 1: STOCK DISPONIBLE (+ registrar ingresos) -->
-      <div class="dpanel" id="rpanel-stock" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px">
+      <div class="dpanel" id="rpanel-stock" style="flex:2 1 0;overflow:hidden;display:flex;flex-direction:column;gap:12px">
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
@@ -1318,7 +1313,7 @@
       </div>
 
       <!-- DIVISIÓN 2: ENTREGAS A EMPLEADOS -->
-      <div class="dpanel" id="rpanel-entregas" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px">
+      <div class="dpanel" id="rpanel-entregas" style="flex:3 1 0;overflow:hidden;display:flex;flex-direction:column;gap:12px">
         <div class="toolbar">
           <div class="search-box" style="flex:1;min-width:200px">
             <span>🔍</span>
@@ -5627,22 +5622,7 @@ function getRopaStockDisponible(prenda, talle) {
   return row ? row.disponible : 0;
 }
 
-function renderRopaStats() {
-  const stock = calcRopaStock();
-  const totalDisponible = stock.reduce((s, r) => s + r.disponible, 0);
-  const totalIngresado = stock.reduce((s, r) => s + r.ingresado, 0);
-  const totalEntregado = stock.reduce((s, r) => s + r.entregado, 0);
-  const sinStock = stock.filter(r => r.disponible <= 0).length;
-  document.getElementById('ropaStats').innerHTML = `
-    <div class="stat-card stat-vac"><span class="stat-icon">📦</span><div><div class="stat-value">${totalDisponible}</div><div class="stat-label">Stock Disponible Total</div></div></div>
-    <div class="stat-card"><span class="stat-icon">📥</span><div><div class="stat-value" style="color:var(--success)">${totalIngresado}</div><div class="stat-label">Total Ingresado</div></div></div>
-    <div class="stat-card"><span class="stat-icon">📤</span><div><div class="stat-value" style="color:var(--warning)">${totalEntregado}</div><div class="stat-label">Total Entregado</div></div></div>
-    <div class="stat-card"><span class="stat-icon">⚠️</span><div><div class="stat-value" style="color:var(--danger)">${sinStock}</div><div class="stat-label">Combinaciones sin Stock</div></div></div>
-  `;
-}
-
 function renderRopaStock() {
-  renderRopaStats();
   renderRopaIngresos();
   const q = (document.getElementById('ropaStockSearch')?.value || '').toLowerCase();
   const prendaF = document.getElementById('ropaStockPrendaFilter')?.value || '';
@@ -6020,10 +6000,7 @@ function renderRopaConsulta() {
   
   if (!prendaVal) {
     resultado.innerHTML = `
-      <div style="text-align:center;color:var(--text3)">
-        <div style="font-size:40px;margin-bottom:8px">👕</div>
-        <p>Seleccioná una prenda para ver todos los talles disponibles</p>
-      </div>
+      <div style="text-align:center;color:var(--text3);font-size:12px">👕 Seleccioná una prenda para ver todos los talles disponibles</div>
     `;
     return;
   }
@@ -6033,43 +6010,19 @@ function renderRopaConsulta() {
   
   if (!stock.length) {
     resultado.innerHTML = `
-      <div style="text-align:center;color:var(--text3)">
-        <div style="font-size:40px;margin-bottom:8px">📭</div>
-        <p>No hay stock registrado para "${prendaVal}"</p>
-      </div>
+      <div style="text-align:center;color:var(--text3);font-size:12px">📭 No hay stock registrado para "${prendaVal}"</div>
     `;
     return;
   }
   
-  // Mostrar grid de talles con stock
+  // Mostrar grid compacto de talles con stock
   const html = `
-    <div style="width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+    <div style="width:100%;display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px">
       ${stock.map(r => `
-        <div style="
-          background:var(--surface2);
-          border:1px solid var(--border);
-          border-radius:8px;
-          padding:12px 14px;
-          text-align:center;
-          transition:all 0.2s;
-        " onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 2px 8px rgba(108,71,255,0.15)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
-          <div style="font-weight:700;font-size:18px;color:var(--text);margin-bottom:8px">
-            Talle ${r.talle || '—'}
-          </div>
-          <div style="
-            background:${r.disponible > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'};
-            color:${r.disponible > 0 ? 'var(--success)' : 'var(--danger)'};
-            padding:8px 6px;
-            border-radius:6px;
-            margin-bottom:8px;
-          ">
-            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:2px">Disponible</div>
-            <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace">${r.disponible}</div>
-          </div>
-          <div style="font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding-top:8px">
-            <div>📥 Ingresado: <strong>${r.ingresado}</strong></div>
-            <div>📤 Entregado: <strong>${r.entregado}</strong></div>
-          </div>
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 8px;text-align:center;line-height:1.25">
+          <div style="font-weight:700;font-size:12px;color:var(--text)">Talle ${r.talle || '—'}</div>
+          <div style="font-size:20px;font-weight:700;font-family:'DM Mono',monospace;color:${r.disponible > 0 ? 'var(--success)' : 'var(--danger)'}">${r.disponible}</div>
+          <div style="font-size:10px;color:var(--text3)">📥 ${r.ingresado} · 📤 ${r.entregado}</div>
         </div>
       `).join('')}
     </div>
