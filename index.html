@@ -581,6 +581,7 @@
     <button class="tab" onclick="showTab('reclamos')">📢 Reclamos Clientes</button>
     <button class="tab" onclick="showTab('encuestas')">😊 Satisfacción Clientes</button>
     <button class="tab" onclick="showTab('fichadas')">📍 Fichadas / Asistencia</button>
+    <button class="tab" onclick="showTab('ropa')">👕 Entrega Ropa</button>
   </div>
 
   <main>
@@ -1178,6 +1179,127 @@
         </div>
       </div>
     </div>
+
+    <!-- ENTREGA ROPA -->
+    <div class="panel" id="panel-ropa">
+      <div class="stats" id="ropaStats"></div>
+
+      <!-- Sub-tabs (2 divisiones) -->
+      <div class="desempeño-tabs" style="flex-shrink:0">
+        <button class="dtab active" onclick="showRopaTab('stock', this)">📦 Stock Disponible</button>
+        <button class="dtab" onclick="showRopaTab('entregas', this)">📤 Entregas a Empleados</button>
+      </div>
+
+      <!-- DIVISIÓN 1: STOCK DISPONIBLE (+ registrar ingresos) -->
+      <div class="dpanel active" id="rpanel-stock" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px">
+        <div class="toolbar">
+          <div class="search-box" style="flex:1">
+            <span>🔍</span>
+            <input type="text" id="ropaStockSearch" placeholder="Buscar prenda o talle..." oninput="renderRopaStock()">
+          </div>
+          <select class="filter-select" id="ropaStockPrendaFilter" onchange="renderRopaStock()">
+            <option value="">Todas las prendas</option>
+          </select>
+          <button class="btn btn-primary" onclick="openRopaIngresoModal()">+ Registrar Ingreso</button>
+        </div>
+        <div class="table-wrap" style="flex:1">
+          <table>
+            <thead>
+              <tr>
+                <th>Prenda</th>
+                <th>Talle</th>
+                <th style="text-align:center">Ingresado</th>
+                <th style="text-align:center">Entregado</th>
+                <th style="text-align:center">Stock Disponible</th>
+              </tr>
+            </thead>
+            <tbody id="ropaStockTbody"></tbody>
+          </table>
+        </div>
+
+        <!-- Historial de ingresos, plegable, dentro de la misma división -->
+        <div style="flex-shrink:0;border:1px solid var(--border);border-radius:var(--radius)">
+          <div class="toolbar" style="cursor:pointer;margin:0" onclick="toggleRopaIngHistory()">
+            <strong id="ropaIngHistToggleLabel" style="flex:1">📥 Historial de Ingresos ▾</strong>
+            <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation();exportRopaIngresosCSV()">⬇ CSV</button>
+          </div>
+          <div id="ropaIngHistBox" style="display:none;flex-direction:column;gap:12px;padding:0 12px 12px">
+            <div class="search-box" style="flex:1">
+              <span>🔍</span>
+              <input type="text" id="ropaIngSearch" placeholder="Buscar prenda o talle..." oninput="renderRopaIngresos()">
+            </div>
+            <div class="table-wrap" style="max-height:260px">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Prenda</th>
+                    <th>Talle</th>
+                    <th style="text-align:center">Cantidad</th>
+                    <th>Observaciones</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="ropaIngTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- DIVISIÓN 2: ENTREGAS A EMPLEADOS -->
+      <div class="dpanel" id="rpanel-entregas" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px">
+        <div class="toolbar">
+          <div class="search-box" style="flex:1;min-width:200px">
+            <span>🔍</span>
+            <input type="text" id="ropaEntSearch" placeholder="Buscar empleado, prenda o talle..." oninput="renderRopaEntregas()">
+          </div>
+          <select class="filter-select" id="ropaEntAnioFilter" onchange="renderRopaEntregas()">
+            <option value="">Todos los años</option>
+          </select>
+          <select class="filter-select" id="ropaEntMesFilter" onchange="renderRopaEntregas()">
+            <option value="">Todos los meses</option>
+            <option value="1">Enero</option>
+            <option value="2">Febrero</option>
+            <option value="3">Marzo</option>
+            <option value="4">Abril</option>
+            <option value="5">Mayo</option>
+            <option value="6">Junio</option>
+            <option value="7">Julio</option>
+            <option value="8">Agosto</option>
+            <option value="9">Septiembre</option>
+            <option value="10">Octubre</option>
+            <option value="11">Noviembre</option>
+            <option value="12">Diciembre</option>
+          </select>
+          <select class="filter-select" id="ropaEntEmpFilter" onchange="renderRopaEntregas()">
+            <option value="">Todos los empleados</option>
+          </select>
+          <select class="filter-select" id="ropaEntSectorFilter" onchange="renderRopaEntregas()">
+            <option value="">Todos los puestos</option>
+          </select>
+          <button class="btn btn-primary" onclick="openRopaEntregaModal()">+ Registrar Entrega</button>
+          <button class="btn btn-secondary btn-sm" onclick="exportRopaEntregasCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Año</th>
+                <th>Mes</th>
+                <th>Empleado</th>
+                <th>Puesto</th>
+                <th>Prenda</th>
+                <th>Talle</th>
+                <th style="text-align:center">Cantidad</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="ropaEntTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -1597,6 +1719,149 @@
   </div>
 </div>
 
+<!-- ENTREGA ROPA: MODAL ENTREGA -->
+<div class="modal-overlay" id="ropaEntregaModal">
+  <div class="modal" style="width:580px">
+    <div class="modal-header">
+      <span class="modal-title">📤 Registrar Entrega de Ropa</span>
+      <button class="modal-close" onclick="closeRopaEntregaModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Empleado *</label>
+          <select id="re_empleado"></select>
+        </div>
+        <div class="form-group">
+          <label>Fecha *</label>
+          <input type="date" id="re_fecha">
+        </div>
+        <div class="form-group">
+          <label>Tipo de prenda *</label>
+          <select id="re_prenda" onchange="updateRopaEntregaStockInfo()">
+            <option value="">Seleccionar...</option>
+            <option value="Remeras">Remeras</option>
+            <option value="Chombas">Chombas</option>
+            <option value="Chalecos">Chalecos</option>
+            <option value="Camperas">Camperas</option>
+            <option value="Buzos">Buzos</option>
+            <option value="Bermudas">Bermudas</option>
+            <option value="Pantalon">Pantalón</option>
+            <option value="Calzados">Calzados</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Talle *</label>
+          <input type="text" id="re_talle" list="ropaTalleOptions" placeholder="Ej: M, XL, 44..." oninput="updateRopaEntregaStockInfo()">
+        </div>
+        <div class="form-group">
+          <label>Cantidad *</label>
+          <input type="number" id="re_cantidad" min="1" placeholder="Ej: 1" oninput="updateRopaEntregaStockInfo()">
+        </div>
+        <div id="re_stock_box" style="display:none;grid-column:1/-1;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:10px 14px;font-size:13px">
+          <div id="re_stock_text"></div>
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <input type="text" id="re_obs" placeholder="Opcional...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeRopaEntregaModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRopaEntrega()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ENTREGA ROPA: MODAL INGRESO -->
+<div class="modal-overlay" id="ropaIngresoModal">
+  <div class="modal" style="width:560px">
+    <div class="modal-header">
+      <span class="modal-title">📥 Registrar Ingreso de Stock</span>
+      <button class="modal-close" onclick="closeRopaIngresoModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Fecha *</label>
+          <input type="date" id="ri_fecha">
+        </div>
+        <div class="form-group">
+          <label>Tipo de prenda *</label>
+          <select id="ri_prenda">
+            <option value="">Seleccionar...</option>
+            <option value="Remeras">Remeras</option>
+            <option value="Chombas">Chombas</option>
+            <option value="Chalecos">Chalecos</option>
+            <option value="Camperas">Camperas</option>
+            <option value="Buzos">Buzos</option>
+            <option value="Bermudas">Bermudas</option>
+            <option value="Pantalon">Pantalón</option>
+            <option value="Calzados">Calzados</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Talle *</label>
+          <input type="text" id="ri_talle" list="ropaTalleOptions" placeholder="Ej: M, XL, 44...">
+        </div>
+        <div class="form-group">
+          <label>Cantidad *</label>
+          <input type="number" id="ri_cantidad" min="1" placeholder="Ej: 20">
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <input type="text" id="ri_obs" placeholder="Ej: proveedor, remito, etc. (opcional)">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeRopaIngresoModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRopaIngreso()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<datalist id="ropaTalleOptions">
+  <option value="S"></option>
+  <option value="M"></option>
+  <option value="L"></option>
+  <option value="XL"></option>
+  <option value="XXL"></option>
+  <option value="3XL"></option>
+  <option value="34"></option>
+  <option value="34.5"></option>
+  <option value="35"></option>
+  <option value="35.5"></option>
+  <option value="36"></option>
+  <option value="36.5"></option>
+  <option value="37"></option>
+  <option value="37.5"></option>
+  <option value="38"></option>
+  <option value="38.5"></option>
+  <option value="39"></option>
+  <option value="39.5"></option>
+  <option value="40"></option>
+  <option value="40.5"></option>
+  <option value="41"></option>
+  <option value="41.5"></option>
+  <option value="42"></option>
+  <option value="42.5"></option>
+  <option value="43"></option>
+  <option value="43.5"></option>
+  <option value="44"></option>
+  <option value="44.5"></option>
+  <option value="45"></option>
+  <option value="45.5"></option>
+  <option value="46"></option>
+  <option value="46.5"></option>
+  <option value="47"></option>
+  <option value="47.5"></option>
+  <option value="48"></option>
+  <option value="48.5"></option>
+  <option value="Único"></option>
+</datalist>
+
 <!-- RECLAMO MODAL -->
 <div class="modal-overlay" id="reclamoModal">
   <div class="modal">
@@ -1858,6 +2123,8 @@ const WRITE_ACTIONS = [
   'addFichadaManual','deleteFichada','updateFichada',
   'addExcepcion','deleteExcepcion',
   'addVacacion','deleteVacacion',
+  'addRopaEntrega','deleteRopaEntrega',
+  'addRopaIngreso','deleteRopaIngreso',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -2022,7 +2289,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -2056,6 +2323,10 @@ function handleRequest(e) {
     else if (action === 'deleteExcepcion')     result = deleteRow('EXCEPCIONES', body.id);
     else if (action === 'addVacacion')         result = addRow('VACACIONES', body.data);
     else if (action === 'deleteVacacion')      result = deleteRow('VACACIONES', body.id);
+    else if (action === 'addRopaEntrega')      result = addRow('ROPA_ENTREGAS', body.data);
+    else if (action === 'deleteRopaEntrega')   result = deleteRow('ROPA_ENTREGAS', body.id);
+    else if (action === 'addRopaIngreso')      result = addRow('ROPA_INGRESOS', body.data);
+    else if (action === 'deleteRopaIngreso')   result = deleteRow('ROPA_INGRESOS', body.id);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -2084,6 +2355,8 @@ function getAllData() {
   var excepcionesHeaders = ['fecha','hora_entrada_manana','hora_entrada_tarde','motivo'];
   var pinesHeaders = ['empleado','pin'];
   var vacacionesHeaders = ['empleado','fecha_desde','fecha_hasta','dias','observaciones'];
+  var ropaEntregasHeaders = ['empleado','fecha','prenda','talle','cantidad','observaciones'];
+  var ropaIngresosHeaders = ['fecha','prenda','talle','cantidad','observaciones'];
   var nSheet = getOrCreateSheet('NOMINA',       nominaHeaders);
   var cSheet = getOrCreateSheet('CONDUCTA',     conductaHeaders);
   var dSheet = getOrCreateSheet('DESEMPENO',    desempenoHeaders);
@@ -2096,6 +2369,8 @@ function getAllData() {
   var exSheet = getOrCreateSheet('EXCEPCIONES', excepcionesHeaders);
   var pinSheet = getOrCreateSheet('PINES',      pinesHeaders);
   var vSheet = getOrCreateSheet('VACACIONES',   vacacionesHeaders);
+  var reSheet = getOrCreateSheet('ROPA_ENTREGAS', ropaEntregasHeaders);
+  var riSheet = getOrCreateSheet('ROPA_INGRESOS', ropaIngresosHeaders);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -2111,6 +2386,8 @@ function getAllData() {
     excepciones:  sheetToJson(exSheet),
     pines:        sheetToJson(pinSheet),
     vacaciones:   sheetToJson(vSheet),
+    ropaEntregas: sheetToJson(reSheet),
+    ropaIngresos: sheetToJson(riSheet),
     config:       getConfig()
   };
 }
@@ -2712,6 +2989,10 @@ function loadLocalData() {
   horariosData = storedH ? JSON.parse(storedH) : [];
   const storedPin = localStorage.getItem('rrhh_pines');
   pinesData = storedPin ? JSON.parse(storedPin) : [];
+  const storedRE = localStorage.getItem('rrhh_ropa_entregas');
+  ropaEntregasData = storedRE ? JSON.parse(storedRE) : [];
+  const storedRI = localStorage.getItem('rrhh_ropa_ingresos');
+  ropaIngresosData = storedRI ? JSON.parse(storedRI) : [];
   const storedCfg = localStorage.getItem('rrhh_config');
   if (storedCfg) configData = JSON.parse(storedCfg);
   renderAll();
@@ -2796,6 +3077,8 @@ async function loadAllData() {
   horariosData = data.horarios || [];
   excepcionesData = data.excepciones || [];
   pinesData = data.pines || [];
+  ropaEntregasData = data.ropaEntregas || [];
+  ropaIngresosData = data.ropaIngresos || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   setSyncStatus('ok', 'Conectado a Google Sheets');
   renderAll();
@@ -2822,6 +3105,10 @@ function renderAll() {
   renderFichadasRegistros();
   renderFichadasConfig();
   populateFichEmpleadoFilter();
+  renderRopaStock();
+  renderRopaEntregas();
+  renderRopaIngresos();
+  populateRopaEmpleadoSelect();
 }
 
 function renderStats() {
@@ -5099,6 +5386,353 @@ function setSyncStatus(state, text) {
   txt.textContent = text;
 }
 
+// ═══════════════════════════════════════════════════
+// ENTREGA ROPA (Stock, Entregas a Empleados, Ingresos)
+// ═══════════════════════════════════════════════════
+let ropaEntregasData = [];
+let ropaIngresosData = [];
+const ROPA_PRENDAS = ['Remeras','Chombas','Chalecos','Camperas','Buzos','Bermudas','Pantalon','Calzados'];
+
+function showRopaTab(tab, el) {
+  document.querySelectorAll('#panel-ropa .dtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#panel-ropa .dpanel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('rpanel-' + tab).classList.add('active');
+  if (tab === 'stock')     renderRopaStock();
+  if (tab === 'entregas')  renderRopaEntregas();
+}
+
+function toggleRopaIngHistory() {
+  const box = document.getElementById('ropaIngHistBox');
+  const label = document.getElementById('ropaIngHistToggleLabel');
+  const open = box.style.display === 'flex';
+  box.style.display = open ? 'none' : 'flex';
+  label.textContent = open ? '📥 Historial de Ingresos ▾' : '📥 Historial de Ingresos ▴';
+  if (!open) renderRopaIngresos();
+}
+
+function populateRopaEmpleadoSelect() {
+  const sel = document.getElementById('re_empleado');
+  const filt = document.getElementById('ropaEntEmpFilter');
+  if (sel) {
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Seleccionar...</option>' +
+      employees.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
+    sel.value = cur;
+  }
+  if (filt) {
+    const cur = filt.value;
+    filt.innerHTML = '<option value="">Todos los empleados</option>' +
+      employees.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
+    filt.value = cur;
+  }
+}
+
+// Calcula, por prenda+talle, el total ingresado, entregado y el stock disponible
+// (se actualiza automáticamente en base a los registros de ingresos y entregas).
+function calcRopaStock() {
+  const map = {};
+  const key = (p, t) => p + '||' + (t || '').trim().toUpperCase();
+  ropaIngresosData.forEach(i => {
+    const k = key(i.prenda, i.talle);
+    if (!map[k]) map[k] = { prenda: i.prenda, talle: (i.talle||'').trim(), ingresado: 0, entregado: 0 };
+    map[k].ingresado += parseInt(i.cantidad) || 0;
+  });
+  ropaEntregasData.forEach(e => {
+    const k = key(e.prenda, e.talle);
+    if (!map[k]) map[k] = { prenda: e.prenda, talle: (e.talle||'').trim(), ingresado: 0, entregado: 0 };
+    map[k].entregado += parseInt(e.cantidad) || 0;
+  });
+  return Object.values(map).map(r => ({ ...r, disponible: r.ingresado - r.entregado }));
+}
+
+function getRopaStockDisponible(prenda, talle) {
+  const k = (prenda || '') + '||' + (talle || '').trim().toUpperCase();
+  const rows = calcRopaStock();
+  const row = rows.find(r => (r.prenda + '||' + r.talle.trim().toUpperCase()) === k);
+  return row ? row.disponible : 0;
+}
+
+function renderRopaStats() {
+  const stock = calcRopaStock();
+  const totalDisponible = stock.reduce((s, r) => s + r.disponible, 0);
+  const totalIngresado = stock.reduce((s, r) => s + r.ingresado, 0);
+  const totalEntregado = stock.reduce((s, r) => s + r.entregado, 0);
+  const sinStock = stock.filter(r => r.disponible <= 0).length;
+  document.getElementById('ropaStats').innerHTML = `
+    <div class="stat-card stat-vac"><span class="stat-icon">📦</span><div><div class="stat-value">${totalDisponible}</div><div class="stat-label">Stock Disponible Total</div></div></div>
+    <div class="stat-card"><span class="stat-icon">📥</span><div><div class="stat-value" style="color:var(--success)">${totalIngresado}</div><div class="stat-label">Total Ingresado</div></div></div>
+    <div class="stat-card"><span class="stat-icon">📤</span><div><div class="stat-value" style="color:var(--warning)">${totalEntregado}</div><div class="stat-label">Total Entregado</div></div></div>
+    <div class="stat-card"><span class="stat-icon">⚠️</span><div><div class="stat-value" style="color:var(--danger)">${sinStock}</div><div class="stat-label">Combinaciones sin Stock</div></div></div>
+  `;
+}
+
+function renderRopaStock() {
+  renderRopaStats();
+  renderRopaIngresos();
+  const q = (document.getElementById('ropaStockSearch')?.value || '').toLowerCase();
+  const prendaF = document.getElementById('ropaStockPrendaFilter')?.value || '';
+
+  const pF = document.getElementById('ropaStockPrendaFilter');
+  if (pF && pF.options.length <= 1) {
+    pF.innerHTML = '<option value="">Todas las prendas</option>' +
+      ROPA_PRENDAS.map(p => `<option value="${p}">${p}</option>`).join('');
+    pF.value = prendaF;
+  }
+
+  let rows = calcRopaStock();
+  if (prendaF) rows = rows.filter(r => r.prenda === prendaF);
+  if (q) rows = rows.filter(r => (r.prenda + ' ' + r.talle).toLowerCase().includes(q));
+  rows.sort((a, b) => a.prenda.localeCompare(b.prenda) || a.talle.localeCompare(b.talle));
+
+  const tbody = document.getElementById('ropaStockTbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">Sin datos de stock. Registrá un ingreso para empezar.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${r.prenda}</td>
+      <td>${r.talle || '—'}</td>
+      <td style="text-align:center">${r.ingresado}</td>
+      <td style="text-align:center">${r.entregado}</td>
+      <td style="text-align:center;font-weight:700;color:${r.disponible > 0 ? 'var(--success)' : 'var(--danger)'}">${r.disponible}</td>
+    </tr>
+  `).join('');
+}
+
+function openRopaEntregaModal() {
+  populateRopaEmpleadoSelect();
+  document.getElementById('re_empleado').value = '';
+  document.getElementById('re_fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('re_prenda').value = '';
+  document.getElementById('re_talle').value = '';
+  document.getElementById('re_cantidad').value = '';
+  document.getElementById('re_obs').value = '';
+  document.getElementById('re_stock_box').style.display = 'none';
+  document.getElementById('ropaEntregaModal').classList.add('open');
+}
+function closeRopaEntregaModal() { document.getElementById('ropaEntregaModal').classList.remove('open'); }
+
+function updateRopaEntregaStockInfo() {
+  const prenda = document.getElementById('re_prenda').value;
+  const talle  = document.getElementById('re_talle').value;
+  const cant   = parseInt(document.getElementById('re_cantidad').value) || 0;
+  const box    = document.getElementById('re_stock_box');
+  const text   = document.getElementById('re_stock_text');
+  if (!prenda || !talle) { box.style.display = 'none'; return; }
+  const disp = getRopaStockDisponible(prenda, talle);
+  const cls  = disp >= cant && disp > 0 ? 'var(--success)' : 'var(--danger)';
+  text.innerHTML = `Stock disponible para <strong>${prenda} - Talle ${talle}</strong>: <strong style="color:${cls}">${disp}</strong> unidades`;
+  box.style.display = 'block';
+}
+
+async function saveRopaEntrega() {
+  const empleado = document.getElementById('re_empleado').value;
+  const fecha    = document.getElementById('re_fecha').value;
+  const prenda   = document.getElementById('re_prenda').value;
+  const talle    = document.getElementById('re_talle').value.trim();
+  const cantidad = parseInt(document.getElementById('re_cantidad').value) || 0;
+  const obs      = document.getElementById('re_obs').value.trim();
+
+  if (!empleado) { showToast('Seleccioná un empleado', 'error'); return; }
+  if (!fecha) { showToast('Ingresá la fecha', 'error'); return; }
+  if (!prenda) { showToast('Seleccioná el tipo de prenda', 'error'); return; }
+  if (!talle) { showToast('Ingresá el talle', 'error'); return; }
+  if (cantidad < 1) { showToast('La cantidad debe ser al menos 1', 'error'); return; }
+
+  const disp = getRopaStockDisponible(prenda, talle);
+  if (cantidad > disp) {
+    if (!confirm(`⚠️ Sólo hay ${disp} unidades disponibles de ${prenda} talle ${talle}, pero querés entregar ${cantidad}. ¿Continuar de todas formas?`)) return;
+  }
+
+  const data = { empleado, fecha, prenda, talle, cantidad, observaciones: obs };
+  if (API_URL) {
+    const res = await apiCall('addRopaEntrega', { data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+    if (res?.id) data.__ID__ = res.id;
+  } else {
+    data.__ID__ = Date.now().toString();
+  }
+  ropaEntregasData.push(data);
+  if (!API_URL) localStorage.setItem('rrhh_ropa_entregas', JSON.stringify(ropaEntregasData));
+  closeRopaEntregaModal();
+  renderRopaStock();
+  renderRopaEntregas();
+  showToast('Entrega registrada ✓', 'success');
+}
+
+async function deleteRopaEntrega(id) {
+  if (!confirm('¿Eliminar este registro de entrega? El stock disponible se recalculará.')) return;
+  if (API_URL) await apiCall('deleteRopaEntrega', { id });
+  ropaEntregasData = ropaEntregasData.filter(r => r.__ID__ != id);
+  if (!API_URL) localStorage.setItem('rrhh_ropa_entregas', JSON.stringify(ropaEntregasData));
+  renderRopaStock();
+  renderRopaEntregas();
+  showToast('Eliminado ✓', 'success');
+}
+
+function renderRopaEntregas() {
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const q = (document.getElementById('ropaEntSearch')?.value || '').toLowerCase();
+  const empF = document.getElementById('ropaEntEmpFilter')?.value || '';
+  const secF = document.getElementById('ropaEntSectorFilter')?.value || '';
+  const anioF = document.getElementById('ropaEntAnioFilter')?.value || '';
+  const mesF = document.getElementById('ropaEntMesFilter')?.value || '';
+
+  // Poblar filtro de años en base a las entregas cargadas
+  const anioSel = document.getElementById('ropaEntAnioFilter');
+  if (anioSel) {
+    const anios = [...new Set(ropaEntregasData.map(r => (r.fecha || '').split('-')[0]).filter(Boolean))].sort((a, b) => b - a);
+    const cur = anioSel.value;
+    anioSel.innerHTML = '<option value="">Todos los años</option>' + anios.map(a => `<option value="${a}">${a}</option>`).join('');
+    anioSel.value = cur;
+  }
+  // Poblar filtro de puestos en base a los puestos existentes en la nómina
+  const secSel = document.getElementById('ropaEntSectorFilter');
+  if (secSel) {
+    const sectores = [...new Set(employees.map(e => e.sector).filter(Boolean))].sort();
+    const cur = secSel.value;
+    secSel.innerHTML = '<option value="">Todos los puestos</option>' + sectores.map(s => `<option value="${s}">${s}</option>`).join('');
+    secSel.value = cur;
+  }
+
+  const empPuesto = {};
+  employees.forEach(e => empPuesto[e.nombre] = e.sector || '');
+
+  let rows = ropaEntregasData.map(r => ({ ...r, __puesto: empPuesto[r.empleado] || '' }));
+  if (empF)  rows = rows.filter(r => r.empleado === empF);
+  if (secF)  rows = rows.filter(r => r.__puesto === secF);
+  if (anioF) rows = rows.filter(r => (r.fecha || '').split('-')[0] === anioF);
+  if (mesF)  rows = rows.filter(r => String(parseInt((r.fecha || '').split('-')[1], 10)) === mesF);
+  if (q) rows = rows.filter(r =>
+    (r.empleado + ' ' + r.prenda + ' ' + r.talle + ' ' + r.__puesto).toLowerCase().includes(q)
+  );
+  rows.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  const tbody = document.getElementById('ropaEntTbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin entregas registradas</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => {
+    const [y, m] = (r.fecha || '').split('-');
+    const mesTxt = m ? (MESES[parseInt(m, 10) - 1] || '—') : '—';
+    return `
+    <tr>
+      <td>${y || '—'}</td>
+      <td>${mesTxt}</td>
+      <td>${r.empleado}</td>
+      <td>${r.__puesto || '—'}</td>
+      <td>${r.prenda}</td>
+      <td>${r.talle}</td>
+      <td style="text-align:center">${r.cantidad}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRopaEntrega('${r.__ID__}')">🗑️</button></td>
+    </tr>
+  `;
+  }).join('');
+}
+
+function exportRopaEntregasCSV() {
+  const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const empPuesto = {};
+  employees.forEach(e => empPuesto[e.nombre] = e.sector || '');
+  const headers = ['Año','Mes','Empleado','Puesto de trabajo','Prenda','Talle','Cantidad','Observaciones'];
+  const rows = ropaEntregasData.map(r => {
+    const [y, m] = (r.fecha || '').split('-');
+    const mesTxt = m ? (MESES[parseInt(m, 10) - 1] || '') : '';
+    return [y || '', mesTxt, r.empleado, empPuesto[r.empleado] || '', r.prenda, r.talle, r.cantidad, r.observaciones || ''];
+  });
+  const csv = [headers, ...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'entregas_ropa.csv';
+  a.click();
+  showToast('CSV exportado ✓', 'success');
+}
+
+function openRopaIngresoModal() {
+  document.getElementById('ri_fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('ri_prenda').value = '';
+  document.getElementById('ri_talle').value = '';
+  document.getElementById('ri_cantidad').value = '';
+  document.getElementById('ri_obs').value = '';
+  document.getElementById('ropaIngresoModal').classList.add('open');
+}
+function closeRopaIngresoModal() { document.getElementById('ropaIngresoModal').classList.remove('open'); }
+
+async function saveRopaIngreso() {
+  const fecha    = document.getElementById('ri_fecha').value;
+  const prenda   = document.getElementById('ri_prenda').value;
+  const talle    = document.getElementById('ri_talle').value.trim();
+  const cantidad = parseInt(document.getElementById('ri_cantidad').value) || 0;
+  const obs      = document.getElementById('ri_obs').value.trim();
+
+  if (!fecha) { showToast('Ingresá la fecha', 'error'); return; }
+  if (!prenda) { showToast('Seleccioná el tipo de prenda', 'error'); return; }
+  if (!talle) { showToast('Ingresá el talle', 'error'); return; }
+  if (cantidad < 1) { showToast('La cantidad debe ser al menos 1', 'error'); return; }
+
+  const data = { fecha, prenda, talle, cantidad, observaciones: obs };
+  if (API_URL) {
+    const res = await apiCall('addRopaIngreso', { data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+    if (res?.id) data.__ID__ = res.id;
+  } else {
+    data.__ID__ = Date.now().toString();
+  }
+  ropaIngresosData.push(data);
+  if (!API_URL) localStorage.setItem('rrhh_ropa_ingresos', JSON.stringify(ropaIngresosData));
+  closeRopaIngresoModal();
+  renderRopaStock();
+  renderRopaIngresos();
+  showToast(`Ingreso registrado ✓ — Stock de ${prenda} talle ${talle} actualizado`, 'success');
+}
+
+async function deleteRopaIngreso(id) {
+  if (!confirm('¿Eliminar este registro de ingreso? El stock disponible se recalculará.')) return;
+  if (API_URL) await apiCall('deleteRopaIngreso', { id });
+  ropaIngresosData = ropaIngresosData.filter(r => r.__ID__ != id);
+  if (!API_URL) localStorage.setItem('rrhh_ropa_ingresos', JSON.stringify(ropaIngresosData));
+  renderRopaStock();
+  renderRopaIngresos();
+  showToast('Eliminado ✓', 'success');
+}
+
+function renderRopaIngresos() {
+  const q = (document.getElementById('ropaIngSearch')?.value || '').toLowerCase();
+  let rows = [...ropaIngresosData];
+  if (q) rows = rows.filter(r => (r.prenda + ' ' + r.talle).toLowerCase().includes(q));
+  rows.sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+
+  const tbody = document.getElementById('ropaIngTbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">Sin ingresos registrados</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `
+    <tr>
+      <td>${fmtDate(r.fecha)}</td>
+      <td>${r.prenda}</td>
+      <td>${r.talle}</td>
+      <td style="text-align:center">${r.cantidad}</td>
+      <td>${r.observaciones || ''}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRopaIngreso('${r.__ID__}')">🗑️</button></td>
+    </tr>
+  `).join('');
+}
+
+function exportRopaIngresosCSV() {
+  const headers = ['Fecha','Prenda','Talle','Cantidad','Observaciones'];
+  const rows = ropaIngresosData.map(r => [r.fecha, r.prenda, r.talle, r.cantidad, r.observaciones || '']);
+  const csv = [headers, ...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'ingresos_ropa.csv';
+  a.click();
+  showToast('CSV exportado ✓', 'success');
+}
+
 function showToast(msg, type = '') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -5116,6 +5750,7 @@ function showTab(tab) {
   if (tab === 'reclamos') renderReclamos();
   if (tab === 'encuestas') renderEncuestas();
   if (tab === 'fichadas') { renderFichadasRegistros(); populateFichEmpleadoFilter(); }
+  if (tab === 'ropa') { renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); }
 }
 
 function exportCSV() {
