@@ -4,7 +4,21 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestión RRHH</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+/* Modo LIVIANO: enlaces de fichaje (?fichaje=1) y vacaciones (?vacaciones=1).
+   Se detecta antes de pintar nada: se oculta toda la app de administración,
+   no se descargan tipografías externas y se desactivan animaciones/sombras. */
+(function(){
+  var lite = /[?&](fichaje|vacaciones)=1(&|$)/.test(location.search);
+  if (lite) { document.documentElement.className += ' lite'; }
+  else {
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap';
+    document.head.appendChild(l);
+  }
+})();
+</script>
 <style>
   :root {
     --bg: #f5f4fb;
@@ -530,6 +544,45 @@
 .sin-salida-scroll::-webkit-scrollbar-track { background: transparent; }
 .sin-salida-scroll::-webkit-scrollbar-thumb { background: #fdba74; border-radius: 6px; }
 .sin-salida-scroll { scrollbar-width: thin; scrollbar-color: #fdba74 transparent; }
+
+  /* ═══ MODO LIVIANO (fichaje / vacaciones en celulares viejos) ═══════════
+     - La app de administración se oculta con display:none (no se calcula ni se pinta).
+     - Sin animaciones, transiciones, sombras ni blur.
+     - Tipografía del sistema (no se descarga nada).
+     - Sin "inset" ni "gap" en flex (no los soportan Android/Chrome viejos):
+       se usa position/margin, que funciona en todos lados.
+     - La pantalla fluye normal (sin position:fixed + scroll interno). */
+  html.lite .app,
+  html.lite .modal-overlay,
+  html.lite .toast { display: none !important; }
+  html.lite body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    min-height: 0; background: var(--bg);
+  }
+  html.lite *, html.lite *::before, html.lite *::after {
+    animation: none !important; transition: none !important;
+    box-shadow: none !important; text-shadow: none !important;
+    -webkit-backdrop-filter: none !important; backdrop-filter: none !important;
+  }
+  html.lite #kioskScreen, html.lite #vacScreen {
+    position: static; display: none; contain: none;
+    padding: 16px 12px 32px; overflow: visible;
+  }
+  html.lite #kioskScreen.active, html.lite #vacScreen.active { display: block; }
+  html.lite .kiosk-card { margin: 0 auto; gap: 0 !important; contain: none; padding: 22px 18px; }
+  html.lite .kiosk-card > * + * { margin-top: 16px; }
+  html.lite .kiosk-shift-group, html.lite .kiosk-btns { gap: 0; }
+  html.lite .kiosk-shift-group > * + *, html.lite .kiosk-btns > * + * { margin-top: 8px; }
+  html.lite .kiosk-geo .dot { margin-right: 8px; }
+  html.lite .kiosk-geo.loading .dot { background: var(--warning); }
+  html.lite .kiosk-clock {
+    font-size: 44px; letter-spacing: 2px; line-height: 1.1;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+  }
+  html.lite #vacPubList { gap: 0 !important; }
+  html.lite #vacPubList > .kiosk-card + .kiosk-card { margin-top: 12px; }
+  html.lite #vacPubList .kiosk-card > * + * { margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -1328,7 +1381,7 @@
       <h2 id="kioskCompanyName">Control de Asistencia</h2>
       <p>Marcá tu entrada o salida desde el depósito</p>
     </div>
-    <div class="kiosk-clock" id="kioskClock">--:--:--</div>
+    <div class="kiosk-clock" id="kioskClock">--:--</div>
     <div class="kiosk-field kiosk-combo">
       <label>Tu nombre</label>
       <input type="text" id="kioskEmpleadoBuscar" placeholder="Escribí para buscar tu nombre..." autocomplete="off"
@@ -3051,16 +3104,16 @@ function deleteRow(sheetName, id) {
 document.getElementById('scriptCode').textContent = SCRIPT_CODE.substring(0, 80) + '...';
 
 // ─── INIT ──────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  if (params.get('fichaje') === '1') initKiosk(params.get('api') || API_URL);
+  else if (params.get('vacaciones') === '1') initVacPublic(params.get('api') || API_URL);
+});
+
 window.onload = () => {
   const params = new URLSearchParams(location.search);
-  if (params.get('fichaje') === '1') {
-    initKiosk(params.get('api') || API_URL);
-    return;
-  }
-  if (params.get('vacaciones') === '1') {
-    initVacPublic(params.get('api') || API_URL);
-    return;
-  }
+  // Kiosko y vacaciones ya arrancaron en DOMContentLoaded (modo liviano)
+  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1') return;
   const today = new Date().toISOString().split('T')[0];
   ['c_fecha','d_fecha','f_alta','f_art','r_fecha','e_fecha','p_fecha'].forEach(id => {
     const el = document.getElementById(id);
@@ -6865,7 +6918,10 @@ function initKiosk(apiUrl) {
   document.getElementById('kioskScreen').classList.add('active');
   kioskApiUrl = apiUrl || '';
   tickKioskClock();
-  setInterval(tickKioskClock, 1000);
+  // Al volver a la pestaña (o desbloquear el celular) se corrige la hora al instante
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) tickKioskClock();
+  });
   if (!kioskApiUrl) {
     setKioskGeoStatus('bad', 'Enlace sin configurar. Pedile al administrador que genere el enlace de fichaje desde Configuración.');
     return;
@@ -6874,9 +6930,19 @@ function initKiosk(apiUrl) {
   kioskGetLocation();
 }
 
+// Reloj liviano: solo hora y minutos, sin Intl/toLocaleTimeString y sin setInterval.
+// Se reprograma un único timeout que salta justo al cambio de minuto (1 repintado por minuto).
+let kioskClockTimer = null;
 function tickKioskClock() {
   const el = document.getElementById('kioskClock');
-  if (el) el.textContent = new Date().toLocaleTimeString('es-AR', { hour12: false });
+  if (el) {
+    const d = new Date();
+    const h = d.getHours(), m = d.getMinutes();
+    const txt = (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+    if (el.textContent !== txt) el.textContent = txt;
+  }
+  clearTimeout(kioskClockTimer);
+  kioskClockTimer = setTimeout(tickKioskClock, 60000 - (Date.now() % 60000) + 50);
 }
 
 async function kioskApiCall(action, body = {}) {
@@ -6908,6 +6974,7 @@ async function kioskLoadEmployees() {
     return;
   }
   kioskEmployees = res.employees || [];
+  kioskEmployees.forEach(e => { e._n = kioskNormalizar(e.nombre); });
   kioskConfig = res.config || {};
   if (res.companyName) document.getElementById('kioskCompanyName').textContent = res.companyName;
   const sel = document.getElementById('kioskEmpleado');
@@ -6927,7 +6994,7 @@ function kioskFilterEmpleados(texto) {
     document.getElementById('kioskEmpleado').value = '';
     kioskOnEmployeeChange();
   }
-  const coincidencias = kioskEmployees.filter(e => kioskNormalizar(e.nombre).includes(q));
+  const coincidencias = kioskEmployees.filter(e => (e._n || kioskNormalizar(e.nombre)).includes(q)).slice(0, 40);
   if (!coincidencias.length) {
     box.innerHTML = '<div class="kiosk-combo-empty">Sin coincidencias</div>';
   } else {
