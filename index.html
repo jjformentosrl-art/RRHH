@@ -1184,14 +1184,31 @@
     <div class="panel" id="panel-ropa">
       <div class="stats" id="ropaStats"></div>
 
-      <!-- Sub-tabs (2 divisiones) -->
+      <!-- Sub-tabs (3 divisiones) -->
       <div class="desempeño-tabs" style="flex-shrink:0">
-        <button class="dtab active" onclick="showRopaTab('stock', this)">📦 Stock Disponible</button>
+        <button class="dtab active" onclick="showRopaTab('consulta', this)">🔍 Consulta Rápida</button>
+        <button class="dtab" onclick="showRopaTab('stock', this)">📦 Stock Disponible</button>
         <button class="dtab" onclick="showRopaTab('entregas', this)">📤 Entregas a Empleados</button>
       </div>
 
+      <!-- DIVISIÓN 0: CONSULTA RÁPIDA DE STOCK -->
+      <div class="dpanel active" id="rpanel-consulta" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px">
+        <div class="toolbar">
+          <label style="font-weight:600;color:var(--text);margin-right:12px">Seleccioná una prenda:</label>
+          <select class="filter-select" id="ropaConsultaPrendaSelect" onchange="renderRopaConsulta()" style="min-width:180px">
+            <option value="">-- Elegir prenda --</option>
+          </select>
+        </div>
+        <div id="ropaConsultaResultado" style="flex:1;overflow:auto;background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:20px;display:flex;align-items:center;justify-content:center">
+          <div style="text-align:center;color:var(--text3)">
+            <div style="font-size:40px;margin-bottom:8px">👕</div>
+            <p>Seleccioná una prenda para ver todos los talles disponibles</p>
+          </div>
+        </div>
+      </div>
+
       <!-- DIVISIÓN 1: STOCK DISPONIBLE (+ registrar ingresos) -->
-      <div class="dpanel active" id="rpanel-stock" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px">
+      <div class="dpanel" id="rpanel-stock" style="flex:1;overflow:hidden;display:flex;flex-direction:column;gap:12px">
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
@@ -1770,6 +1787,109 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeRopaEntregaModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveRopaEntrega()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ENTREGA ROPA: MODAL EDITAR ENTREGA -->
+<div class="modal-overlay" id="ropaEntregaEditModal">
+  <div class="modal" style="width:580px">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Editar Entrega de Ropa</span>
+      <button class="modal-close" onclick="closeRopaEntregaEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Empleado *</label>
+          <select id="ree_empleado"></select>
+        </div>
+        <div class="form-group">
+          <label>Fecha *</label>
+          <input type="date" id="ree_fecha">
+        </div>
+        <div class="form-group">
+          <label>Tipo de prenda *</label>
+          <select id="ree_prenda" onchange="updateRopaEntregaEditStockInfo()">
+            <option value="">Seleccionar...</option>
+            <option value="Remeras">Remeras</option>
+            <option value="Chombas">Chombas</option>
+            <option value="Chalecos">Chalecos</option>
+            <option value="Camperas">Camperas</option>
+            <option value="Buzos">Buzos</option>
+            <option value="Bermudas">Bermudas</option>
+            <option value="Pantalon">Pantalón</option>
+            <option value="Calzados">Calzados</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Talle *</label>
+          <input type="text" id="ree_talle" list="ropaTalleOptions" placeholder="Ej: M, XL, 44..." oninput="updateRopaEntregaEditStockInfo()">
+        </div>
+        <div class="form-group">
+          <label>Cantidad *</label>
+          <input type="number" id="ree_cantidad" min="1" placeholder="Ej: 1" oninput="updateRopaEntregaEditStockInfo()">
+        </div>
+        <div id="ree_stock_box" style="display:none;grid-column:1/-1;background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.3);border-radius:8px;padding:10px 14px;font-size:13px">
+          <div id="ree_stock_text"></div>
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <input type="text" id="ree_obs" placeholder="Opcional...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeRopaEntregaEditModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRopaEntregaEdit()">💾 Guardar Cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ENTREGA ROPA: MODAL EDITAR INGRESO -->
+<div class="modal-overlay" id="ropaIngresoEditModal">
+  <div class="modal" style="width:560px">
+    <div class="modal-header">
+      <span class="modal-title">✏️ Editar Ingreso de Stock</span>
+      <button class="modal-close" onclick="closeRopaIngresoEditModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Fecha *</label>
+          <input type="date" id="rie_fecha">
+        </div>
+        <div class="form-group">
+          <label>Tipo de prenda *</label>
+          <select id="rie_prenda">
+            <option value="">Seleccionar...</option>
+            <option value="Remeras">Remeras</option>
+            <option value="Chombas">Chombas</option>
+            <option value="Chalecos">Chalecos</option>
+            <option value="Camperas">Camperas</option>
+            <option value="Buzos">Buzos</option>
+            <option value="Bermudas">Bermudas</option>
+            <option value="Pantalon">Pantalón</option>
+            <option value="Calzados">Calzados</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Talle *</label>
+          <input type="text" id="rie_talle" list="ropaTalleOptions" placeholder="Ej: M, XL, 44...">
+        </div>
+        <div class="form-group">
+          <label>Cantidad *</label>
+          <input type="number" id="rie_cantidad" min="1" placeholder="Ej: 20">
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <input type="text" id="rie_obs" placeholder="Ej: proveedor, remito, etc. (opcional)">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeRopaIngresoEditModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRopaIngresoEdit()">💾 Guardar Cambios</button>
     </div>
   </div>
 </div>
@@ -5398,6 +5518,7 @@ function showRopaTab(tab, el) {
   document.querySelectorAll('#panel-ropa .dpanel').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('rpanel-' + tab).classList.add('active');
+  if (tab === 'consulta')  renderRopaConsulta();
   if (tab === 'stock')     renderRopaStock();
   if (tab === 'entregas')  renderRopaEntregas();
 }
@@ -5627,7 +5748,10 @@ function renderRopaEntregas() {
       <td>${r.prenda}</td>
       <td>${r.talle}</td>
       <td style="text-align:center">${r.cantidad}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteRopaEntrega('${r.__ID__}')">🗑️</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick="editRopaEntrega('${r.__ID__}')" style="margin-right:4px">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRopaEntrega('${r.__ID__}')">🗑️</button>
+      </td>
     </tr>
   `;
   }).join('');
@@ -5699,6 +5823,208 @@ async function deleteRopaIngreso(id) {
   showToast('Eliminado ✓', 'success');
 }
 
+// ─── EDITAR ENTREGAS ───
+let ropaEntregaEditId = null;
+
+function editRopaEntrega(id) {
+  ropaEntregaEditId = id;
+  const entrega = ropaEntregasData.find(r => r.__ID__ == id);
+  if (!entrega) return;
+  
+  populateRopaEmpleadoSelect();
+  document.getElementById('ree_empleado').value = entrega.empleado || '';
+  document.getElementById('ree_fecha').value = entrega.fecha || '';
+  document.getElementById('ree_prenda').value = entrega.prenda || '';
+  document.getElementById('ree_talle').value = entrega.talle || '';
+  document.getElementById('ree_cantidad').value = entrega.cantidad || '';
+  document.getElementById('ree_obs').value = entrega.observaciones || '';
+  document.getElementById('ree_stock_box').style.display = 'none';
+  document.getElementById('ropaEntregaEditModal').classList.add('open');
+}
+
+function closeRopaEntregaEditModal() {
+  document.getElementById('ropaEntregaEditModal').classList.remove('open');
+  ropaEntregaEditId = null;
+}
+
+function updateRopaEntregaEditStockInfo() {
+  const prenda = document.getElementById('ree_prenda').value;
+  const talle  = document.getElementById('ree_talle').value;
+  const cant   = parseInt(document.getElementById('ree_cantidad').value) || 0;
+  const box    = document.getElementById('ree_stock_box');
+  const text   = document.getElementById('ree_stock_text');
+  if (!prenda || !talle) { box.style.display = 'none'; return; }
+  const disp = getRopaStockDisponible(prenda, talle);
+  const cls  = disp >= cant && disp > 0 ? 'var(--success)' : 'var(--danger)';
+  text.innerHTML = `Stock disponible para <strong>${prenda} - Talle ${talle}</strong>: <strong style="color:${cls}">${disp}</strong> unidades`;
+  box.style.display = 'block';
+}
+
+async function saveRopaEntregaEdit() {
+  const empleado = document.getElementById('ree_empleado').value;
+  const fecha    = document.getElementById('ree_fecha').value;
+  const prenda   = document.getElementById('ree_prenda').value;
+  const talle    = document.getElementById('ree_talle').value.trim();
+  const cantidad = parseInt(document.getElementById('ree_cantidad').value) || 0;
+  const obs      = document.getElementById('ree_obs').value.trim();
+
+  if (!empleado) { showToast('Seleccioná un empleado', 'error'); return; }
+  if (!fecha) { showToast('Ingresá la fecha', 'error'); return; }
+  if (!prenda) { showToast('Seleccioná el tipo de prenda', 'error'); return; }
+  if (!talle) { showToast('Ingresá el talle', 'error'); return; }
+  if (cantidad < 1) { showToast('La cantidad debe ser al menos 1', 'error'); return; }
+
+  // Encontrar el índice del registro a actualizar
+  const idx = ropaEntregasData.findIndex(r => r.__ID__ == ropaEntregaEditId);
+  if (idx === -1) return;
+
+  // Actualizar los datos
+  ropaEntregasData[idx] = {
+    ...ropaEntregasData[idx],
+    empleado, fecha, prenda, talle, cantidad, observaciones: obs
+  };
+
+  if (API_URL) {
+    const res = await apiCall('updateRopaEntrega', { id: ropaEntregaEditId, data: ropaEntregasData[idx] });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  } else {
+    localStorage.setItem('rrhh_ropa_entregas', JSON.stringify(ropaEntregasData));
+  }
+  
+  closeRopaEntregaEditModal();
+  renderRopaStock();
+  renderRopaEntregas();
+  showToast('Entrega actualizada ✓', 'success');
+}
+
+// ─── EDITAR INGRESOS ───
+let ropaIngresoEditId = null;
+
+function editRopaIngreso(id) {
+  ropaIngresoEditId = id;
+  const ingreso = ropaIngresosData.find(r => r.__ID__ == id);
+  if (!ingreso) return;
+  
+  document.getElementById('rie_fecha').value = ingreso.fecha || '';
+  document.getElementById('rie_prenda').value = ingreso.prenda || '';
+  document.getElementById('rie_talle').value = ingreso.talle || '';
+  document.getElementById('rie_cantidad').value = ingreso.cantidad || '';
+  document.getElementById('rie_obs').value = ingreso.observaciones || '';
+  document.getElementById('ropaIngresoEditModal').classList.add('open');
+}
+
+function closeRopaIngresoEditModal() {
+  document.getElementById('ropaIngresoEditModal').classList.remove('open');
+  ropaIngresoEditId = null;
+}
+
+async function saveRopaIngresoEdit() {
+  const fecha    = document.getElementById('rie_fecha').value;
+  const prenda   = document.getElementById('rie_prenda').value;
+  const talle    = document.getElementById('rie_talle').value.trim();
+  const cantidad = parseInt(document.getElementById('rie_cantidad').value) || 0;
+  const obs      = document.getElementById('rie_obs').value.trim();
+
+  if (!fecha) { showToast('Ingresá la fecha', 'error'); return; }
+  if (!prenda) { showToast('Seleccioná el tipo de prenda', 'error'); return; }
+  if (!talle) { showToast('Ingresá el talle', 'error'); return; }
+  if (cantidad < 1) { showToast('La cantidad debe ser al menos 1', 'error'); return; }
+
+  // Encontrar el índice del registro a actualizar
+  const idx = ropaIngresosData.findIndex(r => r.__ID__ == ropaIngresoEditId);
+  if (idx === -1) return;
+
+  // Actualizar los datos
+  ropaIngresosData[idx] = {
+    ...ropaIngresosData[idx],
+    fecha, prenda, talle, cantidad, observaciones: obs
+  };
+
+  if (API_URL) {
+    const res = await apiCall('updateRopaIngreso', { id: ropaIngresoEditId, data: ropaIngresosData[idx] });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  } else {
+    localStorage.setItem('rrhh_ropa_ingresos', JSON.stringify(ropaIngresosData));
+  }
+  
+  closeRopaIngresoEditModal();
+  renderRopaStock();
+  renderRopaIngresos();
+  showToast('Ingreso actualizado ✓', 'success');
+}
+
+// ─── CONSULTA RÁPIDA DE STOCK ───
+function renderRopaConsulta() {
+  const prendaSel = document.getElementById('ropaConsultaPrendaSelect');
+  const prendaVal = prendaSel?.value || '';
+  const resultado = document.getElementById('ropaConsultaResultado');
+  
+  // Llenar selector si está vacío
+  if (prendaSel && prendaSel.options.length <= 1) {
+    prendaSel.innerHTML = '<option value="">-- Elegir prenda --</option>' +
+      ROPA_PRENDAS.map(p => `<option value="${p}">${p}</option>`).join('');
+  }
+  
+  if (!prendaVal) {
+    resultado.innerHTML = `
+      <div style="text-align:center;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:8px">👕</div>
+        <p>Seleccioná una prenda para ver todos los talles disponibles</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Obtener el stock para la prenda seleccionada
+  const stock = calcRopaStock().filter(r => r.prenda === prendaVal);
+  
+  if (!stock.length) {
+    resultado.innerHTML = `
+      <div style="text-align:center;color:var(--text3)">
+        <div style="font-size:40px;margin-bottom:8px">📭</div>
+        <p>No hay stock registrado para "${prendaVal}"</p>
+      </div>
+    `;
+    return;
+  }
+  
+  // Mostrar grid de talles con stock
+  const html = `
+    <div style="width:100%;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
+      ${stock.map(r => `
+        <div style="
+          background:var(--surface2);
+          border:1px solid var(--border);
+          border-radius:8px;
+          padding:12px 14px;
+          text-align:center;
+          transition:all 0.2s;
+        " onmouseover="this.style.borderColor='var(--accent)';this.style.boxShadow='0 2px 8px rgba(108,71,255,0.15)'" onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow='none'">
+          <div style="font-weight:700;font-size:18px;color:var(--text);margin-bottom:8px">
+            Talle ${r.talle || '—'}
+          </div>
+          <div style="
+            background:${r.disponible > 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'};
+            color:${r.disponible > 0 ? 'var(--success)' : 'var(--danger)'};
+            padding:8px 6px;
+            border-radius:6px;
+            margin-bottom:8px;
+          ">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--text3);margin-bottom:2px">Disponible</div>
+            <div style="font-size:24px;font-weight:700;font-family:'DM Mono',monospace">${r.disponible}</div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);border-top:1px solid var(--border);padding-top:8px">
+            <div>📥 Ingresado: <strong>${r.ingresado}</strong></div>
+            <div>📤 Entregado: <strong>${r.entregado}</strong></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  
+  resultado.innerHTML = html;
+}
+
 function renderRopaIngresos() {
   const q = (document.getElementById('ropaIngSearch')?.value || '').toLowerCase();
   let rows = [...ropaIngresosData];
@@ -5717,7 +6043,10 @@ function renderRopaIngresos() {
       <td>${r.talle}</td>
       <td style="text-align:center">${r.cantidad}</td>
       <td>${r.observaciones || ''}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="deleteRopaIngreso('${r.__ID__}')">🗑️</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick="editRopaIngreso('${r.__ID__}')" style="margin-right:4px">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteRopaIngreso('${r.__ID__}')">🗑️</button>
+      </td>
     </tr>
   `).join('');
 }
@@ -5750,7 +6079,7 @@ function showTab(tab) {
   if (tab === 'reclamos') renderReclamos();
   if (tab === 'encuestas') renderEncuestas();
   if (tab === 'fichadas') { renderFichadasRegistros(); populateFichEmpleadoFilter(); }
-  if (tab === 'ropa') { renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); }
+  if (tab === 'ropa') { renderRopaConsulta(); renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); }
 }
 
 function exportCSV() {
