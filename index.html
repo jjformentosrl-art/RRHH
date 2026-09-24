@@ -9,7 +9,7 @@
    Se detecta antes de pintar nada: se oculta toda la app de administración,
    no se descargan tipografías externas y se desactivan animaciones/sombras. */
 (function(){
-  var lite = /[?&](fichaje|vacaciones)=1(&|$)/.test(location.search);
+  var lite = /[?&](fichaje|vacaciones|limpieza)=1(&|$)/.test(location.search);
   if (lite) { document.documentElement.className += ' lite'; }
   else {
     var l = document.createElement('link');
@@ -583,6 +583,32 @@
   html.lite #vacPubList { gap: 0 !important; }
   html.lite #vacPubList > .kiosk-card + .kiosk-card { margin-top: 12px; }
   html.lite #vacPubList .kiosk-card > * + * { margin-top: 6px; }
+
+  /* ═══ LIMPIEZA ═══ */
+  #limpScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
+  #limpScreen.active { display: flex; }
+  html.lite #limpScreen { position: static; padding: 16px 12px 32px; overflow: visible; }
+  html.lite #limpScreen.active { display: block; }
+  .limp-item { display: flex; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-top: 8px; }
+  .limp-item.done { background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.35); }
+  .limp-txt { flex: 1; min-width: 0; }
+  .limp-txt b { display: block; font-size: 15px; }
+  .limp-txt span { font-size: 11px; color: var(--text3); }
+  .limp-btn { margin-left: 10px; padding: 12px 14px; border: none; border-radius: 12px; background: var(--success); color: #fff; font-weight: 700; font-size: 14px; }
+  .limp-hora { margin-left: 10px; font-weight: 700; color: #047857; font-size: 14px; white-space: nowrap; }
+  .limp-bar { height: 10px; background: var(--surface2); border-radius: 6px; overflow: hidden; margin-top: 6px; }
+  .limp-bar div { height: 100%; background: var(--success); }
+  .limp-overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(20,10,50,0.55); z-index: 1000; align-items: flex-end; justify-content: center; }
+  .limp-overlay.open { display: flex; }
+  .limp-sheet { width: 100%; max-width: 480px; background: var(--surface); border-radius: 20px 20px 0 0; padding: 20px 18px 26px; }
+  .limp-sheet textarea, .limp-sheet input { width: 100%; padding: 12px; font-size: 16px; border-radius: 12px; border: 1px solid var(--border); font-family: inherit; margin-top: 10px; background: var(--surface); color: var(--text); }
+  .limp-cell { text-align: center; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .limp-cell.ok { background: rgba(16,185,129,0.14); color: #047857; }
+  .limp-cell.no { background: rgba(239,68,68,0.12); color: #b91c1c; }
+  .limp-cell.pend { background: rgba(245,158,11,0.14); color: #b45309; }
+  .limp-cell.fut { color: var(--text3); }
+  .limp-pbar { height: 8px; background: var(--surface2); border-radius: 5px; overflow: hidden; min-width: 80px; }
+  .limp-pbar div { height: 100%; background: var(--success); }
 </style>
 </head>
 <body>
@@ -635,6 +661,7 @@
     <button class="tab" onclick="showTab('encuestas')">😊 Satisfacción Clientes</button>
     <button class="tab" onclick="showTab('fichadas')">📍 Fichadas / Asistencia</button>
     <button class="tab" onclick="showTab('ropa')">👕 Entrega Ropa</button>
+    <button class="tab" onclick="showTab('limpieza')">🧹 Limpieza</button>
   </div>
 
   <main>
@@ -1365,6 +1392,89 @@
         </div>
       </div>
     </div>
+
+    <!-- LIMPIEZA -->
+    <div class="panel" id="panel-limpieza">
+      <div class="desempeño-tabs" style="flex-shrink:0">
+        <button class="dtab active" onclick="showLimpTab('dia', this)">📅 Día</button>
+        <button class="dtab" onclick="showLimpTab('semana', this)">🗓️ Semana</button>
+        <button class="dtab" onclick="showLimpTab('resumen', this)">📈 Cumplimiento</button>
+        <button class="dtab" onclick="showLimpTab('config', this)">🔗 Enlace y ajustes</button>
+      </div>
+
+      <div class="dpanel active" id="lpanel-dia">
+        <div class="toolbar">
+          <button class="btn btn-secondary btn-sm" onclick="limpMoverDia(-1)">‹</button>
+          <input type="date" class="filter-select" id="limpDiaFecha" onchange="renderLimpDia()">
+          <button class="btn btn-secondary btn-sm" onclick="limpMoverDia(1)">›</button>
+          <button class="btn btn-secondary btn-sm" onclick="limpIrHoy()">Hoy</button>
+          <strong id="limpDiaNombre" style="margin-left:8px"></strong>
+        </div>
+        <div class="stats" id="limpDiaStats"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Actividad</th><th>Sector</th><th>Tipo</th><th>Estado</th><th>Hora</th><th>Realizada por</th><th>Observación</th><th>Acciones</th></tr></thead>
+            <tbody id="limpDiaTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel" id="lpanel-semana">
+        <div class="toolbar">
+          <button class="btn btn-secondary btn-sm" onclick="limpMoverSemana(-1)">‹</button>
+          <strong id="limpSemTitulo"></strong>
+          <button class="btn btn-secondary btn-sm" onclick="limpMoverSemana(1)">›</button>
+          <button class="btn btn-secondary btn-sm" onclick="limpSemHoy()">Esta semana</button>
+        </div>
+        <div class="stats" id="limpSemStats"></div>
+        <div class="table-wrap">
+          <table>
+            <thead id="limpSemThead"></thead>
+            <tbody id="limpSemTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel" id="lpanel-resumen" style="overflow-y:auto">
+        <div class="toolbar">
+          <label style="font-weight:600">Mes:</label>
+          <input type="month" class="filter-select" id="limpResMes" onchange="renderLimpResumen()">
+          <button class="btn btn-secondary btn-sm" onclick="exportLimpiezaCSV()">⬇ CSV</button>
+          <span style="font-size:12px;color:var(--text3)">Se calcula sobre días cerrados (hasta ayer) y desde la fecha de inicio del seguimiento.</span>
+        </div>
+        <div class="stats" id="limpResStats"></div>
+        <div class="table-wrap" style="flex:none;max-height:none">
+          <table>
+            <thead><tr><th>Actividad</th><th>Tipo</th><th style="text-align:center">Programadas</th><th style="text-align:center">Cumplidas</th><th style="text-align:center">No cumplidas</th><th>Cumplimiento</th></tr></thead>
+            <tbody id="limpResTareas"></tbody>
+          </table>
+        </div>
+        <div class="table-wrap" style="flex:none;max-height:none">
+          <table>
+            <thead><tr><th>Fecha</th><th>Día</th><th style="text-align:center">Programadas</th><th style="text-align:center">Cumplidas</th><th>Cumplimiento</th><th>Primera – última tarea</th></tr></thead>
+            <tbody id="limpResDias"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel" id="lpanel-config" style="overflow-y:auto">
+        <div class="config-card">
+          <h3>🔗 Enlace para el empleado de Maestranza</h3>
+          <p class="hint">Al abrirlo desde el celular se habilitan únicamente las tareas del día según el cronograma. Cada tarea se marca como realizada y queda registrada con la hora. Si el empleado tiene PIN (Fichadas → Horario y PIN), se le pide al confirmar.</p>
+          <button class="btn btn-secondary btn-sm" onclick="generarLinkLimpieza()">🔗 Generar enlace</button>
+          <div id="linkLimpiezaBox" style="margin-top:12px;"></div>
+        </div>
+        <div class="config-card">
+          <h3>📆 Calendario del seguimiento</h3>
+          <p class="hint">La fecha de inicio define desde cuándo se controla el cumplimiento y qué semanas tocan las tareas quincenales (la semana de inicio toca, la siguiente no, y así). Las tareas mensuales caen el primer lunes de cada mes. Los feriados evitan que esos días figuren como "no cumplido".</p>
+          <div class="config-grid">
+            <div class="config-field"><label>Fecha de inicio (se toma el lunes de esa semana)</label><input type="date" id="limpCfgInicio"></div>
+            <div class="config-field" style="grid-column:1/-1"><label>Días sin limpieza / feriados (AAAA-MM-DD separados por coma)</label><input type="text" id="limpCfgFeriados" placeholder="Ej: 2026-10-12, 2026-11-23"></div>
+          </div>
+          <div style="margin-top:14px;"><button class="btn btn-primary" onclick="limpGuardarCalendario()">💾 Guardar</button></div>
+        </div>
+      </div>
+    </div>
   </main>
 </div>
 
@@ -1412,6 +1522,59 @@
     </div>
     <div id="kioskResultBox"></div>
     <div class="kiosk-last" id="kioskLastFichada"></div>
+  </div>
+</div>
+
+<!-- LIMPIEZA: PANTALLA MÓVIL DEL EMPLEADO -->
+<div id="limpScreen">
+  <div class="kiosk-card" style="max-width:480px">
+    <div class="kiosk-title">
+      <div class="icon">🧹</div>
+      <h2>Plan de Limpieza</h2>
+      <p id="limpFechaTxt">Cargando...</p>
+    </div>
+    <div class="kiosk-field">
+      <label>Tu nombre</label>
+      <select id="limpEmpleado" onchange="limpOnEmpleado()"><option value="">Seleccioná tu nombre...</option></select>
+    </div>
+    <div id="limpProgreso"></div>
+    <div id="limpLista"></div>
+    <div id="limpMsg"></div>
+    <button class="kiosk-btn" style="background:var(--surface2);color:var(--text2)" onclick="limpRefrescar()">↻ Actualizar</button>
+  </div>
+</div>
+<div class="limp-overlay" id="limpConfirm">
+  <div class="limp-sheet">
+    <h3 style="font-size:17px">¿Marcar como realizada?</h3>
+    <p id="limpConfTarea" style="font-size:15px;font-weight:700;margin-top:6px"></p>
+    <textarea id="limpObs" rows="2" placeholder="Observación (opcional)"></textarea>
+    <input type="password" id="limpPin" inputmode="numeric" maxlength="4" placeholder="PIN" style="display:none">
+    <div id="limpConfErr"></div>
+    <button class="kiosk-btn entrada" id="limpConfBtn" style="width:100%;margin-top:12px" onclick="limpConfirmar()">✅ Confirmar</button>
+    <button class="kiosk-btn" style="width:100%;margin-top:8px;background:var(--surface2);color:var(--text2)" onclick="limpCerrar()">Cancelar</button>
+  </div>
+</div>
+
+<!-- LIMPIEZA: MARCAR MANUAL (admin) -->
+<div class="modal-overlay" id="limpManualModal">
+  <div class="modal" style="width:480px">
+    <div class="modal-header">
+      <span class="modal-title">✓ Marcar tarea como realizada</span>
+      <button class="modal-close" onclick="limpCerrarManual()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full"><label>Tarea</label><input type="text" id="lm_tarea" readonly></div>
+        <div class="form-group"><label>Fecha</label><input type="text" id="lm_fecha" readonly></div>
+        <div class="form-group"><label>Hora *</label><input type="time" id="lm_hora"></div>
+        <div class="form-group full"><label>Empleado *</label><select id="lm_emp"></select></div>
+        <div class="form-group full"><label>Observación</label><input type="text" id="lm_obs" placeholder="Ej: cargada por el supervisor (opcional)"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="limpCerrarManual()">Cancelar</button>
+      <button class="btn btn-primary" onclick="limpGuardarManual()">💾 Guardar</button>
+    </div>
   </div>
 </div>
 
@@ -2293,6 +2456,7 @@ const WRITE_ACTIONS = [
   'addVacacion','deleteVacacion',
   'addRopaEntrega','deleteRopaEntrega',
   'addRopaIngreso','deleteRopaIngreso',
+  'addLimpiezaManual','deleteLimpieza',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -2457,7 +2621,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -2495,6 +2659,10 @@ function handleRequest(e) {
     else if (action === 'deleteRopaEntrega')   result = deleteRow('ROPA_ENTREGAS', body.id);
     else if (action === 'addRopaIngreso')      result = addRow('ROPA_INGRESOS', body.data);
     else if (action === 'deleteRopaIngreso')   result = deleteRow('ROPA_INGRESOS', body.id);
+    else if (action === 'getLimpiezaKiosk')    result = getLimpiezaKiosk(body.data);
+    else if (action === 'addLimpieza')         result = addLimpieza(body.data);
+    else if (action === 'addLimpiezaManual')   result = guardarLimpieza(body.data, 'Manual');
+    else if (action === 'deleteLimpieza')      result = deleteRow('LIMPIEZA', body.id);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -2539,6 +2707,7 @@ function getAllData() {
   var vSheet = getOrCreateSheet('VACACIONES',   vacacionesHeaders);
   var reSheet = getOrCreateSheet('ROPA_ENTREGAS', ropaEntregasHeaders);
   var riSheet = getOrCreateSheet('ROPA_INGRESOS', ropaIngresosHeaders);
+  var lmSheet = getOrCreateSheet('LIMPIEZA', LIMPIEZA_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -2556,6 +2725,7 @@ function getAllData() {
     vacaciones:   sheetToJson(vSheet),
     ropaEntregas: sheetToJson(reSheet),
     ropaIngresos: sheetToJson(riSheet),
+    limpieza:     sheetToJson(lmSheet),
     config:       getConfig()
   };
 }
@@ -2890,6 +3060,54 @@ function getFichadasHoy(data) {
   return { fecha: fechaHoy, fichadas: fichadasDelDia, siguiente: siguiente };
 }
 
+// ─── LIMPIEZA (plan de limpieza: la tarea se marca desde el celular del empleado) ───
+var LIMPIEZA_HEADERS = ['fecha','tarea_id','tarea','sector','empleado','hora','observaciones','origen'];
+
+function getLimpiezaKiosk(data) {
+  var fecha = (data && data.fecha) || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var nSheet = getOrCreateSheet('NOMINA', ['nombre','genero','cuil','dni','tel','localidad','nacimiento','edad','art','alta','antiguedad','sector']);
+  var pinSheet = getOrCreateSheet('PINES', ['empleado','pin']);
+  var conPin = sheetToJson(pinSheet).map(function(p){ return p.empleado; });
+  var employees = sheetToJson(nSheet).filter(function(e){ return e.nombre; }).map(function(e) {
+    return { nombre: e.nombre, sector: e.sector, tienePin: conPin.indexOf(e.nombre) > -1 };
+  });
+  var lSheet = getOrCreateSheet('LIMPIEZA', LIMPIEZA_HEADERS);
+  var registros = sheetToJson(lSheet).filter(function(r){ return r.fecha === fecha; }).map(function(r) {
+    return { tarea_id: r.tarea_id, hora: r.hora, empleado: r.empleado };
+  });
+  var cfg = getConfig();
+  return { fecha: fecha, employees: employees, registros: registros,
+           config: { limpieza_inicio: cfg.limpieza_inicio || '', limpieza_feriados: cfg.limpieza_feriados || '' } };
+}
+
+// Marcado desde el celular (sin sesión de admin): valida el PIN del empleado si tiene uno.
+function addLimpieza(data) {
+  if (!data || !data.empleado || !data.tarea_id || !data.fecha || !data.hora) return { error: 'Faltan datos' };
+  var pinSheet = getOrCreateSheet('PINES', ['empleado','pin']);
+  var pinRegistrado = sheetToJson(pinSheet).find(function(p) { return p.empleado === data.empleado; });
+  if (pinRegistrado && pinRegistrado.pin !== (data.pin || '').toString()) return { error: 'PIN incorrecto' };
+  return guardarLimpieza(data, 'Celular');
+}
+
+function guardarLimpieza(data, origen) {
+  if (!data || !data.empleado || !data.tarea_id || !data.fecha || !data.hora) return { error: 'Faltan datos' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getOrCreateSheet('LIMPIEZA', LIMPIEZA_HEADERS);
+    var existe = sheetToJson(sheet).some(function(r) { return r.fecha === data.fecha && r.tarea_id === data.tarea_id; });
+    if (existe) return { error: 'Esa tarea ya fue registrada en el día.' };
+    var id = Date.now().toString() + Math.floor(Math.random()*1000);
+    var rowData = { fecha: data.fecha, tarea_id: data.tarea_id, tarea: data.tarea || '', sector: data.sector || '',
+                    empleado: data.empleado, hora: data.hora, observaciones: data.observaciones || '', origen: origen };
+    sheet.appendRow([id].concat(LIMPIEZA_HEADERS.map(function(h) { return rowData[h]; })));
+    forceDateColumnsAsText(sheet, sheet.getLastRow(), LIMPIEZA_HEADERS, rowData);
+    return { success: true, id: id, hora: data.hora };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function sheetToJson(sheet) {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return [];
@@ -3103,12 +3321,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const params = new URLSearchParams(location.search);
   if (params.get('fichaje') === '1') initKiosk(params.get('api') || API_URL);
   else if (params.get('vacaciones') === '1') initVacPublic(params.get('api') || API_URL);
+  else if (params.get('limpieza') === '1') initLimpiezaPublic(params.get('api') || API_URL);
 });
 
 window.onload = () => {
   const params = new URLSearchParams(location.search);
   // Kiosko y vacaciones ya arrancaron en DOMContentLoaded (modo liviano)
-  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1') return;
+  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1') return;
   const today = new Date().toISOString().split('T')[0];
   ['c_fecha','d_fecha','f_alta','f_art','r_fecha','e_fecha','p_fecha'].forEach(id => {
     const el = document.getElementById(id);
@@ -3161,6 +3380,8 @@ function loadLocalData() {
   ropaEntregasData = storedRE ? JSON.parse(storedRE) : [];
   const storedRI = localStorage.getItem('rrhh_ropa_ingresos');
   ropaIngresosData = storedRI ? JSON.parse(storedRI) : [];
+  const storedLimp = localStorage.getItem('rrhh_limpieza');
+  limpiezaData = storedLimp ? JSON.parse(storedLimp) : [];
   const storedCfg = localStorage.getItem('rrhh_config');
   if (storedCfg) configData = JSON.parse(storedCfg);
   renderAll();
@@ -3247,6 +3468,7 @@ async function loadAllData() {
   pinesData = data.pines || [];
   ropaEntregasData = data.ropaEntregas || [];
   ropaIngresosData = data.ropaIngresos || [];
+  limpiezaData = data.limpieza || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   setSyncStatus('ok', 'Conectado a Google Sheets');
   renderAll();
@@ -3277,6 +3499,7 @@ function renderAll() {
   renderRopaEntregas();
   renderRopaIngresos();
   populateRopaEmpleadoSelect();
+  renderLimpieza();
 }
 
 function renderStats() {
@@ -6091,6 +6314,7 @@ function showTab(tab) {
   if (tab === 'reclamos') renderReclamos();
   if (tab === 'encuestas') renderEncuestas();
   if (tab === 'fichadas') { renderFichadasRegistros(); populateFichEmpleadoFilter(); }
+  if (tab === 'limpieza') renderLimpieza();
   if (tab === 'ropa') { renderRopaConsulta(); renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); }
 }
 
@@ -6748,7 +6972,7 @@ async function saveConfigForm() {
     hora_entrada_tarde_lunes: document.getElementById('cfg_hora_tarde_lunes').value || ''
   };
   if (!data.depot_lat || !data.depot_lng) { showToast('Definí la latitud y longitud del depósito', 'error'); return; }
-  configData = data;
+  configData = { ...configData, ...data };
   if (API_URL) {
     const res = await apiCall('saveConfig', { data });
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
@@ -7129,6 +7353,452 @@ async function kioskMarcar(tipo, turno) {
 
 function showKioskResult(type, msg) {
   document.getElementById('kioskResultBox').innerHTML = msg ? `<div class="kiosk-result ${type}">${msg}</div>` : '';
+}
+
+// ═══════════════════════════════════════════════════
+// LIMPIEZA — cronograma, panel de administración y enlace móvil
+// ═══════════════════════════════════════════════════
+const LIMP_DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const LIMP_MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const LIMP_INICIO_DEFAULT = '2026-09-28';
+// dias: 1=Lunes ... 5=Viernes. freq: 'q' = quincenal (lunes, semanas alternas), 'm' = mensual (primer lunes del mes)
+const LIMP_PLAN = [
+  { id:'L01', act:'Baños', sector:'BAÑOS', tipo:'PERIÓDICA', dias:[1,2,3,4,5] },
+  { id:'L02', act:'Cocina', sector:'COCINA', tipo:'PERIÓDICA', dias:[1,2,3,4,5] },
+  { id:'L03', act:'Oficinas administrativas', sector:'OFICINAS', tipo:'PERIÓDICA', dias:[1,2,3,4,5] },
+  { id:'L04', act:'Trapeo de todo el galpón', sector:'DEPOSITO', tipo:'QUINCENAL', dias:[1], freq:'q' },
+  { id:'L05', act:'Ventanales de oficina', sector:'OFICINAS', tipo:'QUINCENAL', dias:[1], freq:'q' },
+  { id:'L06', act:'Sacar telas de arañas', sector:'DEPOSITO', tipo:'INTERDIARIA', dias:[1,3,5] },
+  { id:'L07', act:'Limpieza de portones', sector:'DEPOSITO', tipo:'QUINCENAL', dias:[1], freq:'q' },
+  { id:'L08', act:'Limpieza cámara de chocolates', sector:'DEPOSITO', tipo:'PERIÓDICA', dias:[1,2,3,4,5] },
+  { id:'L09', act:'Limpieza cámara de helados', sector:'DEPOSITO', tipo:'BISEMANAL', dias:[2,4] },
+  { id:'L10', act:'Limpieza sector de motores y combustibles', sector:'SALA DE MOTORES', tipo:'SEMANAL', dias:[3] },
+  { id:'L11', act:'Limpieza de playa de camiones - CARGA', sector:'INGRESO CAMIONES', tipo:'PERIÓDICA', dias:[1,2,3,4,5] },
+  { id:'L12', act:'Limpieza de playa de camiones - DESCARGA', sector:'INGRESO CAMIONES', tipo:'BISEMANAL', dias:[1,5] },
+  { id:'L13', act:'Correr, mover y limpiar pallets', sector:'DEPOSITO', tipo:'QUINCENAL', dias:[1], freq:'q' },
+  { id:'L14', act:'Limpiar y vaciar cestos y cajas de residuos', sector:'DEPOSITO', tipo:'PERIÓDICA', dias:[1,2,3,4,5] },
+  { id:'L15', act:'Limpieza de alcantarillas', sector:'EXTERIOR', tipo:'QUINCENAL', dias:[1], freq:'q' },
+  { id:'L16', act:'Limpieza de ventanales de exterior', sector:'EXTERIOR', tipo:'MENSUAL', dias:[1], freq:'m' },
+  { id:'L17', act:'Acomodar taller de herramientas', sector:'TALLER', tipo:'SEMANAL', dias:[3] },
+  { id:'L18', act:'Salón de reuniones', sector:'OFICINAS', tipo:'SEMANAL', dias:[4] },
+  { id:'L19', act:'Sector merchandising', sector:'OFICINAS', tipo:'SEMANAL', dias:[5] },
+  { id:'L20', act:'Freezer y carameleras', sector:'OFICINAS', tipo:'INTERDIARIA', dias:[1,3,5] }
+];
+
+let limpiezaData = [];
+let limpIdx = {};
+let limpSemLunes = '';
+let limpManualCtx = null;
+
+function limpPad(n) { return n < 10 ? '0' + n : '' + n; }
+function limpFechaStr(d) { return d.getFullYear() + '-' + limpPad(d.getMonth() + 1) + '-' + limpPad(d.getDate()); }
+function limpParse(s) { const p = s.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+function limpHoy() { return limpFechaStr(new Date()); }
+function limpLunes(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function limpSumar(fechaStr, n) { const d = limpParse(fechaStr); d.setDate(d.getDate() + n); return limpFechaStr(d); }
+function limpEsc(t) { return (t == null ? '' : String(t)).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c])); }
+function limpFmtLargo(f) { const d = limpParse(f); return LIMP_DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + LIMP_MESES[d.getMonth()] + ' de ' + d.getFullYear(); }
+function limpFmtCorto(f) { const p = f.split('-'); return p[2] + '/' + p[1]; }
+function limpInicio(cfg) { const s = cfg && cfg.limpieza_inicio; return (s && /^\d{4}-\d{2}-\d{2}$/.test(s)) ? s : LIMP_INICIO_DEFAULT; }
+function limpEsFeriado(f, cfg) { return ((cfg && cfg.limpieza_feriados) || '').split(/[\s,;]+/).indexOf(f) !== -1; }
+
+// Tareas que corresponden en una fecha según el cronograma
+function limpTareasDelDia(fechaStr, cfg) {
+  const d = limpParse(fechaStr), dow = d.getDay();
+  if (dow === 0 || dow === 6 || limpEsFeriado(fechaStr, cfg)) return [];
+  const semanas = Math.round((limpLunes(d) - limpLunes(limpParse(limpInicio(cfg)))) / 604800000);
+  const semanaQuincenal = ((semanas % 2) + 2) % 2 === 0;
+  return LIMP_PLAN.filter(t => {
+    if (t.dias.indexOf(dow) === -1) return false;
+    if (t.freq === 'q') return semanaQuincenal;
+    if (t.freq === 'm') return d.getDate() <= 7;
+    return true;
+  });
+}
+function limpMotivoSinTareas(f, cfg) {
+  const dow = limpParse(f).getDay();
+  if (dow === 0 || dow === 6) return 'Fin de semana: no hay tareas programadas.';
+  if (limpEsFeriado(f, cfg)) return 'Día marcado como sin limpieza (feriado).';
+  return 'No hay tareas programadas.';
+}
+
+function limpBuildIndex() {
+  limpIdx = {};
+  limpiezaData.forEach(r => { limpIdx[r.fecha + '|' + r.tarea_id] = r; });
+}
+function limpEstado(f, t, hoy, ini) {
+  const reg = limpIdx[f + '|' + t.id];
+  if (reg) return { k: 'ok', reg };
+  if (f > hoy) return { k: 'futuro' };
+  if (f === hoy) return { k: 'pend' };
+  if (f < ini) return { k: 'sin' };
+  return { k: 'no' };
+}
+function limpTipoBadge(tipo) {
+  const c = tipo === 'PERIÓDICA' ? 'badge-orange' : (tipo === 'QUINCENAL' || tipo === 'MENSUAL') ? 'badge-green' : 'badge-yellow';
+  return `<span class="badge ${c}">${tipo}</span>`;
+}
+
+// Cumplimiento sobre días cerrados (antes de hoy y desde la fecha de inicio)
+function limpCalc(fechas) {
+  const hoy = limpHoy(), ini = limpInicio(configData);
+  const porTarea = {}, porDia = {};
+  let prog = 0, ok = 0;
+  fechas.forEach(f => {
+    if (f >= hoy || f < ini) return;
+    const tareas = limpTareasDelDia(f, configData);
+    if (!tareas.length) return;
+    let dp = 0, dok = 0, horas = [];
+    tareas.forEach(t => {
+      const e = limpIdx[f + '|' + t.id];
+      porTarea[t.id] = porTarea[t.id] || { prog: 0, ok: 0 };
+      porTarea[t.id].prog++; dp++; prog++;
+      if (e) { porTarea[t.id].ok++; dok++; ok++; if (e.hora) horas.push(e.hora); }
+    });
+    horas.sort();
+    porDia[f] = { prog: dp, ok: dok, primera: horas[0] || '', ultima: horas[horas.length - 1] || '' };
+  });
+  return { prog, ok, porTarea, porDia };
+}
+function limpPct(ok, prog) { return prog ? Math.round(ok * 100 / prog) : null; }
+function limpPctBar(p) {
+  if (p === null) return '<span style="color:var(--text3)">—</span>';
+  return `<div style="display:flex;align-items:center"><div class="limp-pbar" style="flex:1"><div style="width:${p}%"></div></div><b style="margin-left:8px;font-size:12px">${p}%</b></div>`;
+}
+function limpStatCard(icon, val, label) {
+  return `<div class="stat-card"><span class="stat-icon">${icon}</span><div><div class="stat-value">${val}</div><div class="stat-label">${label}</div></div></div>`;
+}
+
+function showLimpTab(tab, el) {
+  document.querySelectorAll('#panel-limpieza .dtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#panel-limpieza .dpanel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('lpanel-' + tab).classList.add('active');
+  renderLimpieza();
+}
+
+function renderLimpieza() {
+  if (!document.getElementById('limpDiaFecha')) return;
+  limpBuildIndex();
+  if (!limpSemLunes) limpSemLunes = limpFechaStr(limpLunes(new Date()));
+  const mes = document.getElementById('limpResMes');
+  if (!mes.value) mes.value = limpHoy().slice(0, 7);
+  renderLimpDia();
+  renderLimpSemana();
+  renderLimpResumen();
+  renderLimpConfig();
+}
+
+// ── Vista por día ──
+function limpMoverDia(n) {
+  const inp = document.getElementById('limpDiaFecha');
+  inp.value = limpSumar(inp.value || limpHoy(), n);
+  renderLimpDia();
+}
+function limpIrHoy() { document.getElementById('limpDiaFecha').value = limpHoy(); renderLimpDia(); }
+
+function renderLimpDia() {
+  const inp = document.getElementById('limpDiaFecha');
+  if (!inp.value) inp.value = limpHoy();
+  const f = inp.value, hoy = limpHoy(), ini = limpInicio(configData);
+  document.getElementById('limpDiaNombre').textContent = limpFmtLargo(f) + (f === hoy ? ' (hoy)' : '');
+  const tareas = limpTareasDelDia(f, configData);
+  const tb = document.getElementById('limpDiaTbody');
+  if (!tareas.length) {
+    document.getElementById('limpDiaStats').innerHTML = '';
+    tb.innerHTML = `<tr><td colspan="8"><div class="empty-state" style="padding:30px"><p>${limpMotivoSinTareas(f, configData)}</p></div></td></tr>`;
+    return;
+  }
+  let ok = 0, no = 0, pend = 0;
+  tb.innerHTML = tareas.map(t => {
+    const e = limpEstado(f, t, hoy, ini);
+    let badge, hora = '—', quien = '—', obs = '', acc = '';
+    if (e.k === 'ok') {
+      ok++; badge = '<span class="badge badge-green">✅ Cumplida</span>';
+      hora = `<b>${limpEsc(e.reg.hora)}</b>`; quien = limpEsc(e.reg.empleado);
+      obs = limpEsc(e.reg.observaciones) + (e.reg.origen === 'Manual' ? ' <span class="badge badge-gray">manual</span>' : '');
+      acc = `<button class="btn btn-danger btn-sm" onclick="limpEliminar('${limpEsc(e.reg.__ID__)}')">🗑</button>`;
+    } else if (e.k === 'pend') {
+      pend++; badge = '<span class="badge badge-yellow">⏳ Pendiente</span>';
+      acc = `<button class="btn btn-secondary btn-sm" onclick="limpAbrirManual('${f}','${t.id}')">✓ Marcar</button>`;
+    } else if (e.k === 'no') {
+      no++; badge = '<span class="badge badge-red">❌ No cumplida</span>';
+      acc = `<button class="btn btn-secondary btn-sm" onclick="limpAbrirManual('${f}','${t.id}')">✓ Marcar</button>`;
+    } else if (e.k === 'sin') {
+      badge = '<span class="badge badge-gray">Sin seguimiento</span>';
+    } else {
+      pend++; badge = '<span class="badge badge-gray">Programada</span>';
+    }
+    return `<tr><td><b>${limpEsc(t.act)}</b></td><td>${limpEsc(t.sector)}</td><td>${limpTipoBadge(t.tipo)}</td><td>${badge}</td><td>${hora}</td><td>${quien}</td><td>${obs}</td><td>${acc}</td></tr>`;
+  }).join('');
+  const pct = Math.round(ok * 100 / tareas.length);
+  document.getElementById('limpDiaStats').innerHTML =
+    limpStatCard('📋', tareas.length, 'Programadas') + limpStatCard('✅', ok, 'Cumplidas') +
+    limpStatCard(f < hoy ? '❌' : '⏳', f < hoy ? no : pend, f < hoy ? 'No cumplidas' : 'Pendientes') +
+    limpStatCard('📈', pct + '%', 'Cumplimiento');
+}
+
+// ── Vista semanal (igual a la planilla del procedimiento) ──
+function limpMoverSemana(n) { limpSemLunes = limpSumar(limpSemLunes, 7 * n); renderLimpSemana(); }
+function limpSemHoy() { limpSemLunes = limpFechaStr(limpLunes(new Date())); renderLimpSemana(); }
+
+function renderLimpSemana() {
+  if (!limpSemLunes) return;
+  const hoy = limpHoy(), ini = limpInicio(configData);
+  const fechas = [0, 1, 2, 3, 4].map(i => limpSumar(limpSemLunes, i));
+  document.getElementById('limpSemTitulo').textContent = 'Semana del ' + limpFmtCorto(fechas[0]) + ' al ' + limpFmtCorto(fechas[4]) + ' de ' + fechas[4].slice(0, 4);
+  document.getElementById('limpSemThead').innerHTML = '<tr><th>Actividad</th><th>Sector</th><th>Tipo</th>' +
+    fechas.map((f, i) => `<th style="text-align:center">${LIMP_DIAS[i + 1].toUpperCase()}<br><span style="font-weight:400">${limpFmtCorto(f)}</span></th>`).join('') + '</tr>';
+  const delDia = fechas.map(f => limpTareasDelDia(f, configData));
+  let ok = 0, no = 0, prog = 0;
+  document.getElementById('limpSemTbody').innerHTML = LIMP_PLAN.map(t => {
+    let hayAlguna = false;
+    const celdas = fechas.map((f, i) => {
+      if (!delDia[i].some(x => x.id === t.id)) return '<td></td>';
+      hayAlguna = true;
+      const e = limpEstado(f, t, hoy, ini);
+      if (e.k === 'ok') { ok++; prog++; return `<td class="limp-cell ok" title="${limpEsc(e.reg.empleado)}">✅ ${limpEsc(e.reg.hora)}</td>`; }
+      if (e.k === 'no') { no++; prog++; return '<td class="limp-cell no">❌ No</td>'; }
+      if (e.k === 'pend') return '<td class="limp-cell pend">⏳</td>';
+      if (e.k === 'sin') return '<td class="limp-cell fut">—</td>';
+      return '<td class="limp-cell fut">○</td>';
+    });
+    if (!hayAlguna && t.freq) celdas[0] = '<td colspan="5" style="text-align:center;font-size:11px;color:var(--text3)">no corresponde esta semana</td>', celdas.length = 1;
+    return `<tr><td><b>${limpEsc(t.act)}</b></td><td>${limpEsc(t.sector)}</td><td>${limpTipoBadge(t.tipo)}</td>${celdas.join('')}</tr>`;
+  }).join('');
+  // Las tareas de hoy que ya se cumplieron también cuentan como cumplidas en la semana en curso
+  const c = limpCalc(fechas);
+  document.getElementById('limpSemStats').innerHTML =
+    limpStatCard('✅', c.ok, 'Cumplidas (días cerrados)') + limpStatCard('❌', c.prog - c.ok, 'No cumplidas') +
+    limpStatCard('📈', (limpPct(c.ok, c.prog) === null ? '—' : limpPct(c.ok, c.prog) + '%'), 'Cumplimiento semanal');
+}
+
+// ── Cumplimiento mensual ──
+function limpFechasDelMes(ym) {
+  const [y, m] = ym.split('-').map(Number), out = [];
+  for (let d = new Date(y, m - 1, 1); d.getMonth() === m - 1; d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 0 && d.getDay() !== 6) out.push(limpFechaStr(d));
+  }
+  return out;
+}
+function renderLimpResumen() {
+  const ym = document.getElementById('limpResMes').value || limpHoy().slice(0, 7);
+  const fechas = limpFechasDelMes(ym);
+  const c = limpCalc(fechas);
+  const p = limpPct(c.ok, c.prog);
+  document.getElementById('limpResStats').innerHTML =
+    limpStatCard('📋', c.prog, 'Programadas (cerradas)') + limpStatCard('✅', c.ok, 'Cumplidas') +
+    limpStatCard('❌', c.prog - c.ok, 'No cumplidas') + limpStatCard('📈', p === null ? '—' : p + '%', 'Cumplimiento');
+  document.getElementById('limpResTareas').innerHTML = LIMP_PLAN.filter(t => c.porTarea[t.id]).map(t => {
+    const x = c.porTarea[t.id];
+    return `<tr><td><b>${limpEsc(t.act)}</b></td><td>${limpTipoBadge(t.tipo)}</td><td style="text-align:center">${x.prog}</td><td style="text-align:center">${x.ok}</td><td style="text-align:center">${x.prog - x.ok}</td><td style="min-width:150px">${limpPctBar(limpPct(x.ok, x.prog))}</td></tr>`;
+  }).join('') || '<tr><td colspan="6"><div class="empty-state" style="padding:24px"><p>Todavía no hay días cerrados en este mes.</p></div></td></tr>';
+  document.getElementById('limpResDias').innerHTML = Object.keys(c.porDia).sort().map(f => {
+    const x = c.porDia[f];
+    return `<tr><td>${limpFmtCorto(f)}</td><td>${LIMP_DIAS[limpParse(f).getDay()]}</td><td style="text-align:center">${x.prog}</td><td style="text-align:center">${x.ok}</td><td style="min-width:150px">${limpPctBar(limpPct(x.ok, x.prog))}</td><td>${x.primera ? x.primera + ' – ' + x.ultima : '—'}</td></tr>`;
+  }).join('');
+}
+
+function exportLimpiezaCSV() {
+  const ym = document.getElementById('limpResMes').value || limpHoy().slice(0, 7);
+  const hoy = limpHoy(), ini = limpInicio(configData);
+  const rows = [['Fecha','Día','Actividad','Sector','Tipo','Estado','Hora','Empleado','Observación']];
+  limpFechasDelMes(ym).forEach(f => {
+    limpTareasDelDia(f, configData).forEach(t => {
+      const e = limpEstado(f, t, hoy, ini);
+      const est = { ok: 'Cumplida', no: 'No cumplida', pend: 'Pendiente', futuro: 'Programada', sin: 'Sin seguimiento' }[e.k];
+      rows.push([f, LIMP_DIAS[limpParse(f).getDay()], t.act, t.sector, t.tipo, est, e.reg ? e.reg.hora : '', e.reg ? e.reg.empleado : '', e.reg ? e.reg.observaciones : '']);
+    });
+  });
+  const csv = rows.map(r => r.map(v => `"${(v || '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'limpieza_' + ym + '.csv';
+  a.click();
+  showToast('CSV exportado ✓', 'success');
+}
+
+// ── Enlace y calendario ──
+function renderLimpConfig() {
+  const a = document.getElementById('limpCfgInicio'), b = document.getElementById('limpCfgFeriados');
+  if (a && document.activeElement !== a) a.value = limpInicio(configData);
+  if (b && document.activeElement !== b) b.value = (configData && configData.limpieza_feriados) || '';
+}
+async function limpGuardarCalendario() {
+  const v = document.getElementById('limpCfgInicio').value;
+  if (!v) { showToast('Indicá la fecha de inicio', 'error'); return; }
+  const lista = document.getElementById('limpCfgFeriados').value.split(/[\s,;]+/).filter(Boolean);
+  if (lista.some(x => !/^\d{4}-\d{2}-\d{2}$/.test(x))) { showToast('Los feriados deben tener formato AAAA-MM-DD', 'error'); return; }
+  const data = { limpieza_inicio: limpFechaStr(limpLunes(limpParse(v))), limpieza_feriados: lista.join(',') };
+  if (API_URL) {
+    const res = await apiCall('saveConfig', { data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  configData = { ...configData, ...data };
+  if (!API_URL) localStorage.setItem('rrhh_config', JSON.stringify(configData));
+  showToast('Calendario guardado ✓', 'success');
+  renderLimpieza();
+}
+function generarLinkLimpieza() {
+  if (!API_URL) { showToast('Primero configurá la conexión a Google Sheets (⚙️ Configuración arriba)', 'error'); return; }
+  const url = location.origin + location.pathname + '?limpieza=1&api=' + encodeURIComponent(API_URL);
+  const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(url);
+  document.getElementById('linkLimpiezaBox').innerHTML = `
+    <div class="link-box"><span style="flex:1">${url}</span><button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText('${url}');showToast('Enlace copiado ✓','success')">📋 Copiar</button></div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <img src="${qr}" alt="QR de limpieza" style="border-radius:10px;border:1px solid var(--border)">
+      <p style="font-size:12px;color:var(--text3);max-width:260px;">Guardalo en la pantalla de inicio del celular del empleado de Maestranza, o imprimí el QR.</p>
+    </div>`;
+}
+
+// ── Marcar / eliminar desde el panel (admin) ──
+function limpEmpleadosMaestranza() {
+  const m = employees.filter(e => /maestranza/i.test(e.sector || ''));
+  return (m.length ? m : employees).map(e => e.nombre).sort();
+}
+function limpAbrirManual(f, id) {
+  const t = LIMP_PLAN.find(x => x.id === id);
+  limpManualCtx = { fecha: f, tarea_id: id };
+  document.getElementById('lm_tarea').value = t.act;
+  document.getElementById('lm_fecha').value = limpFmtLargo(f);
+  const n = new Date();
+  document.getElementById('lm_hora').value = limpPad(n.getHours()) + ':' + limpPad(n.getMinutes());
+  document.getElementById('lm_emp').innerHTML = limpEmpleadosMaestranza().map(x => `<option value="${limpEsc(x)}">${limpEsc(x)}</option>`).join('');
+  document.getElementById('lm_obs').value = '';
+  document.getElementById('limpManualModal').classList.add('open');
+}
+function limpCerrarManual() { document.getElementById('limpManualModal').classList.remove('open'); }
+async function limpGuardarManual() {
+  const t = LIMP_PLAN.find(x => x.id === limpManualCtx.tarea_id);
+  const data = {
+    fecha: limpManualCtx.fecha, tarea_id: t.id, tarea: t.act, sector: t.sector,
+    empleado: document.getElementById('lm_emp').value, hora: document.getElementById('lm_hora').value,
+    observaciones: document.getElementById('lm_obs').value.trim(), origen: 'Manual'
+  };
+  if (!data.empleado || !data.hora) { showToast('Completá empleado y hora', 'error'); return; }
+  let id = 'local_' + Date.now();
+  if (API_URL) {
+    const res = await apiCall('addLimpiezaManual', { data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+    id = res.id;
+  }
+  limpiezaData.push({ __ID__: id, ...data });
+  if (!API_URL) localStorage.setItem('rrhh_limpieza', JSON.stringify(limpiezaData));
+  limpCerrarManual();
+  showToast('Tarea registrada ✓', 'success');
+  renderLimpieza();
+}
+async function limpEliminar(id) {
+  if (!confirm('¿Eliminar este registro? La tarea volverá a figurar como pendiente / no cumplida.')) return;
+  if (API_URL) {
+    const res = await apiCall('deleteLimpieza', { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  limpiezaData = limpiezaData.filter(r => String(r.__ID__) !== String(id));
+  if (!API_URL) localStorage.setItem('rrhh_limpieza', JSON.stringify(limpiezaData));
+  showToast('Registro eliminado', 'success');
+  renderLimpieza();
+}
+
+// ═══ ENLACE MÓVIL DEL EMPLEADO (?limpieza=1) ═══
+let limpApiUrl = '', limpEmpleados = [], limpConfig = {}, limpRegistros = [], limpFecha = '', limpPendienteId = null, limpEnviando = false;
+
+async function initLimpiezaPublic(apiUrl) {
+  document.getElementById('limpScreen').classList.add('active');
+  limpApiUrl = apiUrl || '';
+  kioskApiUrl = limpApiUrl; // se reutiliza el cliente HTTP del fichaje
+  if (!limpApiUrl) { limpMsg('error', 'Enlace sin configurar. Pedile al administrador que genere el enlace desde Configuración.'); return; }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) limpRefrescar(); });
+  await limpRefrescar();
+}
+function limpMsg(type, msg) {
+  document.getElementById('limpMsg').innerHTML = msg ? `<div class="kiosk-result ${type}">${msg}</div>` : '';
+}
+async function limpRefrescar() {
+  limpFecha = limpFechaStr(new Date());
+  const res = await kioskApiCall('getLimpiezaKiosk', { data: { fecha: limpFecha } });
+  if (!res || res.error) { limpMsg('error', 'No se pudo conectar con el sistema. Revisá la señal y tocá Actualizar.'); return; }
+  limpEmpleados = res.employees || [];
+  limpConfig = res.config || {};
+  limpRegistros = res.registros || [];
+  const sel = document.getElementById('limpEmpleado');
+  if (sel.options.length <= 1) {
+    const maes = limpEmpleados.filter(e => /maestranza/i.test(e.sector || ''));
+    const lista = (maes.length ? maes : limpEmpleados).slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
+    sel.innerHTML = '<option value="">Seleccioná tu nombre...</option>' + lista.map(e => `<option value="${limpEsc(e.nombre)}">${limpEsc(e.nombre)}</option>`).join('');
+    let guardado = '';
+    try { guardado = localStorage.getItem('limp_emp') || ''; } catch (e) {}
+    if (lista.length === 1) sel.value = lista[0].nombre;
+    else if (guardado && lista.some(e => e.nombre === guardado)) sel.value = guardado;
+  }
+  limpMsg('', '');
+  limpRender();
+}
+function limpOnEmpleado() {
+  try { localStorage.setItem('limp_emp', document.getElementById('limpEmpleado').value); } catch (e) {}
+}
+function limpRender() {
+  document.getElementById('limpFechaTxt').textContent = limpFmtLargo(limpFecha);
+  const tareas = limpTareasDelDia(limpFecha, limpConfig);
+  const lista = document.getElementById('limpLista'), prog = document.getElementById('limpProgreso');
+  if (!tareas.length) {
+    prog.innerHTML = '';
+    lista.innerHTML = `<div class="kiosk-result ok">${limpMotivoSinTareas(limpFecha, limpConfig)}</div>`;
+    return;
+  }
+  const hechas = {};
+  limpRegistros.forEach(r => { hechas[r.tarea_id] = r; });
+  const nHechas = tareas.filter(t => hechas[t.id]).length;
+  const pct = Math.round(nHechas * 100 / tareas.length);
+  prog.innerHTML = `<div style="font-size:13px;font-weight:700">${nHechas} de ${tareas.length} tareas realizadas</div><div class="limp-bar"><div style="width:${pct}%"></div></div>` +
+    (nHechas === tareas.length ? '<div class="kiosk-result ok" style="margin-top:10px">🎉 ¡Completaste todas las tareas de hoy!</div>' : '');
+  const pend = tareas.filter(t => !hechas[t.id]), hechasL = tareas.filter(t => hechas[t.id]);
+  lista.innerHTML = pend.map(t => `<div class="limp-item"><div class="limp-txt"><b>${limpEsc(t.act)}</b><span>${limpEsc(t.sector)} · ${t.tipo}</span></div><button class="limp-btn" onclick="limpAbrir('${t.id}')">✓ Hecho</button></div>`).join('') +
+    hechasL.map(t => `<div class="limp-item done"><div class="limp-txt"><b>${limpEsc(t.act)}</b><span>${limpEsc(t.sector)} · ${t.tipo}</span></div><div class="limp-hora">✅ ${limpEsc(hechas[t.id].hora)}</div></div>`).join('');
+}
+function limpAbrir(id) {
+  const emp = document.getElementById('limpEmpleado').value;
+  if (!emp) { limpMsg('error', 'Primero seleccioná tu nombre.'); window.scrollTo(0, 0); return; }
+  const t = LIMP_PLAN.find(x => x.id === id);
+  limpPendienteId = id;
+  document.getElementById('limpConfTarea').textContent = t.act;
+  document.getElementById('limpObs').value = '';
+  const e = limpEmpleados.find(x => x.nombre === emp);
+  const pin = document.getElementById('limpPin');
+  pin.value = ''; pin.style.display = (e && e.tienePin) ? 'block' : 'none';
+  document.getElementById('limpConfErr').innerHTML = '';
+  document.getElementById('limpConfirm').classList.add('open');
+}
+function limpCerrar() { document.getElementById('limpConfirm').classList.remove('open'); limpEnviando = false; document.getElementById('limpConfBtn').disabled = false; }
+function limpConfErr(msg) { document.getElementById('limpConfErr').innerHTML = `<div class="kiosk-result error" style="margin-top:10px">${msg}</div>`; }
+
+async function limpConfirmar() {
+  if (limpEnviando) return;
+  const emp = document.getElementById('limpEmpleado').value;
+  const t = LIMP_PLAN.find(x => x.id === limpPendienteId);
+  const e = limpEmpleados.find(x => x.nombre === emp);
+  const pin = document.getElementById('limpPin').value;
+  if (e && e.tienePin && !/^\d{4}$/.test(pin)) { limpConfErr('Ingresá tu PIN de 4 dígitos.'); return; }
+  const now = new Date();
+  const fecha = limpFechaStr(now);
+  if (fecha !== limpFecha) { limpCerrar(); await limpRefrescar(); limpMsg('warn', 'Cambió el día. Se actualizó la lista de tareas.'); return; }
+  limpEnviando = true;
+  document.getElementById('limpConfBtn').disabled = true;
+  const hora = limpPad(now.getHours()) + ':' + limpPad(now.getMinutes());
+  const res = await kioskApiCall('addLimpieza', { data: {
+    empleado: emp, tarea_id: t.id, tarea: t.act, sector: t.sector, fecha, hora,
+    pin: pin || '', observaciones: document.getElementById('limpObs').value.trim()
+  } });
+  if (!res || res.error) {
+    limpEnviando = false; document.getElementById('limpConfBtn').disabled = false;
+    if (res && /ya fue registrada/i.test(res.error)) { limpCerrar(); await limpRefrescar(); return; }
+    limpConfErr('Error: ' + ((res && res.error) || 'no se pudo registrar. Reintentá.'));
+    return;
+  }
+  limpRegistros.push({ tarea_id: t.id, hora, empleado: emp });
+  limpCerrar();
+  limpRender();
+  limpMsg('ok', `✅ ${limpEsc(t.act)} registrada a las ${hora}.`);
 }
 
 // ─── VACACIONES: VISTA PÚBLICA DE SOLO CONSULTA (link para celular) ───
