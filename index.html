@@ -607,6 +607,8 @@
   .limp-cell.no { background: rgba(239,68,68,0.12); color: #b91c1c; }
   .limp-cell.pend { background: rgba(245,158,11,0.14); color: #b45309; }
   .limp-cell.fut { color: var(--text3); }
+  .limp-item.extra { background: rgba(108,71,255,0.07); border-color: rgba(108,71,255,0.30); }
+  .limp-extra-btn { width: 100%; margin-top: 8px; padding: 14px; border: 2px dashed var(--accent); border-radius: 12px; background: transparent; color: var(--accent); font-weight: 700; font-size: 15px; }
   .limp-pbar { height: 8px; background: var(--surface2); border-radius: 5px; overflow: hidden; min-width: 80px; }
   .limp-pbar div { height: 100%; background: var(--success); }
 </style>
@@ -1417,6 +1419,7 @@
             <tbody id="limpDiaTbody"></tbody>
           </table>
         </div>
+        <div id="limpDiaExtras"></div>
       </div>
 
       <div class="dpanel" id="lpanel-semana">
@@ -1539,6 +1542,12 @@
     </div>
     <div id="limpProgreso"></div>
     <div id="limpLista"></div>
+    <div id="limpExtraBox" style="margin-top:18px">
+      <div style="font-size:13px;font-weight:700">➕ Actividad extra (fuera de cronograma)</div>
+      <p style="font-size:11px;color:var(--text3);margin-top:2px">Si hiciste algo que no figura en las tareas de hoy, anotalo acá.</p>
+      <button class="limp-extra-btn" onclick="limpAbrirExtra()">➕ Agregar actividad extra</button>
+      <div id="limpExtraLista"></div>
+    </div>
     <div id="limpMsg"></div>
     <button class="kiosk-btn" style="background:var(--surface2);color:var(--text2)" onclick="limpRefrescar()">↻ Actualizar</button>
   </div>
@@ -1552,6 +1561,21 @@
     <div id="limpConfErr"></div>
     <button class="kiosk-btn entrada" id="limpConfBtn" style="width:100%;margin-top:12px" onclick="limpConfirmar()">✅ Confirmar</button>
     <button class="kiosk-btn" style="width:100%;margin-top:8px;background:var(--surface2);color:var(--text2)" onclick="limpCerrar()">Cancelar</button>
+  </div>
+</div>
+
+<div class="limp-overlay" id="limpExtraOv">
+  <div class="limp-sheet">
+    <h3 style="font-size:17px">➕ Actividad extra</h3>
+    <p style="font-size:12px;color:var(--text3);margin-top:4px">Algo que hiciste por fuera del cronograma.</p>
+    <input type="text" id="limpExtraDesc" maxlength="120" placeholder="¿Qué hiciste? Ej: Limpieza debajo de palets pasillo 1">
+    <input type="text" id="limpExtraLugar" maxlength="60" placeholder="Lugar / sector (opcional)">
+    <label style="display:block;font-size:12px;font-weight:600;color:var(--text3);margin-top:10px">Hora</label>
+    <input type="time" id="limpExtraHora" style="margin-top:4px">
+    <input type="password" id="limpExtraPin" inputmode="numeric" maxlength="4" placeholder="PIN" style="display:none">
+    <div id="limpExtraErr"></div>
+    <button class="kiosk-btn entrada" id="limpExtraBtn" style="width:100%;margin-top:12px" onclick="limpGuardarExtra()">✅ Guardar actividad</button>
+    <button class="kiosk-btn" style="width:100%;margin-top:8px;background:var(--surface2);color:var(--text2)" onclick="limpCerrarExtra()">Cancelar</button>
   </div>
 </div>
 
@@ -3073,7 +3097,7 @@ function getLimpiezaKiosk(data) {
   });
   var lSheet = getOrCreateSheet('LIMPIEZA', LIMPIEZA_HEADERS);
   var registros = sheetToJson(lSheet).filter(function(r){ return r.fecha === fecha; }).map(function(r) {
-    return { tarea_id: r.tarea_id, hora: r.hora, empleado: r.empleado };
+    return { tarea_id: r.tarea_id, hora: r.hora, empleado: r.empleado, tarea: r.tarea, sector: r.sector, observaciones: r.observaciones };
   });
   var cfg = getConfig();
   return { fecha: fecha, employees: employees, registros: registros,
@@ -7502,6 +7526,7 @@ function renderLimpDia() {
   if (!inp.value) inp.value = limpHoy();
   const f = inp.value, hoy = limpHoy(), ini = limpInicio(configData);
   document.getElementById('limpDiaNombre').textContent = limpFmtLargo(f) + (f === hoy ? ' (hoy)' : '');
+  renderLimpDiaExtras(f);
   const tareas = limpTareasDelDia(f, configData);
   const tb = document.getElementById('limpDiaTbody');
   if (!tareas.length) {
@@ -7538,6 +7563,21 @@ function renderLimpDia() {
     limpStatCard('📈', pct + '%', 'Cumplimiento');
 }
 
+// ── Actividades extra (fuera de cronograma): se guardan en LIMPIEZA con tarea_id que empieza con 'EX' ──
+function limpEsExtra(r) { return r && String(r.tarea_id || '').indexOf('EX') === 0; }
+function limpExtrasDe(f) { return limpiezaData.filter(r => limpEsExtra(r) && r.fecha === f).sort((a, b) => String(a.hora).localeCompare(String(b.hora))); }
+function renderLimpDiaExtras(f) {
+  const box = document.getElementById('limpDiaExtras');
+  if (!box) return;
+  const ex = limpExtrasDe(f);
+  if (!ex.length) { box.innerHTML = ''; return; }
+  box.innerHTML = `<h3 style="font-size:14px;margin:18px 0 8px">➕ Actividades extra (fuera de cronograma) — ${ex.length}</h3>
+    <div class="table-wrap" style="flex:none;max-height:none"><table>
+      <thead><tr><th>Actividad</th><th>Lugar / sector</th><th>Hora</th><th>Realizada por</th><th>Acciones</th></tr></thead>
+      <tbody>${ex.map(r => `<tr><td><b>${limpEsc(r.tarea)}</b> <span class="badge badge-purple">extra</span></td><td>${limpEsc(r.sector)}</td><td><b>${limpEsc(r.hora)}</b></td><td>${limpEsc(r.empleado)}</td><td><button class="btn btn-danger btn-sm" onclick="limpEliminar('${limpEsc(r.__ID__)}', true)">🗑</button></td></tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
 // ── Vista semanal (igual a la planilla del procedimiento) ──
 function limpMoverSemana(n) { limpSemLunes = limpSumar(limpSemLunes, 7 * n); renderLimpSemana(); }
 function limpSemHoy() { limpSemLunes = limpFechaStr(limpLunes(new Date())); renderLimpSemana(); }
@@ -7570,7 +7610,8 @@ function renderLimpSemana() {
   const c = limpCalc(fechas);
   document.getElementById('limpSemStats').innerHTML =
     limpStatCard('✅', c.ok, 'Cumplidas (días cerrados)') + limpStatCard('❌', c.prog - c.ok, 'No cumplidas') +
-    limpStatCard('📈', (limpPct(c.ok, c.prog) === null ? '—' : limpPct(c.ok, c.prog) + '%'), 'Cumplimiento semanal');
+    limpStatCard('📈', (limpPct(c.ok, c.prog) === null ? '—' : limpPct(c.ok, c.prog) + '%'), 'Cumplimiento semanal') +
+    limpStatCard('➕', fechas.reduce((n, f) => n + limpExtrasDe(f).length, 0), 'Actividades extra');
 }
 
 // ── Cumplimiento mensual ──
@@ -7588,7 +7629,8 @@ function renderLimpResumen() {
   const p = limpPct(c.ok, c.prog);
   document.getElementById('limpResStats').innerHTML =
     limpStatCard('📋', c.prog, 'Programadas (cerradas)') + limpStatCard('✅', c.ok, 'Cumplidas') +
-    limpStatCard('❌', c.prog - c.ok, 'No cumplidas') + limpStatCard('📈', p === null ? '—' : p + '%', 'Cumplimiento');
+    limpStatCard('❌', c.prog - c.ok, 'No cumplidas') + limpStatCard('📈', p === null ? '—' : p + '%', 'Cumplimiento') +
+    limpStatCard('➕', fechas.reduce((n, f) => n + limpExtrasDe(f).length, 0), 'Actividades extra');
   document.getElementById('limpResTareas').innerHTML = LIMP_PLAN.filter(t => c.porTarea[t.id]).map(t => {
     const x = c.porTarea[t.id];
     return `<tr><td><b>${limpEsc(t.act)}</b></td><td>${limpTipoBadge(t.tipo)}</td><td style="text-align:center">${x.prog}</td><td style="text-align:center">${x.ok}</td><td style="text-align:center">${x.prog - x.ok}</td><td style="min-width:150px">${limpPctBar(limpPct(x.ok, x.prog))}</td></tr>`;
@@ -7609,6 +7651,9 @@ function exportLimpiezaCSV() {
       const est = { ok: 'Cumplida', no: 'No cumplida', pend: 'Pendiente', futuro: 'Programada', sin: 'Sin seguimiento' }[e.k];
       rows.push([f, LIMP_DIAS[limpParse(f).getDay()], t.act, t.sector, t.tipo, est, e.reg ? e.reg.hora : '', e.reg ? e.reg.empleado : '', e.reg ? e.reg.observaciones : '']);
     });
+  });
+  limpiezaData.filter(r => limpEsExtra(r) && String(r.fecha).slice(0, 7) === ym).sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora)).forEach(r => {
+    rows.push([r.fecha, LIMP_DIAS[limpParse(r.fecha).getDay()], r.tarea, r.sector, 'EXTRA', 'Extra (fuera de cronograma)', r.hora, r.empleado, r.observaciones]);
   });
   const csv = rows.map(r => r.map(v => `"${(v || '').toString().replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
@@ -7688,8 +7733,8 @@ async function limpGuardarManual() {
   showToast('Tarea registrada ✓', 'success');
   renderLimpieza();
 }
-async function limpEliminar(id) {
-  if (!confirm('¿Eliminar este registro? La tarea volverá a figurar como pendiente / no cumplida.')) return;
+async function limpEliminar(id, extra) {
+  if (!confirm(extra ? '¿Eliminar esta actividad extra?' : '¿Eliminar este registro? La tarea volverá a figurar como pendiente / no cumplida.')) return;
   if (API_URL) {
     const res = await apiCall('deleteLimpieza', { id });
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
@@ -7737,7 +7782,13 @@ async function limpRefrescar() {
 function limpOnEmpleado() {
   try { localStorage.setItem('limp_emp', document.getElementById('limpEmpleado').value); } catch (e) {}
 }
+function limpRenderExtras() {
+  const ex = limpRegistros.filter(limpEsExtra).sort((a, b) => String(a.hora).localeCompare(String(b.hora)));
+  document.getElementById('limpExtraLista').innerHTML = ex.map(r =>
+    `<div class="limp-item extra"><div class="limp-txt"><b>${limpEsc(r.tarea || 'Actividad extra')}</b><span>${limpEsc(r.sector || 'Extra')} · EXTRA</span></div><div class="limp-hora">✅ ${limpEsc(r.hora)}</div></div>`).join('');
+}
 function limpRender() {
+  limpRenderExtras();
   document.getElementById('limpFechaTxt').textContent = limpFmtLargo(limpFecha);
   const tareas = limpTareasDelDia(limpFecha, limpConfig);
   const lista = document.getElementById('limpLista'), prog = document.getElementById('limpProgreso');
@@ -7799,6 +7850,56 @@ async function limpConfirmar() {
   limpCerrar();
   limpRender();
   limpMsg('ok', `✅ ${limpEsc(t.act)} registrada a las ${hora}.`);
+}
+
+// ── Actividad extra desde el celular ──
+let limpExtraEnviando = false;
+function limpAbrirExtra() {
+  const emp = document.getElementById('limpEmpleado').value;
+  if (!emp) { limpMsg('error', 'Primero seleccioná tu nombre.'); window.scrollTo(0, 0); return; }
+  const e = limpEmpleados.find(x => x.nombre === emp);
+  const n = new Date();
+  document.getElementById('limpExtraDesc').value = '';
+  document.getElementById('limpExtraLugar').value = '';
+  document.getElementById('limpExtraHora').value = limpPad(n.getHours()) + ':' + limpPad(n.getMinutes());
+  const pin = document.getElementById('limpExtraPin');
+  pin.value = ''; pin.style.display = (e && e.tienePin) ? 'block' : 'none';
+  document.getElementById('limpExtraErr').innerHTML = '';
+  document.getElementById('limpExtraOv').classList.add('open');
+}
+function limpCerrarExtra() {
+  document.getElementById('limpExtraOv').classList.remove('open');
+  limpExtraEnviando = false;
+  document.getElementById('limpExtraBtn').disabled = false;
+}
+function limpExtraErr(msg) { document.getElementById('limpExtraErr').innerHTML = `<div class="kiosk-result error" style="margin-top:10px">${msg}</div>`; }
+async function limpGuardarExtra() {
+  if (limpExtraEnviando) return;
+  const emp = document.getElementById('limpEmpleado').value;
+  const e = limpEmpleados.find(x => x.nombre === emp);
+  const desc = document.getElementById('limpExtraDesc').value.trim();
+  const lugar = document.getElementById('limpExtraLugar').value.trim();
+  const hora = document.getElementById('limpExtraHora').value;
+  const pin = document.getElementById('limpExtraPin').value;
+  if (desc.length < 3) { limpExtraErr('Escribí qué actividad hiciste.'); return; }
+  if (!hora) { limpExtraErr('Indicá la hora.'); return; }
+  if (e && e.tienePin && !/^\d{4}$/.test(pin)) { limpExtraErr('Ingresá tu PIN de 4 dígitos.'); return; }
+  const fecha = limpFechaStr(new Date());
+  if (fecha !== limpFecha) { limpCerrarExtra(); await limpRefrescar(); limpMsg('warn', 'Cambió el día. Se actualizó la lista.'); return; }
+  limpExtraEnviando = true;
+  document.getElementById('limpExtraBtn').disabled = true;
+  const tarea_id = 'EX' + Date.now();
+  const data = { empleado: emp, tarea_id, tarea: desc, sector: lugar || 'EXTRA', fecha, hora, pin: pin || '', observaciones: '' };
+  const res = await kioskApiCall('addLimpieza', { data });
+  if (!res || res.error) {
+    limpExtraEnviando = false; document.getElementById('limpExtraBtn').disabled = false;
+    limpExtraErr('Error: ' + ((res && res.error) || 'no se pudo registrar. Reintentá.'));
+    return;
+  }
+  limpRegistros.push({ tarea_id, tarea: desc, sector: data.sector, hora, empleado: emp });
+  limpCerrarExtra();
+  limpRenderExtras();
+  limpMsg('ok', `✅ Actividad extra registrada a las ${hora}.`);
 }
 
 // ─── VACACIONES: VISTA PÚBLICA DE SOLO CONSULTA (link para celular) ───
