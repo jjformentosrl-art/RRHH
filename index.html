@@ -513,6 +513,33 @@
   .kiosk-result.error { background: rgba(239,68,68,0.12); color: #b91c1c; }
   .kiosk-last { font-size: 12px; color: var(--text3); text-align: center; }
 
+  /* VACACIONES — VISTA GANTT (enlace público) */
+  .gantt-card { width: 100%; max-width: 1120px; margin: 0 auto; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; overflow: hidden; }
+  .gantt-headbar { display: flex; align-items: center; gap: 12px; padding: 18px 20px 4px; }
+  .gantt-headbar .icon { font-size: 26px; }
+  .gantt-headbar h2 { font-size: 16px; font-weight: 700; }
+  .gantt-headbar p { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .gantt-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid var(--border); }
+  .gantt-search { display: flex; align-items: center; gap: 6px; background: var(--surface2); border-radius: 10px; padding: 8px 12px; flex: 1; min-width: 160px; }
+  .gantt-search input { border: none; background: transparent; outline: none; font-size: 13px; width: 100%; color: var(--text); font-family: inherit; }
+  .gantt-toolbar select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); font-size: 13px; background: var(--surface); color: var(--text); font-family: inherit; }
+  .gantt-monthnav { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; margin-left: auto; }
+  .gantt-navbtn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 15px; line-height: 1; color: var(--text2); }
+  .gantt-scroll { overflow-x: auto; }
+  .gantt-row { display: flex; }
+  .gantt-namecell { position: sticky; left: 0; z-index: 2; width: 190px; min-width: 190px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: var(--surface); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 46px; }
+  .gantt-namecell.head { background: var(--surface2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text3); height: 34px; }
+  .gantt-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--surface2); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+  .gantt-track { position: relative; border-bottom: 1px solid var(--border); height: 46px; background-repeat: repeat-x; background-position: left top; }
+  .gantt-trackhead { display: flex; height: 34px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .gantt-daylabel { flex-shrink: 0; text-align: center; font-size: 10.5px; color: var(--text3); display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--border); }
+  .gantt-daylabel.today span { background: var(--accent); color: #fff; border-radius: 50%; width: 19px; height: 19px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .gantt-sectorrow { background: var(--surface2); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text2); padding: 7px 14px; border-bottom: 1px solid var(--border); position: sticky; left: 0; display: inline-block; min-width: 100%; }
+  .gantt-bar { position: absolute; top: 8px; height: 30px; border-radius: 8px; background: linear-gradient(90deg,#ec1361,#f0429b); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(236,19,97,0.35); }
+  .gantt-empty { padding: 30px 20px; text-align: center; color: var(--text3); font-size: 13px; }
+  html.lite .gantt-card { max-width: none; border-radius: 14px; }
+  html.lite .gantt-bar { box-shadow: none; }
+
   /* LOGIN / AUTENTICACIÓN */
   .auth-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
   .auth-status .auth-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text3); }
@@ -580,9 +607,8 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     font-variant-numeric: tabular-nums;
   }
-  html.lite #vacPubList { gap: 0 !important; }
-  html.lite #vacPubList > .kiosk-card + .kiosk-card { margin-top: 12px; }
-  html.lite #vacPubList .kiosk-card > * + * { margin-top: 6px; }
+  html.lite .gantt-namecell, html.lite .gantt-sectorrow { background: var(--surface); }
+  html.lite .gantt-namecell.head, html.lite .gantt-trackhead, html.lite .gantt-sectorrow { background: var(--surface2); }
 
   /* ═══ LIMPIEZA ═══ */
   #limpScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
@@ -1244,7 +1270,7 @@
 
         <div class="config-card">
           <h3>🏖️ Enlace de sólo consulta de vacaciones</h3>
-          <p class="hint">Enlace de sólo lectura para abrir desde el celular. Muestra únicamente quién está de vacaciones, en qué puesto y si hay superposición de fechas dentro de un mismo puesto — sin exponer datos personales del resto del sistema (DNI, teléfono, etc). Ideal para decidir rápido si autorizar o no un pedido de vacaciones.</p>
+          <p class="hint">Enlace de sólo lectura con vista tipo diagrama de Gantt: cada empleado en una fila, agrupados por puesto, con barras mostrando sus períodos de vacaciones día a día del mes elegido. Incluye buscador, filtro por puesto y navegación entre meses — sin exponer datos personales del resto del sistema (DNI, teléfono, etc). Ideal para decidir rápido si autorizar o no un pedido de vacaciones.</p>
           <button class="btn btn-secondary btn-sm" onclick="generarLinkVacaciones()">🔗 Generar enlace</button>
           <div id="linkVacacionesBox" style="margin-top:12px;"></div>
         </div>
@@ -1604,24 +1630,32 @@
 
 <!-- VACACIONES: PANTALLA DE SOLO CONSULTA PARA CELULAR -->
 <div id="vacScreen">
-  <div class="kiosk-card" style="max-width:480px">
-    <div class="kiosk-title">
+  <div class="gantt-card">
+    <div class="gantt-headbar">
       <div class="icon">🏖️</div>
-      <h2>Vacaciones del Personal</h2>
-      <p>Consulta de sólo lectura — quién está de vacaciones y en qué puesto</p>
+      <div>
+        <h2>Vacaciones del Personal</h2>
+        <p>Consulta de sólo lectura — dividido por puesto</p>
+      </div>
     </div>
-    <div class="kiosk-field">
-      <label>Mes a consultar</label>
-      <input type="month" id="vacPubMes" onchange="renderVacPublicView()">
-    </div>
-    <div class="kiosk-field">
-      <label>Puesto</label>
-      <select id="vacPubSector" onchange="renderVacPublicView()">
+    <div class="gantt-toolbar">
+      <div class="gantt-search">
+        <span>🔍</span>
+        <input type="text" id="vacGanttSearch" placeholder="Buscar empleados..." oninput="renderVacGanttView()">
+      </div>
+      <select id="vacPubSector" onchange="renderVacGanttView()">
         <option value="">Todos los puestos</option>
       </select>
+      <div class="gantt-monthnav">
+        <button class="gantt-navbtn" onclick="vacGanttShiftMonth(-1)" aria-label="Mes anterior">‹</button>
+        <span id="vacGanttMonthLabel">—</span>
+        <button class="gantt-navbtn" onclick="vacGanttShiftMonth(1)" aria-label="Mes siguiente">›</button>
+      </div>
     </div>
-    <div class="kiosk-result" id="vacPubStatus" style="display:none"></div>
-    <div id="vacPubList" style="display:flex;flex-direction:column;gap:12px"></div>
+    <div class="kiosk-result" id="vacPubStatus" style="display:none;margin:14px 20px"></div>
+    <div class="gantt-scroll" id="vacGanttScroll">
+      <div id="vacGanttBody"></div>
+    </div>
   </div>
 </div>
 
@@ -7902,14 +7936,16 @@ async function limpGuardarExtra() {
   limpMsg('ok', `✅ Actividad extra registrada a las ${hora}.`);
 }
 
-// ─── VACACIONES: VISTA PÚBLICA DE SOLO CONSULTA (link para celular) ───
+// ─── VACACIONES: VISTA PÚBLICA DE SOLO CONSULTA (link para celular) — GANTT ───
 let vacPubApiUrl = '';
 let vacPubEmployees = [];
 let vacPubVacaciones = [];
+let vacGanttDate = new Date(); // primer día del mes que se está mostrando
 
 async function initVacPublic(apiUrl) {
   document.getElementById('vacScreen').classList.add('active');
   vacPubApiUrl = apiUrl || '';
+  vacGanttDate = new Date(vacGanttDate.getFullYear(), vacGanttDate.getMonth(), 1);
   const status = document.getElementById('vacPubStatus');
   if (!vacPubApiUrl) {
     status.style.display = 'block';
@@ -7917,9 +7953,12 @@ async function initVacPublic(apiUrl) {
     status.textContent = 'Enlace sin configurar. Pedile al administrador que genere el enlace desde Configuración.';
     return;
   }
-  const now = new Date();
-  document.getElementById('vacPubMes').value = now.toISOString().slice(0, 7);
   await loadVacPublicData();
+}
+
+function vacGanttShiftMonth(delta) {
+  vacGanttDate = new Date(vacGanttDate.getFullYear(), vacGanttDate.getMonth() + delta, 1);
+  renderVacGanttView();
 }
 
 async function vacPubApiCall(action, body = {}) {
@@ -7963,74 +8002,96 @@ async function loadVacPublicData() {
   const sel = document.getElementById('vacPubSector');
   sel.innerHTML = '<option value="">Todos los puestos</option>' + sectors.map(s => `<option value="${s}">${s}</option>`).join('');
 
-  renderVacPublicView();
+  renderVacGanttView();
 }
 
-function renderVacPublicView() {
-  const mesVal = document.getElementById('vacPubMes').value;
-  const sectorFilter = document.getElementById('vacPubSector').value;
-  const list = document.getElementById('vacPubList');
-  if (!mesVal) { list.innerHTML = ''; return; }
+function vacGanttIniciales(nombre) {
+  return (nombre || '').trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+}
 
-  const [year, month] = mesVal.split('-').map(Number);
-  const mesStart = new Date(year, month - 1, 1);
-  const mesEnd = new Date(year, month, 0);
-  const mesStartStr = mesStart.toISOString().split('T')[0];
-  const mesEndStr = mesEnd.toISOString().split('T')[0];
+function renderVacGanttView() {
+  const body = document.getElementById('vacGanttBody');
+  if (!body) return;
 
-  let periods = vacPubVacaciones.filter(v => (v.fecha_desde || '') <= mesEndStr && (v.fecha_hasta || '') >= mesStartStr);
-  if (sectorFilter) {
-    periods = periods.filter(v => {
-      const e = vacPubEmployees.find(e => e.nombre === v.empleado);
-      return e && e.sector === sectorFilter;
-    });
+  const DAY_W = 34;
+  const q = (document.getElementById('vacGanttSearch')?.value || '').toLowerCase().trim();
+  const sectorFilter = document.getElementById('vacPubSector')?.value || '';
+
+  const year = vacGanttDate.getFullYear();
+  const month = vacGanttDate.getMonth(); // 0-indexado
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const mesStart = new Date(year, month, 1);
+  const mesEnd = new Date(year, month + 1, 0);
+  const mNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  document.getElementById('vacGanttMonthLabel').textContent = `${mNames[month]} ${year}`;
+
+  const hoy = new Date();
+  const esMesActual = hoy.getFullYear() === year && hoy.getMonth() === month;
+  const hoyDia = hoy.getDate();
+
+  // Fila de cabecera con los días del mes
+  let dayLabels = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const isToday = esMesActual && d === hoyDia;
+    dayLabels += `<div class="gantt-daylabel${isToday ? ' today' : ''}" style="width:${DAY_W}px">${isToday ? `<span>${d}</span>` : d}</div>`;
   }
+  let html = `<div class="gantt-row">
+    <div class="gantt-namecell head">Empleados</div>
+    <div class="gantt-trackhead" style="width:${daysInMonth * DAY_W}px">${dayLabels}</div>
+  </div>`;
 
-  if (!periods.length) {
-    list.innerHTML = `<div class="empty-state"><div class="icon">📅</div><p>Nadie de vacaciones en el período seleccionado</p></div>`;
+  // Filtrar empleados por búsqueda y puesto
+  let emps = vacPubEmployees.filter(e => {
+    const matchQ = !q || (e.nombre || '').toLowerCase().includes(q);
+    const matchS = !sectorFilter || e.sector === sectorFilter;
+    return matchQ && matchS;
+  });
+
+  if (!emps.length) {
+    body.innerHTML = html + `<div class="gantt-empty">🔍 Sin resultados para la búsqueda</div>`;
     return;
   }
 
+  // Agrupar por puesto/sector
   const bySector = {};
-  periods.forEach(v => {
-    const e = vacPubEmployees.find(e => e.nombre === v.empleado);
-    const sector = e ? (e.sector || 'Sin puesto') : 'Sin puesto';
+  emps.forEach(e => {
+    const sector = e.sector || 'Sin puesto';
     if (!bySector[sector]) bySector[sector] = [];
-    bySector[sector].push(v);
+    bySector[sector].push(e);
   });
 
-  list.innerHTML = Object.entries(bySector).sort((a, b) => a[0].localeCompare(b[0])).map(([sector, periodos]) => {
-    let overlap = false;
-    for (let i = 0; i < periodos.length && !overlap; i++) {
-      for (let j = i + 1; j < periodos.length; j++) {
-        if (periodos[i].empleado !== periodos[j].empleado &&
-            periodos[i].fecha_desde <= periodos[j].fecha_hasta &&
-            periodos[i].fecha_hasta >= periodos[j].fecha_desde) {
-          overlap = true;
-          break;
-        }
-      }
-    }
-    const overlapHTML = overlap
-      ? `<div style="background:rgba(239,68,68,0.1);color:#b91c1c;padding:8px 10px;border-radius:8px;font-size:12px;font-weight:600;margin-bottom:8px">⚠️ Hay superposición de fechas entre empleados de este puesto</div>`
-      : '';
+  const gridBg = `repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent ${DAY_W}px)`;
 
-    const rows = periodos.sort((a, b) => (a.fecha_desde || '').localeCompare(b.fecha_desde || '')).map(v => `
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div>
-          <div style="font-weight:600;font-size:13px">${v.empleado}</div>
-          <div style="font-size:12px;color:var(--text3)">${fmtDate(v.fecha_desde)} → ${fmtDate(v.fecha_hasta)}</div>
-          ${v.observaciones ? `<div style="font-size:11px;color:var(--text3);font-style:italic;margin-top:2px">${v.observaciones}</div>` : ''}
-        </div>
-        <span class="badge badge-blue" style="white-space:nowrap">${v.dias || 0} días</span>
-      </div>`).join('');
+  Object.keys(bySector).sort().forEach(sector => {
+    const lista = bySector[sector].sort((a, b) => a.nombre.localeCompare(b.nombre));
+    html += `<div class="gantt-row"><div class="gantt-sectorrow">🧑‍💼 ${sector} · ${lista.length}</div></div>`;
 
-    return `<div class="kiosk-card" style="padding:16px 18px;gap:6px;max-width:none">
-      <div style="font-weight:700;font-size:14px;margin-bottom:2px">🧑‍💼 ${sector}</div>
-      ${overlapHTML}
-      ${rows}
-    </div>`;
-  }).join('');
+    lista.forEach(emp => {
+      const periodos = vacPubVacaciones.filter(v =>
+        v.empleado === emp.nombre &&
+        (v.fecha_desde || '') <= mesEnd.toISOString().split('T')[0] &&
+        (v.fecha_hasta || '') >= mesStart.toISOString().split('T')[0]
+      );
+
+      let bars = '';
+      periodos.forEach(v => {
+        const vd = new Date(v.fecha_desde + 'T00:00:00');
+        const vh = new Date(v.fecha_hasta + 'T00:00:00');
+        const dStart = vd < mesStart ? 1 : vd.getDate();
+        const dEnd   = vh > mesEnd ? daysInMonth : vh.getDate();
+        const left  = (dStart - 1) * DAY_W;
+        const width = (dEnd - dStart + 1) * DAY_W;
+        bars += `<div class="gantt-bar" style="left:${left}px;width:${width - 4}px" title="${v.empleado}: ${fmtDate(v.fecha_desde)} → ${fmtDate(v.fecha_hasta)} (${v.dias || 0} días)${v.observaciones ? ' — ' + v.observaciones : ''}">Vacaciones</div>`;
+      });
+
+      html += `<div class="gantt-row">
+        <div class="gantt-namecell"><span class="gantt-avatar">${vacGanttIniciales(emp.nombre)}</span><span>${emp.nombre}</span></div>
+        <div class="gantt-track" style="width:${daysInMonth * DAY_W}px;background-image:${gridBg}">${bars}</div>
+      </div>`;
+    });
+  });
+
+  body.innerHTML = html;
 }
 </script>
 </body>
