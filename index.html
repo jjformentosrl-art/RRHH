@@ -525,20 +525,43 @@
   .gantt-toolbar select { padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border); font-size: 13px; background: var(--surface); color: var(--text); font-family: inherit; }
   .gantt-monthnav { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; margin-left: auto; }
   .gantt-navbtn { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); cursor: pointer; font-size: 15px; line-height: 1; color: var(--text2); }
-  .gantt-scroll { overflow-x: auto; }
+  .gantt-scroll {
+    overflow: auto;
+    max-height: 66vh;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .gantt-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+  .gantt-scroll::-webkit-scrollbar-track { background: transparent; }
+  .gantt-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
   .gantt-row { display: flex; }
   .gantt-namecell { position: sticky; left: 0; z-index: 2; width: 190px; min-width: 190px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: var(--surface); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 46px; }
-  .gantt-namecell.head { background: var(--surface2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text3); height: 34px; }
+  .gantt-namecell.head { position: sticky; top: 0; left: 0; z-index: 4; background: var(--surface2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text3); height: 34px; }
   .gantt-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--surface2); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; }
   .gantt-track { position: relative; border-bottom: 1px solid var(--border); height: 46px; background-repeat: repeat-x; background-position: left top; }
-  .gantt-trackhead { display: flex; height: 34px; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .gantt-trackhead { position: sticky; top: 0; z-index: 3; display: flex; height: 34px; background: var(--surface2); border-bottom: 1px solid var(--border); }
   .gantt-daylabel { flex-shrink: 0; text-align: center; font-size: 10.5px; color: var(--text3); display: flex; align-items: center; justify-content: center; border-right: 1px solid var(--border); }
+  .gantt-daylabel.weekend { background: rgba(236,19,97,0.09); color: #ec1361; font-weight: 700; }
   .gantt-daylabel.today span { background: var(--accent); color: #fff; border-radius: 50%; width: 19px; height: 19px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
   .gantt-sectorrow { background: var(--surface2); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text2); padding: 7px 14px; border-bottom: 1px solid var(--border); position: sticky; left: 0; display: inline-block; min-width: 100%; }
   .gantt-bar { position: absolute; top: 8px; height: 30px; border-radius: 8px; background: linear-gradient(90deg,#ec1361,#f0429b); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(236,19,97,0.35); }
   .gantt-empty { padding: 30px 20px; text-align: center; color: var(--text3); font-size: 13px; }
   html.lite .gantt-card { max-width: none; border-radius: 14px; }
   html.lite .gantt-bar { box-shadow: none; }
+  html.lite .gantt-scroll { max-height: 62vh; }
+  @media (max-width: 520px) {
+    .gantt-headbar { padding: 14px 14px 2px; gap: 10px; }
+    .gantt-headbar .icon { font-size: 22px; }
+    .gantt-headbar h2 { font-size: 14px; }
+    .gantt-headbar p { font-size: 11.5px; }
+    .gantt-toolbar { padding: 10px 14px; gap: 8px; }
+    .gantt-namecell { width: 126px; min-width: 126px; padding: 0 8px; gap: 6px; font-size: 11.5px; }
+    .gantt-namecell.head { font-size: 9.5px; }
+    .gantt-avatar { width: 20px; height: 20px; font-size: 9px; }
+    .gantt-scroll { max-height: 60vh; }
+  }
 
   /* LOGIN / AUTENTICACIÓN */
   .auth-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
@@ -8029,11 +8052,15 @@ function renderVacGanttView() {
   const esMesActual = hoy.getFullYear() === year && hoy.getMonth() === month;
   const hoyDia = hoy.getDate();
 
-  // Fila de cabecera con los días del mes
+  // Fila de cabecera con los días del mes (marcando sábados y domingos)
   let dayLabels = '';
+  const weekendCols = [];
   for (let d = 1; d <= daysInMonth; d++) {
     const isToday = esMesActual && d === hoyDia;
-    dayLabels += `<div class="gantt-daylabel${isToday ? ' today' : ''}" style="width:${DAY_W}px">${isToday ? `<span>${d}</span>` : d}</div>`;
+    const dow = new Date(year, month, d).getDay(); // 0=domingo, 6=sábado
+    const isWeekend = dow === 0 || dow === 6;
+    if (isWeekend) weekendCols.push(d);
+    dayLabels += `<div class="gantt-daylabel${isToday ? ' today' : ''}${isWeekend ? ' weekend' : ''}" style="width:${DAY_W}px">${isToday ? `<span>${d}</span>` : d}</div>`;
   }
   let html = `<div class="gantt-row">
     <div class="gantt-namecell head">Empleados</div>
@@ -8060,7 +8087,22 @@ function renderVacGanttView() {
     bySector[sector].push(e);
   });
 
-  const gridBg = `repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent ${DAY_W}px)`;
+  // Fondo de cada fila: líneas de grilla + una franja tenue en cada columna de sábado/domingo
+  // (así se ve rápido dónde corta cada semana, igual que en el header de días)
+  const bgImages = [`repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent ${DAY_W}px)`];
+  const bgPos = ['left top'];
+  const bgSize = ['auto'];
+  const bgRepeat = ['repeat'];
+  weekendCols.forEach(d => {
+    bgImages.push('linear-gradient(rgba(236,19,97,0.07), rgba(236,19,97,0.07))');
+    bgPos.push(`${(d - 1) * DAY_W}px 0`);
+    bgSize.push(`${DAY_W}px 100%`);
+    bgRepeat.push('no-repeat');
+  });
+  const gridBg = bgImages.join(',');
+  const gridPos = bgPos.join(',');
+  const gridSize = bgSize.join(',');
+  const gridRepeat = bgRepeat.join(',');
 
   Object.keys(bySector).sort().forEach(sector => {
     const lista = bySector[sector].sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -8086,7 +8128,7 @@ function renderVacGanttView() {
 
       html += `<div class="gantt-row">
         <div class="gantt-namecell"><span class="gantt-avatar">${vacGanttIniciales(emp.nombre)}</span><span>${emp.nombre}</span></div>
-        <div class="gantt-track" style="width:${daysInMonth * DAY_W}px;background-image:${gridBg}">${bars}</div>
+        <div class="gantt-track" style="width:${daysInMonth * DAY_W}px;background-image:${gridBg};background-position:${gridPos};background-size:${gridSize};background-repeat:${gridRepeat}">${bars}</div>
       </div>`;
     });
   });
