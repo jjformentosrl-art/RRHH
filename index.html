@@ -1140,9 +1140,9 @@
             <option value="">Todos los empleados</option>
           </select>
           <select class="filter-select" id="fichTipoFilter" onchange="renderFichadasRegistros()">
-            <option value="">Entrada y Salida</option>
-            <option value="Entrada">Solo Entradas</option>
-            <option value="Salida">Solo Salidas</option>
+            <option value="">Todas las fichadas</option>
+            <option value="EntradaMañana">Entradas Mañana</option>
+            <option value="EntradaTarde">Entradas Tarde</option>
           </select>
           <input type="date" class="filter-select" id="fichDesde" onchange="renderFichadasRegistros()" style="max-width:150px">
           <input type="date" class="filter-select" id="fichHasta" onchange="renderFichadasRegistros()" style="max-width:150px">
@@ -4718,7 +4718,24 @@ function populateVacEmpleadoSelect() {
 
 function populateEmployeeSelects() {
   const opts = '<option value="">Seleccionar empleado...</option>' + employees.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
-  ['c_empleado','d_empleado','dist_empleado','r_empleado','p_responsable'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
+  ['c_empleado','r_empleado','p_responsable'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
+  populateDesempenoEmpleados();
+}
+
+// Desempeño: cada modal lista únicamente al personal de su puesto
+// (Depósito → sectores que contengan "DEPOSITO"; Distribución → "DISTRIBUCION").
+function populateDesempenoEmpleados() {
+  const sinTildes = t => (t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+  const armar = (selId, palabra) => {
+    const el = document.getElementById(selId);
+    if (!el) return;
+    const actual = el.value;
+    const nombres = employees.filter(e => sinTildes(e.sector).includes(palabra)).map(e => e.nombre).sort((a,b) => a.localeCompare(b));
+    el.innerHTML = '<option value="">Seleccionar empleado...</option>' + nombres.map(n => `<option value="${n}">${n}</option>`).join('');
+    if (actual && nombres.includes(actual)) el.value = actual;
+  };
+  armar('d_empleado', 'DEPOSITO');
+  armar('dist_empleado', 'DISTRIBUCION');
 }
 
 // ─── MODALS ────────────────────────────────────────
@@ -4836,6 +4853,7 @@ async function deleteConducta(id) {
 // DESEMPEÑO DEPÓSITO MODAL
 function openDepositoModal() {
   editingDesempenoId = null;
+  populateDesempenoEmpleados();
   const today = new Date().toISOString().substring(0, 7);
   document.getElementById('d_fecha').value = today;
   ['d_pedidos','d_lect_ok','d_lect_fail','d_tpedido','d_consolidados','d_tpickeo','d_errores','d_items'].forEach(id => {
@@ -4995,6 +5013,7 @@ function calcDistScore(d, allData) {
 }
 
 function openDistribucionModal() {
+  populateDesempenoEmpleados();
   const today = new Date().toISOString().substring(0, 7);
   document.getElementById('dist_fecha').value = today;
   ['dist_excesos_vel','dist_checklist_pct','dist_errores_caja','dist_nc_no_realizadas',
@@ -6405,7 +6424,8 @@ function getFichadasFiltered() {
   const soloProblemas = document.getElementById('fichSoloProblemas')?.checked;
   return [...fichadasData].filter(f => {
     if (emp && f.empleado !== emp) return false;
-    if (tipo && f.tipo !== tipo) return false;
+    if (tipo === 'EntradaMañana' && !(f.tipo === 'Entrada' && f.turno === 'Mañana')) return false;
+    if (tipo === 'EntradaTarde'  && !(f.tipo === 'Entrada' && f.turno === 'Tarde'))  return false;
     if (desde && f.fecha < desde) return false;
     if (hasta && f.fecha > hasta) return false;
     if (soloProblemas && !(f.tardanza === 'Sí' || f.dentro_geocerca === 'No')) return false;
