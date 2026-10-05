@@ -548,6 +548,13 @@
   .gantt-sectorrow { background: var(--surface2); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text2); padding: 7px 14px; border-bottom: 1px solid var(--border); position: sticky; left: 0; display: inline-block; min-width: 100%; }
   .gantt-bar { position: absolute; top: 8px; height: 30px; border-radius: 8px; background: linear-gradient(90deg,#ec1361,#f0429b); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 1px 3px rgba(236,19,97,0.35); }
   .gantt-empty { padding: 30px 20px; text-align: center; color: var(--text3); font-size: 13px; }
+  .gantt-bar.lic { background: linear-gradient(90deg,#0ea5e9,#38bdf8); box-shadow: 0 1px 3px rgba(14,165,233,0.35); }
+  .gantt-legend { display: flex; gap: 16px; flex-wrap: wrap; padding: 8px 20px; font-size: 12px; color: var(--text2); border-bottom: 1px solid var(--border); }
+  .gantt-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  .gantt-countrow { display: flex; height: 30px; background: var(--surface); border-bottom: 1px solid var(--border); }
+  .gantt-namecell.count { height: 30px; font-size: 11px; color: var(--text2); }
+  .gantt-daylabel.gantt-count { font-size: 11px; color: var(--text3); }
+  .gantt-daylabel.gantt-count.has { background: rgba(245,158,11,0.16); color: #b45309; font-weight: 700; }
   html.lite .gantt-card { max-width: none; border-radius: 14px; }
   html.lite .gantt-bar { box-shadow: none; }
   html.lite .gantt-scroll { max-height: 62vh; }
@@ -708,6 +715,7 @@
     <button class="tab" onclick="showTab('deposito')">🏆 Desempeño Depósito</button>
     <button class="tab" onclick="showTab('distribucion')">🚛 Desempeño Distribución</button>
     <button class="tab" onclick="showTab('vacaciones')">🏖️ Vacaciones</button>
+    <button class="tab" onclick="showTab('licencias')">🩺 Licencias Médicas</button>
     <button class="tab" onclick="showTab('reclamos')">📢 Reclamos Clientes</button>
     <button class="tab" onclick="showTab('encuestas')">😊 Satisfacción Clientes</button>
     <button class="tab" onclick="showTab('fichadas')">📍 Fichadas / Asistencia</button>
@@ -1022,6 +1030,38 @@
       </div>
     </div>
 
+    <!-- LICENCIAS MÉDICAS -->
+    <div class="panel" id="panel-licencias">
+      <div class="stats" id="licStats"></div>
+      <div class="toolbar">
+        <div class="search-box" style="flex:1">
+          <span>🔍</span>
+          <input type="text" id="licSearch" placeholder="Buscar por empleado o motivo..." oninput="renderLicencias()">
+        </div>
+        <select class="filter-select" id="licEmpFilter" onchange="renderLicencias()">
+          <option value="">Todos los empleados</option>
+        </select>
+        <input type="month" id="licMesFilter" class="filter-select" onchange="renderLicencias()" style="width:160px" title="Filtrar por mes">
+        <button class="btn btn-primary" onclick="openLicModal()">+ Registrar Licencia</button>
+        <button class="btn btn-secondary btn-sm" onclick="exportLicCSV()">⬇ CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Desde</th>
+              <th>Hasta</th>
+              <th>Días</th>
+              <th>Motivo</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="licTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- RECLAMOS CLIENTES -->
     <div class="panel" id="panel-reclamos">
 
@@ -1268,8 +1308,8 @@
         </div>
 
         <div class="config-card">
-          <h3>🏖️ Enlace de sólo consulta de vacaciones</h3>
-          <p class="hint">Enlace de sólo lectura con vista tipo diagrama de Gantt: cada empleado en una fila, agrupados por puesto, con barras mostrando sus períodos de vacaciones día a día del mes elegido. Incluye buscador, filtro por puesto y navegación entre meses — sin exponer datos personales del resto del sistema (DNI, teléfono, etc). Ideal para decidir rápido si autorizar o no un pedido de vacaciones.</p>
+          <h3>🏖️ Enlace de sólo consulta de vacaciones y licencias</h3>
+          <p class="hint">Enlace de sólo lectura con vista tipo diagrama de Gantt: cada empleado en una fila, agrupados por puesto, con barras mostrando sus períodos de vacaciones (rosa) y licencias médicas (celeste) día a día del mes elegido, más una fila que cuenta cuántas personas faltan cada día. De las licencias NO se muestra el motivo, sólo las fechas. Incluye buscador, filtro por puesto y navegación entre meses — sin exponer datos personales del resto del sistema (DNI, teléfono, etc). Ideal para decidir rápido si autorizar o no un pedido de vacaciones.</p>
           <button class="btn btn-secondary btn-sm" onclick="generarLinkVacaciones()">🔗 Generar enlace</button>
           <div id="linkVacacionesBox" style="margin-top:12px;"></div>
         </div>
@@ -1631,7 +1671,7 @@
     <div class="gantt-headbar">
       <div class="icon">🏖️</div>
       <div>
-        <h2>Vacaciones del Personal</h2>
+        <h2>Vacaciones y Licencias del Personal</h2>
         <p>Consulta de sólo lectura — dividido por puesto</p>
       </div>
     </div>
@@ -1648,6 +1688,10 @@
         <span id="vacGanttMonthLabel">—</span>
         <button class="gantt-navbtn" onclick="vacGanttShiftMonth(1)" aria-label="Mes siguiente">›</button>
       </div>
+    </div>
+    <div class="gantt-legend">
+      <span><i style="background:#ec1361"></i>Vacaciones</span>
+      <span><i style="background:#0ea5e9"></i>Licencia médica</span>
     </div>
     <div class="kiosk-result" id="vacPubStatus" style="display:none;margin:14px 20px"></div>
     <div class="gantt-scroll" id="vacGanttScroll">
@@ -1998,6 +2042,55 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeVacModal()">Cancelar</button>
       <button class="btn btn-primary" onclick="saveVacacion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- LICENCIAS MÉDICAS MODAL -->
+<div class="modal-overlay" id="licenciaModal">
+  <div class="modal" style="width:580px">
+    <div class="modal-header">
+      <span class="modal-title">🩺 Registrar Licencia Médica</span>
+      <button class="modal-close" onclick="closeLicModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Empleado *</label>
+          <select id="lic_empleado"></select>
+        </div>
+        <div class="form-group">
+          <label>Fecha Desde *</label>
+          <input type="date" id="lic_desde" oninput="calcLicDias()">
+        </div>
+        <div class="form-group">
+          <label>Fecha Hasta *</label>
+          <input type="date" id="lic_hasta" oninput="calcLicDias()">
+        </div>
+        <div class="form-group">
+          <label>Días de licencia (corridos)</label>
+          <input type="number" id="lic_dias" readonly placeholder="Se calcula solo" style="background:var(--bg);color:var(--accent);font-weight:700;font-family:'DM Mono',monospace">
+        </div>
+        <div class="form-group">
+          <label>Motivo *</label>
+          <input type="text" id="lic_motivo" list="licMotivosList" placeholder="Ej: Enfermedad, accidente, cirugía...">
+          <datalist id="licMotivosList">
+            <option value="Enfermedad"></option>
+            <option value="Accidente laboral"></option>
+            <option value="Accidente no laboral"></option>
+            <option value="Cirugía / post-operatorio"></option>
+            <option value="Cuidado de familiar enfermo"></option>
+            <option value="Control / estudio médico"></option>
+          </datalist>
+        </div>
+        <div style="grid-column:1/-1;background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.3);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--text2)">
+          ℹ️ Las licencias médicas se registran por separado: <strong>no suman ni restan días de vacaciones</strong>.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeLicModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveLicencia()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -2509,6 +2602,7 @@ const WRITE_ACTIONS = [
   'addFichadaManual','deleteFichada','updateFichada',
   'addExcepcion','deleteExcepcion',
   'addVacacion','deleteVacacion',
+  'addLicencia','deleteLicencia',
   'addRopaEntrega','deleteRopaEntrega',
   'addRopaIngreso','deleteRopaIngreso',
   'addLimpiezaManual','deleteLimpieza',
@@ -2676,7 +2770,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -2710,6 +2804,8 @@ function handleRequest(e) {
     else if (action === 'deleteExcepcion')     result = deleteRow('EXCEPCIONES', body.id);
     else if (action === 'addVacacion')         result = addRow('VACACIONES', body.data);
     else if (action === 'deleteVacacion')      result = deleteRow('VACACIONES', body.id);
+    else if (action === 'addLicencia')         result = addLicencia(body.data);
+    else if (action === 'deleteLicencia')      result = deleteRow('LICENCIAS', body.id);
     else if (action === 'addRopaEntrega')      result = addRow('ROPA_ENTREGAS', body.data);
     else if (action === 'deleteRopaEntrega')   result = deleteRow('ROPA_ENTREGAS', body.id);
     else if (action === 'addRopaIngreso')      result = addRow('ROPA_INGRESOS', body.data);
@@ -2760,6 +2856,7 @@ function getAllData() {
   var exSheet = getOrCreateSheet('EXCEPCIONES', excepcionesHeaders);
   var pinSheet = getOrCreateSheet('PINES',      pinesHeaders);
   var vSheet = getOrCreateSheet('VACACIONES',   vacacionesHeaders);
+  var licSheet = getOrCreateSheet('LICENCIAS', LICENCIAS_HEADERS);
   var reSheet = getOrCreateSheet('ROPA_ENTREGAS', ropaEntregasHeaders);
   var riSheet = getOrCreateSheet('ROPA_INGRESOS', ropaIngresosHeaders);
   var lmSheet = getOrCreateSheet('LIMPIEZA', LIMPIEZA_HEADERS);
@@ -2778,6 +2875,7 @@ function getAllData() {
     excepciones:  sheetToJson(exSheet),
     pines:        sheetToJson(pinSheet),
     vacaciones:   sheetToJson(vSheet),
+    licencias:    sheetToJson(licSheet),
     ropaEntregas: sheetToJson(reSheet),
     ropaIngresos: sheetToJson(riSheet),
     limpieza:     sheetToJson(lmSheet),
@@ -2931,6 +3029,13 @@ function getKioskData() {
   return { employees: employees, config: getConfig() };
 }
 
+// Licencias médicas: hoja propia, no interviene en el cálculo de vacaciones.
+var LICENCIAS_HEADERS = ['empleado','fecha_desde','fecha_hasta','dias','motivo'];
+function addLicencia(data) {
+  getOrCreateSheet('LICENCIAS', LICENCIAS_HEADERS);
+  return addRow('LICENCIAS', data);
+}
+
 // Vista pública de sólo consulta de vacaciones (para el enlace de celular).
 // Devuelve únicamente nombre+puesto de cada empleado y los períodos de
 // vacaciones, sin exponer DNI, teléfono, dirección ni el resto de los datos.
@@ -2943,7 +3048,11 @@ function getVacacionesPublicas() {
   var vacaciones = sheetToJson(vSheet).map(function(v) {
     return { empleado: v.empleado, fecha_desde: v.fecha_desde, fecha_hasta: v.fecha_hasta, dias: v.dias, observaciones: v.observaciones };
   });
-  return { employees: employees, vacaciones: vacaciones };
+  // De las licencias se publican sólo las fechas; el motivo (dato de salud) NO sale del sistema.
+  var licencias = sheetToJson(getOrCreateSheet('LICENCIAS', LICENCIAS_HEADERS)).map(function(l) {
+    return { empleado: l.empleado, fecha_desde: l.fecha_desde, fecha_hasta: l.fecha_hasta, dias: l.dias };
+  });
+  return { employees: employees, vacaciones: vacaciones, licencias: licencias };
 }
 
 function addFichada(data) {
@@ -3399,6 +3508,8 @@ function loadLocalData() {
   distribucionData = storedDist ? JSON.parse(storedDist) : [];
   const storedVac = localStorage.getItem('rrhh_vacaciones');
   vacacionesData = storedVac ? JSON.parse(storedVac) : [];
+  const storedLic = localStorage.getItem('rrhh_licencias');
+  licenciasData = storedLic ? JSON.parse(storedLic) : [];
   const storedR = localStorage.getItem('rrhh_reclamos');
   reclamosData = storedR ? JSON.parse(storedR) : [];
   const storedE = localStorage.getItem('rrhh_encuestas');
@@ -3494,6 +3605,7 @@ async function loadAllData() {
   depositoData = data.deposito || [];
   distribucionData = data.distribucion || [];
   vacacionesData = data.vacaciones || [];
+  licenciasData = data.licencias || [];
   reclamosData = data.reclamos || [];
   encuestasData = data.encuestas || [];
   planAccionData = data.planAccion || [];
@@ -3524,6 +3636,8 @@ function renderAll() {
   renderVacRegistros();
   renderVacStats();
   populateVacEmpleadoSelect();
+  populateLicEmpleadoSelect();
+  renderLicencias();
   renderReclamos();
   renderEncuestas();
   renderPlanAccion();
@@ -5823,6 +5937,182 @@ function exportVacCSV() {
 }
 // ─────────────────────────────────────────────────
 
+// ─── LICENCIAS MÉDICAS ────────────────────────────
+// Registro independiente: NO suma ni resta días de vacaciones
+// (no usa diasTomados() ni el saldo de vacaciones).
+let licenciasData = [];
+
+function licEsc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+function licPad(n) { return String(n).padStart(2, '0'); }
+function licHoyISO() {
+  const d = new Date();
+  return d.getFullYear() + '-' + licPad(d.getMonth() + 1) + '-' + licPad(d.getDate());
+}
+
+// Días corridos entre dos fechas, ambas incluidas
+function diasCorridos(desde, hasta) {
+  if (!desde || !hasta) return 0;
+  const d1 = new Date(desde + 'T00:00:00');
+  const d2 = new Date(hasta + 'T00:00:00');
+  if (d2 < d1) return 0;
+  return Math.round((d2 - d1) / 86400000) + 1;
+}
+
+function populateLicEmpleadoSelect() {
+  const sel = document.getElementById('lic_empleado');
+  if (sel) sel.innerHTML = '<option value="">Seleccionar empleado...</option>' +
+    employees.map(e => `<option value="${licEsc(e.nombre)}">${licEsc(e.nombre)}</option>`).join('');
+}
+
+function renderLicStats() {
+  const el = document.getElementById('licStats');
+  if (!el) return;
+  const hoy = licHoyISO();
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  const mesIni = `${y}-${licPad(m + 1)}-01`;
+  const mesFin = `${y}-${licPad(m + 1)}-${licPad(new Date(y, m + 1, 0).getDate())}`;
+  const enLicHoy = new Set(licenciasData
+    .filter(l => (l.fecha_desde || '') <= hoy && (l.fecha_hasta || '') >= hoy)
+    .map(l => l.empleado)).size;
+  const delMes = licenciasData.filter(l => (l.fecha_desde || '') <= mesFin && (l.fecha_hasta || '') >= mesIni).length;
+  const diasAnio = licenciasData
+    .filter(l => (l.fecha_desde || '').startsWith(String(y)))
+    .reduce((s, l) => s + (parseInt(l.dias) || 0), 0);
+  el.innerHTML = `
+    <div class="stat-card"><span class="stat-icon">🩺</span><div><div class="stat-value" style="color:var(--warning)">${enLicHoy}</div><div class="stat-label">En Licencia Hoy</div></div></div>
+    <div class="stat-card"><span class="stat-icon">📅</span><div><div class="stat-value">${delMes}</div><div class="stat-label">Licencias este Mes</div></div></div>
+    <div class="stat-card"><span class="stat-icon">🗓️</span><div><div class="stat-value">${diasAnio}</div><div class="stat-label">Días de Licencia en ${y}</div></div></div>
+  `;
+}
+
+function renderLicencias() {
+  renderLicStats();
+  const tbody = document.getElementById('licTbody');
+  if (!tbody) return;
+  const q   = (document.getElementById('licSearch')?.value || '').toLowerCase();
+  const emp = document.getElementById('licEmpFilter')?.value || '';
+  const mes = document.getElementById('licMesFilter')?.value || '';
+
+  // Filtro de empleados con los que tienen licencias registradas
+  const emps = [...new Set(licenciasData.map(l => l.empleado).filter(Boolean))].sort();
+  const eF = document.getElementById('licEmpFilter');
+  if (eF) {
+    const cur = eF.value;
+    eF.innerHTML = '<option value="">Todos los empleados</option>' + emps.map(e => `<option value="${licEsc(e)}">${licEsc(e)}</option>`).join('');
+    eF.value = cur;
+  }
+
+  let mesIni = '', mesFin = '';
+  if (mes) {
+    const [yy, mm] = mes.split('-').map(Number);
+    mesIni = `${yy}-${licPad(mm)}-01`;
+    mesFin = `${yy}-${licPad(mm)}-${licPad(new Date(yy, mm, 0).getDate())}`;
+  }
+
+  const hoy = licHoyISO();
+  const data = licenciasData.filter(l => {
+    const matchQ = !q   || [l.empleado, l.motivo].some(x => (x || '').toLowerCase().includes(q));
+    const matchE = !emp || l.empleado === emp;
+    const matchM = !mes || ((l.fecha_desde || '') <= mesFin && (l.fecha_hasta || '') >= mesIni);
+    return matchQ && matchE && matchM;
+  }).sort((a, b) => (b.fecha_desde || '').localeCompare(a.fecha_desde || ''));
+
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">🩺</div><p>No hay licencias médicas registradas</p></div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.map(l => {
+    const enCurso = (l.fecha_desde || '') <= hoy && (l.fecha_hasta || '') >= hoy;
+    return `<tr>
+      <td><strong>${licEsc(l.empleado)}</strong></td>
+      <td>${fmtDate(l.fecha_desde)}</td>
+      <td>${fmtDate(l.fecha_hasta)}</td>
+      <td><span class="badge badge-blue" style="font-family:'DM Mono',monospace">${l.dias || 0} días</span>${enCurso ? ' <span class="badge badge-orange">En curso</span>' : ''}</td>
+      <td style="font-size:13px">${licEsc(l.motivo) || '—'}</td>
+      <td class="actions-cell">
+        <button class="icon-btn del" onclick="deleteLicencia('${licEsc(l.__ID__)}')" title="Eliminar">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openLicModal() {
+  populateLicEmpleadoSelect();
+  document.getElementById('lic_empleado').value = '';
+  document.getElementById('lic_desde').value    = '';
+  document.getElementById('lic_hasta').value    = '';
+  document.getElementById('lic_dias').value     = '';
+  document.getElementById('lic_motivo').value   = '';
+  document.getElementById('licenciaModal').classList.add('open');
+}
+function closeLicModal() { document.getElementById('licenciaModal').classList.remove('open'); }
+
+function calcLicDias() {
+  const dias = diasCorridos(document.getElementById('lic_desde').value, document.getElementById('lic_hasta').value);
+  document.getElementById('lic_dias').value = dias > 0 ? dias : '';
+}
+
+async function saveLicencia() {
+  const nombre = document.getElementById('lic_empleado').value;
+  const desde  = document.getElementById('lic_desde').value;
+  const hasta  = document.getElementById('lic_hasta').value;
+  const dias   = parseInt(document.getElementById('lic_dias').value) || 0;
+  const motivo = document.getElementById('lic_motivo').value.trim();
+
+  if (!nombre) { showToast('Seleccioná un empleado', 'error'); return; }
+  if (!desde || !hasta) { showToast('Ingresá las fechas de inicio y fin', 'error'); return; }
+  if (desde > hasta) { showToast('La fecha desde debe ser anterior a la fecha hasta', 'error'); return; }
+  if (!motivo) { showToast('Ingresá el motivo de la licencia', 'error'); return; }
+
+  const data = { empleado: nombre, fecha_desde: desde, fecha_hasta: hasta, dias, motivo };
+
+  if (API_URL) {
+    const res = await apiCall('addLicencia', { data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+    if (res?.id) data.__ID__ = res.id;
+  } else {
+    data.__ID__ = Date.now().toString();
+  }
+  licenciasData.push(data);
+  if (!API_URL) localStorage.setItem('rrhh_licencias', JSON.stringify(licenciasData));
+  closeLicModal();
+  renderLicencias();
+  showToast('Licencia registrada ✓', 'success');
+}
+
+async function deleteLicencia(id) {
+  if (!confirm('¿Eliminar esta licencia médica?')) return;
+  if (API_URL) {
+    const res = await apiCall('deleteLicencia', { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  licenciasData = licenciasData.filter(l => l.__ID__ != id);
+  if (!API_URL) localStorage.setItem('rrhh_licencias', JSON.stringify(licenciasData));
+  renderLicencias();
+  showToast('Eliminado ✓', 'success');
+}
+
+function exportLicCSV() {
+  const headers = ['Empleado','Sector','Desde','Hasta','Días','Motivo'];
+  const rows = [...licenciasData]
+    .sort((a, b) => (b.fecha_desde || '').localeCompare(a.fecha_desde || ''))
+    .map(l => {
+      const e = employees.find(x => x.nombre === l.empleado);
+      return [l.empleado, e ? e.sector : '', fmtDate(l.fecha_desde), fmtDate(l.fecha_hasta), l.dias || 0, l.motivo];
+    });
+  const csv = [headers, ...rows].map(r => r.map(v => `"${(v == null ? '' : v).toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = 'licencias_medicas_rrhh.csv';
+  a.click();
+  showToast('CSV exportado ✓', 'success');
+}
+// ─────────────────────────────────────────────────
+
 // ─── UTILS ────────────────────────────────────────
 function setSyncStatus(state, text) {
   const dot = document.getElementById('syncDot');
@@ -6364,6 +6654,7 @@ function showTab(tab) {
   event.target.classList.add('active');
   document.getElementById('panel-' + tab).classList.add('active');
   if (tab === 'analisis') renderAnalysis();
+  if (tab === 'licencias') renderLicencias();
   if (tab === 'distribucion') renderDistribucion();
   if (tab === 'reclamos') renderReclamos();
   if (tab === 'encuestas') renderEncuestas();
@@ -7802,6 +8093,7 @@ async function limpGuardarExtra() {
 let vacPubApiUrl = '';
 let vacPubEmployees = [];
 let vacPubVacaciones = [];
+let vacPubLicencias = [];
 let vacGanttDate = new Date(); // primer día del mes que se está mostrando
 
 async function initVacPublic(apiUrl) {
@@ -7858,6 +8150,7 @@ async function loadVacPublicData() {
   }
   vacPubEmployees = res.employees || [];
   vacPubVacaciones = res.vacaciones || [];
+  vacPubLicencias = res.licencias || [];
   status.style.display = 'none';
 
   const sectors = [...new Set(vacPubEmployees.map(e => e.sector).filter(Boolean))].sort();
@@ -7918,6 +8211,24 @@ function renderVacGanttView() {
     return;
   }
 
+  // Fila resumen: cuántas personas (de las filtradas) faltan cada día laborable,
+  // sumando vacaciones + licencias médicas
+  const gPad = n => String(n).padStart(2, '0');
+  const rangosPorEmp = emps.map(e => vacPubVacaciones.concat(vacPubLicencias)
+    .filter(x => x.empleado === e.nombre && x.fecha_desde && x.fecha_hasta));
+  let countCells = '';
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dow = new Date(year, month, d).getDay();
+    const esFinde = dow === 0 || dow === 6;
+    const iso = `${year}-${gPad(month + 1)}-${gPad(d)}`;
+    const n = esFinde ? 0 : rangosPorEmp.filter(rs => rs.some(r => r.fecha_desde <= iso && r.fecha_hasta >= iso)).length;
+    countCells += `<div class="gantt-daylabel gantt-count${esFinde ? ' weekend' : ''}${n ? ' has' : ''}" style="width:${DAY_W}px">${n || ''}</div>`;
+  }
+  html += `<div class="gantt-row">
+    <div class="gantt-namecell count">Ausentes por día</div>
+    <div class="gantt-countrow" style="width:${daysInMonth * DAY_W}px">${countCells}</div>
+  </div>`;
+
   // Agrupar por puesto/sector
   const bySector = {};
   emps.forEach(e => {
@@ -7963,6 +8274,19 @@ function renderVacGanttView() {
         const left  = (dStart - 1) * DAY_W;
         const width = (dEnd - dStart + 1) * DAY_W;
         bars += `<div class="gantt-bar" style="left:${left}px;width:${width - 4}px" title="${v.empleado}: ${fmtDate(v.fecha_desde)} → ${fmtDate(v.fecha_hasta)} (${v.dias || 0} días)${v.observaciones ? ' — ' + v.observaciones : ''}">Vacaciones</div>`;
+      });
+
+      const licsMes = vacPubLicencias.filter(l =>
+        l.empleado === emp.nombre &&
+        (l.fecha_desde || '') <= mesEnd.toISOString().split('T')[0] &&
+        (l.fecha_hasta || '') >= mesStart.toISOString().split('T')[0]
+      );
+      licsMes.forEach(l => {
+        const ld = new Date(l.fecha_desde + 'T00:00:00');
+        const lh = new Date(l.fecha_hasta + 'T00:00:00');
+        const dS = ld < mesStart ? 1 : ld.getDate();
+        const dE = lh > mesEnd ? daysInMonth : lh.getDate();
+        bars += `<div class="gantt-bar lic" style="left:${(dS - 1) * DAY_W}px;width:${(dE - dS + 1) * DAY_W - 4}px" title="${l.empleado}: Licencia médica ${fmtDate(l.fecha_desde)} → ${fmtDate(l.fecha_hasta)} (${l.dias || 0} días)">Licencia</div>`;
       });
 
       html += `<div class="gantt-row">
