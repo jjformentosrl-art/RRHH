@@ -537,7 +537,12 @@
   .gantt-scroll::-webkit-scrollbar-track { background: transparent; }
   .gantt-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
   .gantt-row { display: flex; width: max-content; min-width: 100%; }
-  .gantt-row.gantt-headrow { position: sticky; top: 0; z-index: 5; }
+  /* Encabezado de días FUERA del scroll vertical: siempre visible. Se sincroniza con el scroll horizontal por JS
+     (así funciona igual en iPhone/Safari, donde position:sticky dentro de contenedores con scroll falla). */
+  .gantt-headwrap { display: flex; background: var(--surface2); border-bottom: 1px solid var(--border); }
+  .gantt-headwrap .gantt-namecell.head { position: static; flex-shrink: 0; }
+  .gantt-headclip { flex: 1 1 0; min-width: 0; overflow: hidden; }
+  .gantt-headinner { width: max-content; -webkit-transform: translate3d(0,0,0); transform: translate3d(0,0,0); }
   .gantt-track, .gantt-trackhead, .gantt-countrow { flex-shrink: 0; }
   .gantt-namecell { position: sticky; left: 0; z-index: 2; width: 190px; min-width: 190px; display: flex; align-items: center; gap: 8px; padding: 0 14px; background: var(--surface); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; height: 46px; }
   .gantt-namecell.head { position: sticky; left: 0; z-index: 4; background: var(--surface2); font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text3); height: 34px; }
@@ -1696,6 +1701,7 @@
       <span><i style="background:#0ea5e9"></i>Licencia médica</span>
     </div>
     <div class="kiosk-result" id="vacPubStatus" style="display:none;margin:14px 20px"></div>
+    <div class="gantt-headwrap" id="vacGanttHead"></div>
     <div class="gantt-scroll" id="vacGanttScroll">
       <div id="vacGanttBody"></div>
     </div>
@@ -8166,6 +8172,17 @@ function vacGanttIniciales(nombre) {
   return (nombre || '').trim().split(/\s+/).slice(0, 2).map(p => p[0]).join('').toUpperCase();
 }
 
+function vacGanttSyncHead() {
+  const sc = document.getElementById('vacGanttScroll');
+  const inner = document.getElementById('vacGanttHeadInner');
+  if (!sc || !inner) return;
+  inner.style.webkitTransform = inner.style.transform = 'translate3d(' + (-sc.scrollLeft) + 'px,0,0)';
+}
+(function () {
+  const sc = document.getElementById('vacGanttScroll');
+  if (sc) sc.addEventListener('scroll', vacGanttSyncHead, { passive: true });
+})();
+
 function renderVacGanttView() {
   const body = document.getElementById('vacGanttBody');
   if (!body) return;
@@ -8196,10 +8213,15 @@ function renderVacGanttView() {
     if (isWeekend) weekendCols.push(d);
     dayLabels += `<div class="gantt-daylabel${isToday ? ' today' : ''}${isWeekend ? ' weekend' : ''}" style="width:${DAY_W}px">${isToday ? `<span>${d}</span>` : d}</div>`;
   }
-  let html = `<div class="gantt-row gantt-headrow">
-    <div class="gantt-namecell head">Empleados</div>
-    <div class="gantt-trackhead" style="width:${daysInMonth * DAY_W}px">${dayLabels}</div>
-  </div>`;
+  const headEl = document.getElementById('vacGanttHead');
+  if (headEl) {
+    headEl.innerHTML = `<div class="gantt-namecell head">Empleados</div>
+      <div class="gantt-headclip"><div class="gantt-headinner" id="vacGanttHeadInner">
+        <div class="gantt-trackhead" style="width:${daysInMonth * DAY_W}px">${dayLabels}</div>
+      </div></div>`;
+    vacGanttSyncHead();
+  }
+  let html = '';
 
   // Filtrar empleados por búsqueda y puesto
   let emps = vacPubEmployees.filter(e => {
@@ -8241,10 +8263,10 @@ function renderVacGanttView() {
 
   // Fondo de cada fila: líneas de grilla + una franja tenue en cada columna de sábado/domingo
   // (así se ve rápido dónde corta cada semana, igual que en el header de días)
-  const bgImages = [`repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent ${DAY_W}px)`];
+  const bgImages = [`linear-gradient(to right, transparent ${DAY_W - 1}px, var(--border) ${DAY_W - 1}px)`];
   const bgPos = ['left top'];
-  const bgSize = ['auto'];
-  const bgRepeat = ['repeat'];
+  const bgSize = [`${DAY_W}px 100%`];
+  const bgRepeat = ['repeat-x'];
   weekendCols.forEach(d => {
     bgImages.push('linear-gradient(rgba(236,19,97,0.07), rgba(236,19,97,0.07))');
     bgPos.push(`${(d - 1) * DAY_W}px 0`);
