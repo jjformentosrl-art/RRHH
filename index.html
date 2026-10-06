@@ -850,6 +850,7 @@
                 <th>T.Pickeo</th>
                 <th>Errores</th>
                 <th>Items Pick.</th>
+                <th>Reclamos</th>
                 <th>Score</th>
                 <th>Acciones</th>
               </tr>
@@ -867,7 +868,7 @@
             <option value="">Todos los meses</option>
           </select>
           <div style="margin-left:auto;font-size:12px;color:var(--text3)">
-            Score = ponderación de 9 métricas (mayor es mejor)
+            Score = ponderación de 9 métricas (mayor es mejor) − 10 pts por reclamo
           </div>
         </div>
         <div id="rankingContainer" style="overflow:auto;flex:1"></div>
@@ -1931,6 +1932,10 @@
           <label>Cantidad de Items Pickeados</label>
           <input type="number" id="d_items" min="0" placeholder="0">
         </div>
+        <div class="form-group">
+          <label>Reclamos <span style="font-weight:400;color:var(--text3)">(cada uno resta 10 pts)</span></label>
+          <input type="number" id="d_reclamos" min="0" step="1" placeholder="0">
+        </div>
         <div class="form-group full" style="background:rgba(99,102,241,0.07);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
           <label style="color:var(--accent2)">Vista previa del Score (se calcula al guardar)</label>
           <div id="scorePreview" style="font-size:13px;color:var(--text3);margin-top:4px">Completá los campos para ver el puntaje estimado</div>
@@ -2840,7 +2845,7 @@ function handleRequest(e) {
 function getAllData() {
   var nominaHeaders   = ['nombre','genero','cuil','dni','tel','localidad','nacimiento','edad','art','alta','antiguedad','sector'];
   var conductaHeaders = ['empleado','fecha','tipo','descripcion'];
-  var desempenoHeaders = ['empleado','fecha','pedidos','lect_ok','lect_fail','tpedido','consolidados','tpickeo','errores','items'];
+  var desempenoHeaders = ['empleado','fecha','pedidos','lect_ok','lect_fail','tpedido','consolidados','tpickeo','errores','items','reclamos'];
   var distribHeaders  = ['empleado','fecha','excesos_vel','checklist_pct','errores_caja','nc_no_realizadas','kg_transportados','km_recorridos','cant_viajes','clientes','bultos'];
   var reclamosHeaders = ['empleado','fecha','motivo','observaciones'];
   var encuestasHeaders = ['fecha','encuestados','score_calidad','score_entrega','score_atencion','score_precio','score_vendedor','score_repartidor','score_recomendacion','promedio','observaciones'];
@@ -2855,6 +2860,7 @@ function getAllData() {
   var nSheet = getOrCreateSheet('NOMINA',       nominaHeaders);
   var cSheet = getOrCreateSheet('CONDUCTA',     conductaHeaders);
   var dSheet = getOrCreateSheet('DESEMPENO',    desempenoHeaders);
+  ensureColumns(dSheet, ['reclamos']); // migración: agrega la columna a la hoja ya existente
   var rSheet = getOrCreateSheet('DISTRIBUCION', distribHeaders);
   var rcSheet = getOrCreateSheet('RECLAMOS',    reclamosHeaders);
   var eSheet = getOrCreateSheet('ENCUESTAS',    encuestasHeaders);
@@ -3307,6 +3313,19 @@ function forceDateColumnsAsText(sheet, rowIndex, headers, data) {
   });
 }
 
+// Agrega al final del encabezado las columnas que falten (no toca los datos existentes)
+function ensureColumns(sheet, cols) {
+  var lastCol = sheet.getLastColumn();
+  var current = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(String);
+  cols.forEach(function(c) {
+    if (current.indexOf(c) === -1) {
+      sheet.getRange(1, current.length + 1).setValue(c)
+        .setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
+      current.push(c);
+    }
+  });
+}
+
 function getOrCreateSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
@@ -3380,22 +3399,27 @@ function updateEmployee(id, data) {
 
 function addDesempeno(data) {
   if (!data) return { error: 'Sin datos' };
-  var headers = ['empleado','fecha','pedidos','lect_ok','lect_fail','tpedido','consolidados','tpickeo','errores','items'];
+  var headers = ['empleado','fecha','pedidos','lect_ok','lect_fail','tpedido','consolidados','tpickeo','errores','items','reclamos'];
   var sheet = getOrCreateSheet('DESEMPENO', headers);
+  ensureColumns(sheet, ['reclamos']);
   var id = Date.now().toString() + Math.floor(Math.random()*1000);
-  sheet.appendRow([
-    id,
-    data.empleado     || '',
-    data.fecha        || '',
-    data.pedidos      || 0,
-    data.lect_ok      || 0,
-    data.lect_fail    || 0,
-    data.tpedido      || 0,
-    data.consolidados || 0,
-    data.tpickeo      || 0,
-    data.errores      || 0,
-    data.items        || 0
-  ]);
+  var values = {
+    '__ID__':       id,
+    empleado:       data.empleado     || '',
+    fecha:          data.fecha        || '',
+    pedidos:        data.pedidos      || 0,
+    lect_ok:        data.lect_ok      || 0,
+    lect_fail:      data.lect_fail    || 0,
+    tpedido:        data.tpedido      || 0,
+    consolidados:   data.consolidados || 0,
+    tpickeo:        data.tpickeo      || 0,
+    errores:        data.errores      || 0,
+    items:          data.items        || 0,
+    reclamos:       data.reclamos     || 0
+  };
+  // Se arma la fila según el orden real de las columnas de la hoja
+  var hdr = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  sheet.appendRow(hdr.map(function(h) { return values[h] !== undefined ? values[h] : ''; }));
   return { success: true, id: id };
 }
 
@@ -4508,6 +4532,7 @@ function calcScore(d, allData) {
   const tpickeo      = parseFloat(d.tpickeo)      || 0;
   const errores      = parseFloat(d.errores)      || 0;
   const items        = parseFloat(d.items)        || 0;
+  const reclamos     = Math.max(0, parseFloat(d.reclamos) || 0);
 
   // ── Rangos de referencia (del dataset real, con mínimos sensatos) ─
   const ref = (key, fallbackMax) => {
@@ -4559,7 +4584,9 @@ function calcScore(d, allData) {
   const total = s_pedidos + s_items + s_consolidados + s_precision +
                 s_tpedido + s_tpickeo + s_errores + s_lect_ok + s_lect_fail;
 
-  return Math.round(total); // ya es 0..100
+  // Cada reclamo resta 10 puntos (10% del total). Nunca baja de 0.
+  const penalizacion = reclamos * 10;
+  return Math.max(0, Math.round(total - penalizacion)); // 0..100
 }
 
 function renderDeposito() {
@@ -4583,7 +4610,7 @@ function renderDeposito() {
 
   const tbody = document.getElementById('depositoTbody');
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="12"><div class="empty-state"><div class="icon">📦</div><p>No hay registros de desempeño. Cargá el primero.</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13"><div class="empty-state"><div class="icon">📦</div><p>No hay registros de desempeño. Cargá el primero.</p></div></td></tr>`;
     return;
   }
 
@@ -4603,6 +4630,7 @@ function renderDeposito() {
       <td>${d.tpickeo||0}s</td>
       <td><span class="badge ${(d.errores||0) == 0 ? 'badge-green' : 'badge-red'}">${d.errores||0}</span></td>
       <td>${d.items||0}</td>
+      <td><span class="badge ${(parseFloat(d.reclamos)||0) == 0 ? 'badge-green' : 'badge-red'}">${parseFloat(d.reclamos)||0}</span></td>
       <td><span class="badge ${scoreCls}" style="font-size:13px;font-weight:700">${score}</span></td>
       <td class="actions-cell">
         <div class="actions">
@@ -4658,6 +4686,7 @@ function renderRanking() {
       tpickeo: avg('tpickeo'),
       errores: sum('errores'),
       items: sum('items'),
+      reclamos: sum('reclamos'),
       registros: rows.length
     };
   });
@@ -4682,7 +4711,7 @@ function renderRanking() {
       <div class="winner-trophy">🏆</div>
       <div class="winner-info">
         <h3>🥇 ${ranked[0].empleado}</h3>
-        <p>Mejor empleado del período: <strong>${periodo}</strong> · ${ranked[0].pedidos} pedidos · ${prec}% precisión lecturas · ${ranked[0].errores} errores</p>
+        <p>Mejor empleado del período: <strong>${periodo}</strong> · ${ranked[0].pedidos} pedidos · ${prec}% precisión lecturas · ${ranked[0].errores} errores · ${ranked[0].reclamos||0} reclamos</p>
       </div>
       <div class="winner-score">
         <div class="big">${ranked[0].score}</div>
@@ -4709,6 +4738,7 @@ function renderRanking() {
             <span class="metric-pill good">📦 ${r.pedidos} pedidos</span>
             <span class="metric-pill ${precR>=90?'good':precR>=70?'':'bad'}">🔍 ${precR}% precisión</span>
             <span class="metric-pill ${r.errores===0?'good':r.errores<=2?'':'bad'}">❌ ${r.errores} errores</span>
+            <span class="metric-pill ${(r.reclamos||0)===0?'good':'bad'}">📢 ${r.reclamos||0} reclamos${(r.reclamos||0)>0?' (−'+((r.reclamos||0)*10)+' pts)':''}</span>
             <span class="metric-pill">⏱ ${Math.round(r.tpedido)}s/pedido</span>
             <span class="metric-pill good">🏷 ${r.items} items</span>
             <span class="metric-pill ${r.consolidados>=80?'good':''}">${Math.round(r.consolidados)}% consol.</span>
@@ -4764,6 +4794,7 @@ function renderHistorico() {
       tpickeo: rows.reduce((s,r) => s+(parseFloat(r.tpickeo)||0), 0) / rows.length,
       errores: rows.reduce((s,r) => s+(parseFloat(r.errores)||0), 0),
       items: rows.reduce((s,r) => s+(parseFloat(r.items)||0), 0),
+      reclamos: rows.reduce((s,r) => s+(parseFloat(r.reclamos)||0), 0),
     };
     empTimeline[empleado].push({ mes, ...agg });
   });
@@ -4779,6 +4810,7 @@ function renderHistorico() {
     tpickeo: rows.reduce((s,r) => s+(parseFloat(r.tpickeo)||0), 0) / rows.length,
     errores: rows.reduce((s,r) => s+(parseFloat(r.errores)||0), 0),
     items: rows.reduce((s,r) => s+(parseFloat(r.items)||0), 0),
+    reclamos: rows.reduce((s,r) => s+(parseFloat(r.reclamos)||0), 0),
   }));
 
   const container = document.getElementById('historicoContainer');
@@ -4817,10 +4849,10 @@ function renderHistorico() {
 }
 
 function exportDesempenoCSV() {
-  const headers = ['Mes','Empleado','Pedidos Cert.','Lect.OK','Lect.Fail','T.Prom Pedido(s)','%Consolidados','T.Pickeo(s)','Errores','Items Pickeados','Score'];
+  const headers = ['Mes','Empleado','Pedidos Cert.','Lect.OK','Lect.Fail','T.Prom Pedido(s)','%Consolidados','T.Pickeo(s)','Errores','Items Pickeados','Reclamos','Score'];
   const rows = depositoData.map(d => [
     formatMes(d.fecha), d.empleado, d.pedidos, d.lect_ok, d.lect_fail,
-    d.tpedido, d.consolidados, d.tpickeo, d.errores, d.items,
+    d.tpedido, d.consolidados, d.tpickeo, d.errores, d.items, d.reclamos || 0,
     calcScore(d, depositoData)
   ]);
   const csv = [headers, ...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -4978,13 +5010,13 @@ function openDepositoModal() {
   populateDesempenoEmpleados();
   const today = new Date().toISOString().substring(0, 7);
   document.getElementById('d_fecha').value = today;
-  ['d_pedidos','d_lect_ok','d_lect_fail','d_tpedido','d_consolidados','d_tpickeo','d_errores','d_items'].forEach(id => {
+  ['d_pedidos','d_lect_ok','d_lect_fail','d_tpedido','d_consolidados','d_tpickeo','d_errores','d_items','d_reclamos'].forEach(id => {
     document.getElementById(id).value = '';
   });
   document.getElementById('scorePreview').textContent = 'Completá los campos para ver el puntaje estimado';
   document.getElementById('depositoModal').classList.add('open');
   // Live score preview
-  ['d_pedidos','d_lect_ok','d_lect_fail','d_tpedido','d_consolidados','d_tpickeo','d_errores','d_items'].forEach(id => {
+  ['d_pedidos','d_lect_ok','d_lect_fail','d_tpedido','d_consolidados','d_tpickeo','d_errores','d_items','d_reclamos'].forEach(id => {
     document.getElementById(id).oninput = updateScorePreview;
   });
 }
@@ -5013,6 +5045,7 @@ function getDesempenoFormData() {
     tpickeo:       parseFloat(document.getElementById('d_tpickeo').value) || 0,
     errores:       parseFloat(document.getElementById('d_errores').value) || 0,
     items:         parseFloat(document.getElementById('d_items').value) || 0,
+    reclamos:      Math.max(0, Math.floor(parseFloat(document.getElementById('d_reclamos').value) || 0)),
   };
 }
 
