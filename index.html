@@ -447,6 +447,18 @@
   .geo-bad { color: var(--danger); font-weight: 600; }
   .tarde-si { color: var(--danger); font-weight: 700; }
   .tarde-no { color: var(--text3); }
+  /* LLEGADAS TARDE (vista resumida) */
+  .tard-head, .tard-row { display: grid; grid-template-columns: 1fr 110px 120px 110px 24px; align-items: center; gap: 8px; padding: 10px 12px; font-size: 13px; }
+  .tard-head { background: var(--surface2); border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); }
+  .tard-row { cursor: pointer; border-bottom: 1px solid var(--border); }
+  .tard-row:hover { background: var(--surface2); }
+  .tard-row .tard-chev { color: var(--text3); transition: transform .15s; text-align: center; }
+  .tard-row.open .tard-chev { transform: rotate(90deg); }
+  .tard-cant { display: inline-block; min-width: 26px; text-align: center; font-weight: 700; color: var(--danger); background: rgba(239,68,68,0.10); border-radius: 20px; padding: 2px 9px; }
+  .tard-detalle { background: var(--surface2); border-bottom: 1px solid var(--border); padding: 4px 12px 8px 28px; }
+  .tard-det-row { display: grid; grid-template-columns: 1.3fr 80px 80px 110px; gap: 8px; padding: 6px 0; font-size: 12.5px; border-bottom: 1px dashed var(--border); }
+  .tard-det-row:last-child { border-bottom: none; }
+  .tard-det-head { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); }
   .config-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
   .config-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
   .config-card .hint { font-size: 12px; color: var(--text3); margin-bottom: 14px; }
@@ -1213,17 +1225,19 @@
       <!-- SUB-PANEL: LLEGADAS TARDE -->
       <div class="dpanel" id="dpanel-fichadas-tardanzas">
         <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
-          <select class="filter-select" id="tardMesFilter" onchange="renderTardanzas()">
+          <select class="filter-select" id="tardMesFilter" onchange="renderTardanzas()" title="Mes">
             <option value="">Todos los meses</option>
           </select>
+          <select class="filter-select" id="tardEmpFilter" onchange="renderTardanzas()" title="Solo empleados con llegadas tarde">
+            <option value="">Todos los que llegaron tarde</option>
+          </select>
           <input type="date" class="filter-select" id="tardDiaFilter" onchange="renderTardanzas()" style="max-width:150px" title="Filtrar por un día específico">
-          <button class="btn btn-secondary btn-sm" onclick="document.getElementById('tardDiaFilter').value='';renderTardanzas()">✕ Limpiar día</button>
+          <button class="btn btn-secondary btn-sm" onclick="limpiarFiltrosTard()">✕ Limpiar</button>
         </div>
         <div class="stats" id="tardanzasStats"></div>
-        <div class="chart-grid" id="tardanzasChartGrid"></div>
         <div class="table-wrap">
-          <div class="fichada-header" style="grid-template-columns:1fr 90px 90px 80px 110px;">
-            <span>Empleado</span><span>Fecha</span><span>Hora</span><span>Turno</span><span>Demora</span>
+          <div class="tard-head">
+            <span>Empleado</span><span>Llegadas tarde</span><span>Tiempo total</span><span>Promedio</span><span></span>
           </div>
           <div id="tardanzasList"></div>
         </div>
@@ -6933,13 +6947,60 @@ function exportFichadasCSV() {
 }
 
 // ── LLEGADAS TARDE ──
+// Vista resumida: por mes, cantidad de llegadas tarde y tiempo por empleado.
+// El filtro de empleado lista únicamente a quienes tienen llegadas tarde en el período;
+// al hacer clic en un empleado (o elegirlo en el filtro) se ven los días y la demora de cada uno.
+let tardMesInicializado = false;
+let tardAbiertos = new Set();
+let tardResumenCache = [];
+
+function escTard(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function fmtMinutos(m) {
+  m = Math.round(parseFloat(m) || 0);
+  if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60), r = m % 60;
+  return r ? h + ' h ' + r + ' min' : h + ' h';
+}
+
+function diaSemanaTard(fecha) {
+  const [y, m, d] = (fecha || '').split('-').map(Number);
+  if (!y) return '';
+  return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][new Date(y, m - 1, d).getDay()];
+}
+
 function populateTardMesFilter() {
   const sel = document.getElementById('tardMesFilter');
   if (!sel) return;
   const v = sel.value;
   const meses = [...new Set(fichadasData.filter(f => f.tardanza === 'Sí' && f.fecha).map(f => f.fecha.slice(0,7)))].sort().reverse();
-  sel.innerHTML = '<option value="">Todos los meses</option>' + meses.map(m => `<option value="${m}">${m}</option>`).join('');
-  sel.value = v;
+  sel.innerHTML = '<option value="">Todos los meses</option>' + meses.map(m => `<option value="${m}">${fmtMesLabel(m)}</option>`).join('');
+  // La primera vez se muestra el mes más reciente con llegadas tarde
+  if (!tardMesInicializado && meses.length) { sel.value = meses[0]; tardMesInicializado = true; }
+  else sel.value = v;
+}
+
+function populateTardEmpFilter(periodo) {
+  const sel = document.getElementById('tardEmpFilter');
+  if (!sel) return;
+  const v = sel.value;
+  const nombres = [...new Set(periodo.map(f => f.empleado).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  sel.innerHTML = '<option value="">Todos los que llegaron tarde</option>' + nombres.map(n => `<option value="${escTard(n)}">${escTard(n)}</option>`).join('');
+  sel.value = nombres.includes(v) ? v : '';
+}
+
+function limpiarFiltrosTard() {
+  const d = document.getElementById('tardDiaFilter'); if (d) d.value = '';
+  const e = document.getElementById('tardEmpFilter'); if (e) e.value = '';
+  tardAbiertos.clear();
+  renderTardanzas();
+}
+
+function toggleTardEmp(i) {
+  const n = tardResumenCache[i] && tardResumenCache[i].nombre;
+  if (!n) return;
+  if (tardAbiertos.has(n)) tardAbiertos.delete(n); else tardAbiertos.add(n);
+  renderTardanzas();
 }
 
 function renderTardanzas() {
@@ -6948,38 +7009,66 @@ function renderTardanzas() {
   const mesSel = document.getElementById('tardMesFilter');
   if (mesSel) mesSel.disabled = !!dia;
   const mes = mesSel?.value || '';
-  const tardanzas = fichadasData.filter(f => f.tardanza === 'Sí' && (dia ? f.fecha === dia : (!mes || (f.fecha||'').startsWith(mes))))
-    .sort((a,b) => (b.fecha).localeCompare(a.fecha));
+
+  const periodo = fichadasData.filter(f => f.tardanza === 'Sí' && (dia ? f.fecha === dia : (!mes || (f.fecha || '').startsWith(mes))));
+  populateTardEmpFilter(periodo);
+  const emp = document.getElementById('tardEmpFilter')?.value || '';
+  const tardanzas = emp ? periodo.filter(f => f.empleado === emp) : periodo;
 
   const statsBox = document.getElementById('tardanzasStats');
-  const chartBox = document.getElementById('tardanzasChartGrid');
   const listBox = document.getElementById('tardanzasList');
+  const periodoLabel = dia ? fmtDate(dia) : (mes ? fmtMesLabel(mes) : 'Todos los meses');
 
   if (!tardanzas.length) {
-    if (statsBox) statsBox.innerHTML = `
-      <div class="stat-card"><span class="stat-icon">⏰</span><div><div class="stat-value">0</div><div class="stat-label">${dia ? 'Llegadas tarde el ' + fmtDate(dia) : 'Llegadas tarde'}</div></div></div>
-    `;
-    if (chartBox) chartBox.innerHTML = '';
+    tardResumenCache = [];
+    if (statsBox) statsBox.innerHTML = `<div class="stat-card"><span class="stat-icon">⏰</span><div><div class="stat-value">0</div><div class="stat-label">Llegadas tarde · ${periodoLabel}</div></div></div>`;
     if (listBox) listBox.innerHTML = `<div class="empty-state"><div class="icon">⏰</div><p>Sin llegadas tarde registradas en este período. ✨</p></div>`;
     return;
   }
 
-  const porEmpleado = {};
-  let totalMin = 0;
-  tardanzas.forEach(t => { porEmpleado[t.empleado] = (porEmpleado[t.empleado]||0) + 1; totalMin += parseFloat(t.minutos_tarde)||0; });
-  const peor = Object.entries(porEmpleado).sort((a,b)=>b[1]-a[1])[0];
+  // Agrupar por empleado
+  const mapa = {};
+  tardanzas.forEach(t => {
+    const g = mapa[t.empleado] || (mapa[t.empleado] = { nombre: t.empleado, cant: 0, min: 0, items: [] });
+    g.cant++;
+    g.min += parseFloat(t.minutos_tarde) || 0;
+    g.items.push(t);
+  });
+  const resumen = Object.values(mapa).sort((a, b) => b.cant - a.cant || b.min - a.min || a.nombre.localeCompare(b.nombre));
+  tardResumenCache = resumen;
+  const totalMin = resumen.reduce((acc, g) => acc + g.min, 0);
 
   if (statsBox) statsBox.innerHTML = `
-    <div class="stat-card"><span class="stat-icon">⏰</span><div><div class="stat-value">${tardanzas.length}</div><div class="stat-label">${dia ? 'Llegadas tarde el ' + fmtDate(dia) : 'Llegadas tarde'}</div></div></div>
-    <div class="stat-card"><span class="stat-icon">📉</span><div><div class="stat-value">${Math.round(totalMin/tardanzas.length)}m</div><div class="stat-label">Promedio de atraso</div></div></div>
-    <div class="stat-card"><span class="stat-icon">🚩</span><div><div class="stat-value" style="font-size:16px">${peor ? peor[0] : '—'}</div><div class="stat-label">${peor ? peor[1] + ' tardanzas' : ''}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">⏰</span><div><div class="stat-value">${tardanzas.length}</div><div class="stat-label">Llegadas tarde · ${periodoLabel}</div></div></div>
+    <div class="stat-card"><span class="stat-icon">⏱️</span><div><div class="stat-value">${fmtMinutos(totalMin)}</div><div class="stat-label">Tiempo total de atraso</div></div></div>
+    <div class="stat-card"><span class="stat-icon">👥</span><div><div class="stat-value">${resumen.length}</div><div class="stat-label">Empleados con llegadas tarde</div></div></div>
   `;
-  if (chartBox) chartBox.innerHTML = dia ? '' : barChart('Tardanzas por Empleado', porEmpleado);
-  if (listBox) listBox.innerHTML = tardanzas.map(t => `
-    <div class="fichada-row" style="grid-template-columns:1fr 90px 90px 80px 110px;">
-      <span>${t.empleado}</span><span>${fmtDate(t.fecha)}</span><span>${t.hora}</span><span><span class="turno-pill">${t.turno || '—'}</span></span><span class="tarde-si">+${t.minutos_tarde} min</span>
-    </div>
-  `).join('');
+
+  // Con un empleado o un día elegido se muestra el detalle abierto automáticamente
+  const autoAbrir = !!(emp || dia);
+  if (listBox) listBox.innerHTML = resumen.map((g, i) => {
+    const abierto = autoAbrir || tardAbiertos.has(g.nombre);
+    const items = g.items.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || (a.hora || '').localeCompare(b.hora || ''));
+    const detalle = abierto ? `
+      <div class="tard-detalle">
+        <div class="tard-det-row tard-det-head"><span>Día</span><span>Turno</span><span>Hora</span><span>Demora</span></div>
+        ${items.map(t => `
+          <div class="tard-det-row">
+            <span>${diaSemanaTard(t.fecha)} ${fmtDate(t.fecha)}</span>
+            <span><span class="turno-pill">${escTard(t.turno || '—')}</span></span>
+            <span>${escTard(t.hora)}</span>
+            <span class="tarde-si">+${fmtMinutos(t.minutos_tarde)}</span>
+          </div>`).join('')}
+      </div>` : '';
+    return `
+      <div class="tard-row ${abierto ? 'open' : ''}" onclick="toggleTardEmp(${i})">
+        <span><strong>${escTard(g.nombre)}</strong></span>
+        <span><span class="tard-cant">${g.cant}</span></span>
+        <span class="tarde-si">${fmtMinutos(g.min)}</span>
+        <span>${fmtMinutos(g.min / g.cant)}</span>
+        <span class="tard-chev">▸</span>
+      </div>${detalle}`;
+  }).join('');
 }
 
 // ── AUSENTES / SIN MARCAR ──
