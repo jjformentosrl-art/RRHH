@@ -687,6 +687,58 @@
   .limp-pbar { height: 8px; background: var(--surface2); border-radius: 5px; overflow: hidden; min-width: 80px; }
   .limp-pbar div { height: 100%; background: var(--success); }
 </style>
+<style id="orgCss">
+/* ═══ ORGANIGRAMA ═══ */
+#panel-organigrama { overflow: hidden; }
+.org-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; flex-shrink: 0; }
+.org-toolbar .sp { flex: 1; }
+.org-zoomlbl { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--text2); min-width: 40px; text-align: center; }
+.org-hint { flex-shrink: 0; background: rgba(108,71,255,0.08); border: 1px solid rgba(108,71,255,0.3); border-radius: 8px; padding: 8px 14px; font-size: 12.5px; color: var(--text2); }
+.org-sinubicar { flex-shrink: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--text2); max-height: 150px; overflow: auto; }
+.org-sinubicar b { color: var(--text); }
+.org-scroll { flex: 1; min-height: 0; overflow: auto; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; }
+
+.org-chart { --lc: #1b1b1b; --lw: 2px; --gap: 22px; display: inline-block; min-width: 100%; text-align: center; font-family: 'DM Sans', Arial, sans-serif; color: #222; }
+.org-head { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; margin-bottom: 30px; }
+.org-title { background: #3b86cf; color: #fff; font-weight: 700; font-size: 34px; letter-spacing: 1px; padding: 14px 44px; border-radius: 16px; text-transform: uppercase; }
+.org-logo-l { justify-self: start; text-align: left; font-weight: 800; font-size: 20px; line-height: 1; color: #222; }
+.org-logo-l small { display: block; font-size: 10px; font-weight: 500; color: #666; margin-top: 4px; }
+.org-logo-r { justify-self: end; text-align: right; font-weight: 800; font-style: italic; font-size: 34px; line-height: 1; color: #0d3f9b; }
+.org-logo-r small { display: block; font-size: 12px; font-style: normal; font-weight: 500; color: #0d6fb8; margin-top: 3px; }
+
+.org-tree, .org-tree ul { display: flex; justify-content: center; align-items: flex-start; list-style: none; padding: 0; margin: 0; position: relative; }
+.org-tree ul { padding-top: var(--gap); }
+.org-tree ul::before { content: ''; position: absolute; top: 0; left: 50%; height: var(--gap); border-left: var(--lw) solid var(--lc); }
+.org-tree li { list-style: none; position: relative; padding: var(--gap) 8px 0; display: flex; flex-direction: column; align-items: center; text-align: center; }
+.org-tree li::before, .org-tree li::after { content: ''; position: absolute; top: 0; right: 50%; width: 50%; height: var(--gap); border-top: var(--lw) solid var(--lc); }
+.org-tree li::after { right: auto; left: 50%; border-left: var(--lw) solid var(--lc); }
+.org-tree li:only-child::before, .org-tree li:only-child::after { display: none; }
+.org-tree li:only-child { padding-top: 0; }
+.org-tree li:first-child::before, .org-tree li:last-child::after { border: 0 none; }
+.org-tree li:last-child::before { border-right: var(--lw) solid var(--lc); border-radius: 0 10px 0 0; }
+.org-tree li:first-child::after { border-radius: 10px 0 0 0; }
+.org-tree > li { padding-top: 0; }
+.org-tree > li::before, .org-tree > li::after { display: none; }
+
+.org-box { color: #fff; border-radius: 10px; padding: 10px 18px; min-width: 150px; max-width: 230px; font-weight: 700; text-transform: uppercase; line-height: 1.15; font-size: 15px; }
+.org-box.titular { font-size: 20px; padding: 12px 22px; max-width: 300px; }
+.org-box.area { font-size: 15px; }
+.org-box small { display: block; font-size: 9.5px; font-weight: 500; letter-spacing: 2px; text-decoration: underline; margin-top: 4px; }
+
+.org-stack { position: relative; padding-top: var(--gap); display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.org-stack::before { content: ''; position: absolute; top: 0; left: 50%; height: var(--gap); border-left: var(--lw) solid var(--lc); }
+.org-group { text-align: left; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #222; }
+.org-gtitle { font-weight: 700; text-decoration: underline; margin-bottom: 5px; letter-spacing: 1.8px; }
+.org-person { padding: 1.5px 3px; white-space: nowrap; line-height: 1.45; }
+.org-add { font: 500 11px 'DM Sans', sans-serif; letter-spacing: 0; text-transform: none; border: 1px dashed var(--accent); color: var(--accent); background: #fff; border-radius: 12px; padding: 2px 10px; cursor: pointer; margin-top: 6px; }
+.org-add:hover { background: var(--accent); color: #fff; }
+.org-addrow { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.org-empty { color: var(--text3); padding: 40px; }
+
+.org-chart.editing .org-box, .org-chart.editing .org-person, .org-chart.editing .org-gtitle { cursor: pointer; outline: 2px dashed transparent; outline-offset: 3px; border-radius: 6px; }
+.org-chart.editing .org-box:hover, .org-chart.editing .org-person:hover, .org-chart.editing .org-gtitle:hover { outline-color: var(--accent); }
+.org-chart.editing .org-person:hover { background: rgba(108,71,255,0.08); }
+</style>
 </head>
 <body>
 <div class="app">
@@ -740,6 +792,7 @@
     <button class="tab" onclick="showTab('fichadas')">📍 Fichadas / Asistencia</button>
     <button class="tab" onclick="showTab('ropa')">👕 Entrega Ropa</button>
     <button class="tab" onclick="showTab('limpieza')">🧹 Limpieza</button>
+    <button class="tab" onclick="showTab('organigrama')">🏢 Organigrama</button>
   </div>
 
   <main>
@@ -1565,6 +1618,24 @@
         </div>
       </div>
     </div>
+    <!-- ORGANIGRAMA -->
+    <div class="panel" id="panel-organigrama">
+      <div class="org-toolbar">
+        <button class="btn btn-primary" id="orgEditBtn" onclick="orgToggleEdit()">✏️ Editar organigrama</button>
+        <button class="btn btn-secondary" id="orgAddAreaBtn" onclick="orgAdd('area','root')" style="display:none">＋ Nueva área</button>
+        <button class="btn btn-secondary" id="orgResetBtn" onclick="orgReset()" style="display:none">↺ Restaurar original</button>
+        <span class="sp"></span>
+        <button class="btn btn-secondary btn-sm" id="orgSinUbicarBtn" onclick="orgToggleSinUbicar()"></button>
+        <button class="btn btn-secondary btn-sm" onclick="orgZoomBy(-0.1)" title="Alejar">−</button>
+        <span class="org-zoomlbl" id="orgZoomLbl">100%</span>
+        <button class="btn btn-secondary btn-sm" onclick="orgZoomBy(0.1)" title="Acercar">+</button>
+        <button class="btn btn-secondary btn-sm" onclick="orgFit()">Ajustar</button>
+        <button class="btn btn-secondary" onclick="orgPrint()">🖨️ Imprimir / PDF</button>
+      </div>
+      <div class="org-hint" id="orgEditHint" style="display:none">Modo edición: tocá cualquier puesto o nombre para editarlo, y usá los botones «＋» para agregar. Podés escribir cualquier nombre, esté o no en la Nómina. Los cambios se guardan solos.</div>
+      <div class="org-sinubicar" id="orgSinUbicar" style="display:none"></div>
+      <div class="org-scroll"><div id="orgChart" class="org-chart"></div></div>
+    </div>
   </main>
 </div>
 
@@ -1724,6 +1795,53 @@
 </div>
 
 <!-- SETUP MODAL -->
+<div class="modal-overlay" id="orgModal">
+  <div class="modal" style="width:480px">
+    <div class="modal-header">
+      <span class="modal-title" id="orgModalTitle">Editar</span>
+      <button class="modal-close" onclick="orgCloseModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label id="orgLblNombre">Nombre</label>
+          <input type="text" id="org_nombre" list="orgNominaList" autocomplete="off" oninput="orgHint()" onkeydown="if(event.key==='Enter'){orgModalSave()}">
+          <datalist id="orgNominaList"></datalist>
+          <div id="orgNomHint" style="font-size:11.5px;color:var(--text3);min-height:16px"></div>
+        </div>
+        <div class="form-group full" id="orgWrapCargo">
+          <label id="orgLblCargo">Cargo / subtítulo</label>
+          <input type="text" id="org_cargo" placeholder="Ej: Supervisor Venta" onkeydown="if(event.key==='Enter'){orgModalSave()}">
+        </div>
+        <div class="form-group" id="orgWrapColor">
+          <label>Color</label>
+          <input type="color" id="org_color" style="height:36px;padding:2px">
+        </div>
+        <div class="form-group" id="orgWrapIcon">
+          <label>Ícono (emoji, opcional)</label>
+          <input type="text" id="org_icon" maxlength="4" placeholder="🤝">
+        </div>
+        <div class="form-group full" id="orgWrapDisp">
+          <label>Grupos debajo de este puesto</label>
+          <select id="org_disp">
+            <option value="v">Uno debajo del otro</option>
+            <option value="h">Lado a lado</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <div id="orgModalTools" style="margin-right:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="orgMove(-1)">◀ Antes</button>
+        <button class="btn btn-secondary btn-sm" onclick="orgMove(1)">Después ▶</button>
+        <button class="btn btn-danger btn-sm" onclick="orgDelete()">🗑 Eliminar</button>
+      </div>
+      <button class="btn btn-secondary" onclick="orgCloseModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="orgModalSave()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="setupModal">
   <div class="modal" style="width:560px">
     <div class="modal-header">
@@ -3663,6 +3781,7 @@ async function loadAllData() {
   ropaIngresosData = data.ropaIngresos || [];
   limpiezaData = data.limpieza || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
+  orgData = null;
   setSyncStatus('ok', 'Conectado a Google Sheets');
   renderAll();
 }
@@ -3695,6 +3814,8 @@ function renderAll() {
   renderRopaIngresos();
   populateRopaEmpleadoSelect();
   renderLimpieza();
+  if (!orgData) orgLoad();
+  renderOrganigrama();
 }
 
 function renderStats() {
@@ -6715,6 +6836,7 @@ function showTab(tab) {
   if (tab === 'encuestas') renderEncuestas();
   if (tab === 'fichadas') { renderFichadasRegistros(); populateFichEmpleadoFilter(); }
   if (tab === 'limpieza') renderLimpieza();
+  if (tab === 'organigrama') renderOrganigrama();
   if (tab === 'ropa') { renderRopaConsulta(); renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); }
 }
 
@@ -8443,6 +8565,383 @@ function renderVacGanttView() {
   });
 
   body.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════
+// ORGANIGRAMA
+// Se guarda como JSON en la hoja CONFIG (clave "organigrama") usando la
+// acción saveConfig que ya existe, y con copia local en localStorage.
+// ═══════════════════════════════════════════════════
+let orgData = null;
+let orgEditMode = false;
+let orgZoom = 1;
+let orgFitted = false;
+let orgEditing = null;
+let orgSeq = 0;
+
+function orgId() { return 'o' + Date.now().toString(36) + (orgSeq++).toString(36); }
+function orgEsc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function orgTitle(s) { return s.toLowerCase().replace(/(^|[\s\-'])([a-záéíóúñü])/g, (m, a, b) => a + b.toUpperCase()); }
+
+function orgDefault() {
+  const P = n => ({ id: orgId(), nombre: n });
+  const G = (t, arr) => ({ id: orgId(), titulo: t, personas: arr.map(P) });
+  const S = (n, c, grupos, disp) => ({ id: orgId(), nombre: n, cargo: c, disp: disp || 'v', grupos });
+  const A = (t, color, icon, sups, grupos) => ({ id: orgId(), titulo: t, color, icon, supervisores: sups || [], grupos: grupos || [] });
+  return {
+    titular: { id: 'titular', nombre: 'Esteban Formento', cargo: 'Titular de Distribuidora' },
+    areas: [
+      A('Ventas', '#5b7fd6', '🤝', [
+        S('Marcelo Arauz', 'Supervisor Venta', [
+          G('Vendedores', ['Gustavo Leiva','Claudio Re','Roman Wielikosielec','Claudio Gamarino','Andres Gambini','Pablo Gallardo','Jose Luis Cantoni','Daniel Gaspar'])
+        ]),
+        S('Gabriel Cetti', 'Supervisor Venta', [
+          G('Vendedores', ['Cristian Pereyra','Diego Ita','Sebastian Bravi','Raul Acosta','Fabian Pousa','Pablo Servera','Emiliano Turri','Carlos Sanchez','Herrera Sebastian']),
+          G('Promotores', ['Matias Alegre','Sebastian Bidondo','Alexandro Cosimi'])
+        ], 'h')
+      ]),
+      A('Administración', '#5fbcb0', '🗂️', [
+        S('Eduardo Arthur', 'Supervisor', [ G('Administrativos', ['Lucas Baungart','Mottura Marcelo']) ])
+      ]),
+      A('Tesorería', '#f2a04a', '🏦', [
+        S('Graciela Pellegrino', '', [ G('', ['Ana C Formento','Adriana Formento','Mauricio Ferraris']) ])
+      ]),
+      A('Logística', '#ff5fb8', '📍', [
+        S('Sergio Bambini', 'Supervisor Depósito', [
+          G('Operario de Depósito', ['Facundo Della Puppa','Andres Sampaolesi','Santino Gallo','Thiago Arauz','Joel Diaz','Camila Garcia','Gomez Luciano']),
+          G('Maestranza', ['Mariela Lagos'])
+        ]),
+        S('Mariano Marani', 'Supervisor Distribución', [
+          G('Chofer Distribución', ['Jorge Bravi','Nahuel Fermani','Agustin Lopez','Lautaro Martinez','Franco Mercado','Sebastian Francischeli','Ignacio Perini','Juan Molinari','Alan Figueredo','Franco Cordoba','Vignolo Lorenzo']),
+          G('Reparto', ['Paola Boscazo'])
+        ])
+      ]),
+      A('Profesionales Externos', '#7ed957', '🌐', [], [
+        G('H&S', ['Gaspar Alassia']),
+        G('Mantenimiento de Sistemas', ['Eduardo Bergia'])
+      ])
+    ]
+  };
+}
+
+function orgLoad() {
+  let raw = (typeof configData !== 'undefined' && configData && configData.organigrama) || null;
+  if (!raw) { try { raw = localStorage.getItem('rrhh_organigrama'); } catch (e) {} }
+  let d = null;
+  if (raw) { try { d = JSON.parse(raw); } catch (e) {} }
+  if (!d || !d.titular || !Array.isArray(d.areas)) d = orgDefault();
+  orgData = d;
+}
+
+async function orgPersist() {
+  const json = JSON.stringify(orgData);
+  try { localStorage.setItem('rrhh_organigrama', json); } catch (e) {}
+  if (API_URL) {
+    const res = await apiCall('saveConfig', { data: { organigrama: json } });
+    if (res?.error) { showToast('No se pudo guardar en Google Sheets: ' + res.error, 'error'); return false; }
+    configData = { ...configData, organigrama: json };
+  }
+  showToast('Organigrama guardado ✓', 'success');
+  return true;
+}
+
+// ─── Árbol: recorrido y búsqueda ───────────────────
+function orgWalk(fn) {
+  const d = orgData;
+  fn(d.titular, 'titular', null, null);
+  d.areas.forEach(a => {
+    fn(a, 'area', d.areas, d);
+    (a.supervisores || []).forEach(s => {
+      fn(s, 'sup', a.supervisores, a);
+      (s.grupos || []).forEach(g => {
+        fn(g, 'grupo', s.grupos, s);
+        (g.personas || []).forEach(p => fn(p, 'persona', g.personas, g));
+      });
+    });
+    (a.grupos || []).forEach(g => {
+      fn(g, 'grupo', a.grupos, a);
+      (g.personas || []).forEach(p => fn(p, 'persona', g.personas, g));
+    });
+  });
+}
+function orgFind(id) {
+  let r = null;
+  orgWalk((n, kind, arr, parent) => { if (n.id === id) r = { node: n, kind, arr, parent }; });
+  return r;
+}
+
+// ─── Coincidencia con la Nómina (tolera pequeñas diferencias de escritura) ───
+function orgTokens(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+}
+function orgLev(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 3;
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      dp[i][j] = Math.min(dp[i-1][j] + 1, dp[i][j-1] + 1, dp[i-1][j-1] + (a[i-1] === b[j-1] ? 0 : 1));
+  return dp[a.length][b.length];
+}
+function orgTokEq(a, b) {
+  if (a === b) return true;
+  const m = Math.min(a.length, b.length);
+  if (m >= 8) return orgLev(a, b) <= 2;
+  if (m >= 5) return orgLev(a, b) <= 1;
+  return false;
+}
+function orgNameMatches(personName, empName) {
+  const t = orgTokens(personName), e = orgTokens(empName);
+  if (t.length < 2) return false;
+  return t.every(x => e.some(y => orgTokEq(x, y)));
+}
+function orgMatchEmp(name) {
+  return (employees || []).find(e => orgNameMatches(name, e.nombre)) || null;
+}
+
+// ─── Render ────────────────────────────────────────
+function orgGroupHTML(g, edit) {
+  const people = (g.personas || []).map((p, i) =>
+    `<div class="org-person"${edit ? ` onclick="orgEdit('${p.id}')"` : ''}>${i + 1}-${orgEsc(p.nombre)}</div>`).join('');
+  const title = (g.titulo || edit)
+    ? `<div class="org-gtitle"${edit ? ` onclick="orgEdit('${g.id}')"` : ''}>${orgEsc(g.titulo) || '(sin título)'}</div>` : '';
+  const add = edit ? `<button class="org-add" onclick="orgAdd('persona','${g.id}')">＋ Persona</button>` : '';
+  return `<div class="org-group">${title}${people}${add}</div>`;
+}
+
+function orgSupHTML(s, color, edit) {
+  let h = `<div class="org-box" style="background:${orgEsc(color)}"${edit ? ` onclick="orgEdit('${s.id}')"` : ''}>${orgEsc(s.nombre)}${s.cargo ? `<small>${orgEsc(s.cargo)}</small>` : ''}</div>`;
+  if (edit) h += `<button class="org-add" onclick="orgAdd('grupo','${s.id}')">＋ Grupo</button>`;
+  const gs = s.grupos || [];
+  if (gs.length) {
+    h += s.disp === 'h'
+      ? `<ul>${gs.map(g => `<li>${orgGroupHTML(g, edit)}</li>`).join('')}</ul>`
+      : `<div class="org-stack">${gs.map(g => orgGroupHTML(g, edit)).join('')}</div>`;
+  }
+  return `<li>${h}</li>`;
+}
+
+function orgAreaHTML(a, edit) {
+  let h = `<div class="org-box area" style="background:${orgEsc(a.color)}"${edit ? ` onclick="orgEdit('${a.id}')"` : ''}>${a.icon ? orgEsc(a.icon) + ' ' : ''}${orgEsc(a.titulo)}</div>`;
+  if (edit) h += `<div class="org-addrow"><button class="org-add" onclick="orgAdd('sup','${a.id}')">＋ Supervisor</button><button class="org-add" onclick="orgAdd('grupo','${a.id}')">＋ Grupo</button></div>`;
+  const kids = (a.supervisores || []).map(s => orgSupHTML(s, a.color, edit))
+    .concat((a.grupos || []).map(g => `<li>${orgGroupHTML(g, edit)}</li>`));
+  if (kids.length) h += `<ul>${kids.join('')}</ul>`;
+  return `<li>${h}</li>`;
+}
+
+function orgChartHTML(edit) {
+  const t = orgData.titular;
+  const areas = orgData.areas.map(a => orgAreaHTML(a, edit)).join('');
+  return `
+    <div class="org-head">
+      <div class="org-logo-l">RED<br>ACTIVA<small>Programa de estandarización de buenas prácticas logísticas</small></div>
+      <div class="org-title">Organigrama Empresarial</div>
+      <div class="org-logo-r">Formento<small>Distribuidor Mayorista</small></div>
+    </div>
+    <ul class="org-tree"><li>
+      <div class="org-box titular" style="background:#f24e61"${edit ? ` onclick="orgEdit('titular')"` : ''}>${orgEsc(t.nombre)}${t.cargo ? `<small>${orgEsc(t.cargo)}</small>` : ''}</div>
+      ${edit ? `<button class="org-add" onclick="orgAdd('area','root')">＋ Nueva área</button>` : ''}
+      ${areas ? `<ul>${areas}</ul>` : `<div class="org-empty">Todavía no hay áreas. Tocá «＋ Nueva área».</div>`}
+    </li></ul>`;
+}
+
+function renderOrganigrama() {
+  const host = document.getElementById('orgChart');
+  if (!host) return;
+  if (!orgData) orgLoad();
+  host.className = 'org-chart' + (orgEditMode ? ' editing' : '');
+  host.innerHTML = orgChartHTML(orgEditMode);
+  const sc = host.parentElement;
+  if (!orgFitted && sc.clientWidth > 0) { orgFitted = true; orgFit(); } else { host.style.zoom = orgZoom; }
+  document.getElementById('orgZoomLbl').textContent = Math.round(orgZoom * 100) + '%';
+  document.getElementById('orgEditBtn').textContent = orgEditMode ? '✅ Terminar edición' : '✏️ Editar organigrama';
+  document.getElementById('orgEditBtn').className = 'btn ' + (orgEditMode ? 'btn-success' : 'btn-primary');
+  document.getElementById('orgAddAreaBtn').style.display = orgEditMode ? '' : 'none';
+  document.getElementById('orgResetBtn').style.display = orgEditMode ? '' : 'none';
+  document.getElementById('orgEditHint').style.display = orgEditMode ? '' : 'none';
+  orgRenderSinUbicar();
+}
+
+async function orgToggleEdit() {
+  if (!orgEditMode && API_URL && !isLoggedIn()) {
+    const ok = await requestLogin();
+    if (!ok) return;
+  }
+  orgEditMode = !orgEditMode;
+  renderOrganigrama();
+}
+
+// ─── Zoom ──────────────────────────────────────────
+function orgApplyZoom() {
+  document.getElementById('orgChart').style.zoom = orgZoom;
+  document.getElementById('orgZoomLbl').textContent = Math.round(orgZoom * 100) + '%';
+}
+function orgZoomBy(d) { orgZoom = Math.min(1.6, Math.max(0.3, Math.round((orgZoom + d) * 100) / 100)); orgApplyZoom(); }
+function orgFit() {
+  const host = document.getElementById('orgChart'), sc = host.parentElement;
+  host.style.zoom = 1;
+  const w = host.scrollWidth, avail = sc.clientWidth - 48;
+  orgZoom = w > 0 && avail > 0 ? Math.max(0.35, Math.min(1, Math.floor((avail / w) * 100) / 100)) : 1;
+  orgApplyZoom();
+}
+
+// ─── Empleados de la Nómina que no están en el organigrama ───
+function orgSinUbicarList() {
+  const names = [];
+  orgWalk((n, kind) => { if (kind === 'persona' || kind === 'sup' || kind === 'titular') names.push(n.nombre); });
+  return (employees || []).filter(e => !names.some(n => orgNameMatches(n, e.nombre)));
+}
+function orgRenderSinUbicar() {
+  const btn = document.getElementById('orgSinUbicarBtn'), box = document.getElementById('orgSinUbicar');
+  const list = orgSinUbicarList();
+  btn.style.display = list.length ? '' : 'none';
+  btn.textContent = '👥 ' + list.length + ' de la Nómina sin ubicar';
+  if (!list.length) { box.style.display = 'none'; return; }
+  box.innerHTML = '<b>En la Nómina pero todavía no están en el organigrama:</b> ' +
+    list.map(e => orgEsc(orgTitle(e.nombre)) + (e.sector ? ' <span style="color:var(--text3)">(' + orgEsc(orgTitle(e.sector)) + ')</span>' : '')).join(' · ');
+}
+function orgToggleSinUbicar() {
+  const box = document.getElementById('orgSinUbicar');
+  box.style.display = box.style.display === 'none' ? '' : 'none';
+}
+
+// ─── Edición ───────────────────────────────────────
+function orgPopulateNomina() {
+  const dl = document.getElementById('orgNominaList');
+  dl.innerHTML = (employees || []).map(e => `<option value="${orgEsc(orgTitle(e.nombre))}"></option>`).join('');
+}
+
+function orgOpenModal(kind, node, isNew, target) {
+  orgEditing = { kind, node, isNew, target };
+  orgPopulateNomina();
+  const labels = { titular: 'Titular', area: 'Área', sup: 'Supervisor / responsable', grupo: 'Grupo de personal', persona: 'Persona' };
+  document.getElementById('orgModalTitle').textContent = (isNew ? '＋ Agregar · ' : '✏️ Editar · ') + labels[kind];
+  const isTitle = kind === 'area' || kind === 'grupo';
+  document.getElementById('orgLblNombre').textContent =
+    kind === 'area' ? 'Título del área' : kind === 'grupo' ? 'Título del grupo (opcional)' : 'Nombre';
+  const inp = document.getElementById('org_nombre');
+  inp.value = (isTitle ? node.titulo : node.nombre) || '';
+  if (kind === 'persona' || kind === 'sup' || kind === 'titular') inp.setAttribute('list', 'orgNominaList'); else inp.removeAttribute('list');
+  document.getElementById('orgWrapCargo').style.display = (kind === 'titular' || kind === 'sup') ? '' : 'none';
+  document.getElementById('org_cargo').value = node.cargo || '';
+  document.getElementById('orgWrapColor').style.display = kind === 'area' ? '' : 'none';
+  document.getElementById('orgWrapIcon').style.display = kind === 'area' ? '' : 'none';
+  document.getElementById('org_color').value = node.color || '#5b7fd6';
+  document.getElementById('org_icon').value = node.icon || '';
+  document.getElementById('orgWrapDisp').style.display = kind === 'sup' ? '' : 'none';
+  document.getElementById('org_disp').value = node.disp || 'v';
+  document.getElementById('orgModalTools').style.display = (isNew || kind === 'titular') ? 'none' : 'flex';
+  orgHint();
+  document.getElementById('orgModal').classList.add('open');
+  setTimeout(() => inp.focus(), 60);
+}
+
+function orgHint() {
+  const e = orgEditing, el = document.getElementById('orgNomHint');
+  if (!e || !(e.kind === 'persona' || e.kind === 'sup' || e.kind === 'titular')) { el.textContent = ''; return; }
+  const v = document.getElementById('org_nombre').value.trim();
+  if (!v) { el.textContent = 'Elegí a alguien de la Nómina o escribí un nombre libre.'; return; }
+  const emp = orgMatchEmp(v);
+  el.innerHTML = emp
+    ? '✓ Está en la Nómina' + (emp.sector ? ' (' + orgEsc(orgTitle(emp.sector)) + ')' : '')
+    : 'ℹ️ No figura en la Nómina: se agrega igual al organigrama.';
+}
+
+function orgEdit(id) {
+  const f = orgFind(id);
+  if (!f) return;
+  orgOpenModal(f.kind, f.node, false, null);
+  orgEditing.id = id;
+}
+
+function orgAdd(kind, parentId) {
+  if (!orgEditMode) return;
+  const node = { id: orgId() };
+  let target;
+  if (kind === 'area') { Object.assign(node, { titulo: '', color: '#5b7fd6', icon: '', supervisores: [], grupos: [] }); target = orgData.areas; }
+  else {
+    const parent = orgFind(parentId)?.node;
+    if (!parent) return;
+    if (kind === 'sup') { Object.assign(node, { nombre: '', cargo: 'Supervisor', disp: 'v', grupos: [] }); parent.supervisores = parent.supervisores || []; target = parent.supervisores; }
+    if (kind === 'grupo') { Object.assign(node, { titulo: '', personas: [] }); parent.grupos = parent.grupos || []; target = parent.grupos; }
+    if (kind === 'persona') { node.nombre = ''; parent.personas = parent.personas || []; target = parent.personas; }
+  }
+  orgOpenModal(kind, node, true, target);
+}
+
+function orgCloseModal() { document.getElementById('orgModal').classList.remove('open'); orgEditing = null; }
+
+async function orgModalSave() {
+  const e = orgEditing;
+  if (!e) return;
+  const val = document.getElementById('org_nombre').value.trim();
+  if (e.kind !== 'grupo' && !val) { showToast('Completá el nombre', 'error'); return; }
+  const node = e.node;
+  if (e.kind === 'area') {
+    node.titulo = val;
+    node.color = document.getElementById('org_color').value;
+    node.icon = document.getElementById('org_icon').value.trim();
+  } else if (e.kind === 'grupo') {
+    node.titulo = val;
+  } else {
+    node.nombre = (val === val.toUpperCase() && /[A-ZÁÉÍÓÚÑ]/.test(val)) ? orgTitle(val) : val;
+    if (e.kind === 'titular' || e.kind === 'sup') node.cargo = document.getElementById('org_cargo').value.trim();
+    if (e.kind === 'sup') node.disp = document.getElementById('org_disp').value;
+  }
+  if (e.isNew) e.target.push(node);
+  orgCloseModal();
+  renderOrganigrama();
+  await orgPersist();
+}
+
+async function orgMove(dir) {
+  const e = orgEditing;
+  if (!e || e.isNew) return;
+  const f = orgFind(e.id);
+  if (!f || !f.arr) return;
+  const i = f.arr.indexOf(f.node), j = i + dir;
+  if (j < 0 || j >= f.arr.length) { showToast('Ya está en el extremo', 'error'); return; }
+  [f.arr[i], f.arr[j]] = [f.arr[j], f.arr[i]];
+  renderOrganigrama();
+  await orgPersist();
+}
+
+async function orgDelete() {
+  const e = orgEditing;
+  if (!e || e.isNew) return;
+  const f = orgFind(e.id);
+  if (!f || !f.arr) return;
+  let extra = '';
+  if (e.kind === 'area') extra = '\n\nSe elimina también todo lo que cuelga de esta área.';
+  if (e.kind === 'sup') extra = '\n\nSe eliminan también sus grupos y personas.';
+  if (e.kind === 'grupo') extra = '\n\nSe eliminan también las personas del grupo.';
+  const nombre = f.node.titulo || f.node.nombre || '(sin título)';
+  if (!confirm('¿Eliminar "' + nombre + '" del organigrama?' + extra)) return;
+  f.arr.splice(f.arr.indexOf(f.node), 1);
+  orgCloseModal();
+  renderOrganigrama();
+  await orgPersist();
+}
+
+async function orgReset() {
+  if (!confirm('¿Restaurar el organigrama original (el del PDF)? Se pierden todos los cambios hechos.')) return;
+  orgData = orgDefault();
+  renderOrganigrama();
+  await orgPersist();
+}
+
+// ─── Imprimir / guardar como PDF ───────────────────
+function orgPrint() {
+  if (!orgData) orgLoad();
+  const w = window.open('', '_blank');
+  if (!w) { showToast('Permití las ventanas emergentes para imprimir', 'error'); return; }
+  const css = document.getElementById('orgCss').textContent;
+  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Organigrama Formento</title><style>' +
+    '@page{size:A3 landscape;margin:10mm}html,body{margin:0;background:#fff}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+    css + '.org-chart{min-width:0}</style></head><body><div class="org-chart" id="c">' + orgChartHTML(false) +
+    '</div><script>window.onload=function(){var c=document.getElementById("c");var s=Math.min(1,1480/c.scrollWidth);c.style.zoom=s;setTimeout(function(){window.print()},300)}<\/script></body></html>');
+  w.document.close();
 }
 </script>
 </body>
