@@ -1127,6 +1127,7 @@
               <th>Hasta</th>
               <th>Días</th>
               <th>Motivo</th>
+              <th>Certificado</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -2228,6 +2229,14 @@
             <option value="Control / estudio médico"></option>
           </datalist>
         </div>
+        <div class="form-group full">
+          <label>📎 Certificado médico (foto) — opcional</label>
+          <input type="file" id="lic_foto" accept="image/*" onchange="licFotoChange(this)">
+          <div id="licFotoPreview" style="display:none;margin-top:8px;align-items:center;gap:12px">
+            <img id="licFotoImg" alt="Vista previa" style="max-height:110px;max-width:160px;border-radius:8px;border:1px solid var(--border)">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="licFotoQuitar()">Quitar foto</button>
+          </div>
+        </div>
         <div style="grid-column:1/-1;background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.3);border-radius:8px;padding:10px 14px;font-size:12.5px;color:var(--text2)">
           ℹ️ Las licencias médicas se registran por separado: <strong>no suman ni restan días de vacaciones</strong>.
         </div>
@@ -2235,7 +2244,7 @@
     </div>
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeLicModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveLicencia()">💾 Guardar</button>
+      <button class="btn btn-primary" id="licSaveBtn" onclick="saveLicencia()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -3176,10 +3185,36 @@ function getKioskData() {
 }
 
 // Licencias médicas: hoja propia, no interviene en el cálculo de vacaciones.
-var LICENCIAS_HEADERS = ['empleado','fecha_desde','fecha_hasta','dias','motivo'];
+var LICENCIAS_HEADERS = ['empleado','fecha_desde','fecha_hasta','dias','motivo','foto_url'];
+var CERT_FOLDER_NAME = 'Certificados Medicos RRHH';
+function getCertFolder() {
+  var it = DriveApp.getFoldersByName(CERT_FOLDER_NAME);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(CERT_FOLDER_NAME);
+}
+// Guarda la foto del certificado en una carpeta PRIVADA de Drive y devuelve su URL
+function guardarCertificado(base64, mime, empleado, desde) {
+  var bytes = Utilities.base64Decode(base64);
+  var ext = (mime === 'image/png') ? 'png' : 'jpg';
+  var safe = String(empleado || '').replace(/[^A-Za-z0-9 ]/g, '').trim().replace(/ +/g, '_');
+  var blob = Utilities.newBlob(bytes, mime || 'image/jpeg', 'certificado_' + safe + '_' + desde + '.' + ext);
+  return getCertFolder().createFile(blob).getUrl();
+}
 function addLicencia(data) {
-  getOrCreateSheet('LICENCIAS', LICENCIAS_HEADERS);
-  return addRow('LICENCIAS', data);
+  if (!data) return { error: 'Sin datos' };
+  var sheet = getOrCreateSheet('LICENCIAS', LICENCIAS_HEADERS);
+  ensureColumns(sheet, ['foto_url']);
+  if (data.foto_base64) {
+    try {
+      data.foto_url = guardarCertificado(data.foto_base64, data.foto_mime, data.empleado, data.fecha_desde);
+    } catch (err) {
+      return { error: 'No se pudo guardar la foto en Drive: ' + err.message };
+    }
+    delete data.foto_base64;
+    delete data.foto_mime;
+  }
+  var res = addRow('LICENCIAS', data);
+  if (res && res.success && data.foto_url) res.foto_url = data.foto_url;
+  return res;
 }
 
 // Vista pública de sólo consulta de vacaciones (para el enlace de celular).
@@ -6122,6 +6157,16 @@ function licEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 }
 function licPad(n) { return String(n).padStart(2, '0'); }
+// Normaliza cualquier fecha (YYYY-MM-DD o ISO con hora) a YYYY-MM-DD
+function licDia(s) { return String(s == null ? '' : s).split('T')[0]; }
+// Estado según la fecha de hoy: la licencia está "En curso" hasta su último día
+// inclusive; al día siguiente pasa a "Completada".
+function licEstado(l, hoy) {
+  const d = licDia(l.fecha_desde), h = licDia(l.fecha_hasta);
+  if (h && h < hoy) return 'completada';
+  if (d && d > hoy) return 'programada';
+  return 'curso';
+}
 function licHoyISO() {
   const d = new Date();
   return d.getFullYear() + '-' + licPad(d.getMonth() + 1) + '-' + licPad(d.getDate());
@@ -6151,9 +6196,9 @@ function renderLicStats() {
   const mesIni = `${y}-${licPad(m + 1)}-01`;
   const mesFin = `${y}-${licPad(m + 1)}-${licPad(new Date(y, m + 1, 0).getDate())}`;
   const enLicHoy = new Set(licenciasData
-    .filter(l => (l.fecha_desde || '') <= hoy && (l.fecha_hasta || '') >= hoy)
+    .filter(l => licEstado(l, hoy) === 'curso')
     .map(l => l.empleado)).size;
-  const delMes = licenciasData.filter(l => (l.fecha_desde || '') <= mesFin && (l.fecha_hasta || '') >= mesIni).length;
+  const delMes = licenciasData.filter(l => licDia(l.fecha_desde) <= mesFin && licDia(l.fecha_hasta) >= mesIni).length;
   const diasAnio = licenciasData
     .filter(l => (l.fecha_desde || '').startsWith(String(y)))
     .reduce((s, l) => s + (parseInt(l.dias) || 0), 0);
@@ -6192,23 +6237,30 @@ function renderLicencias() {
   const data = licenciasData.filter(l => {
     const matchQ = !q   || [l.empleado, l.motivo].some(x => (x || '').toLowerCase().includes(q));
     const matchE = !emp || l.empleado === emp;
-    const matchM = !mes || ((l.fecha_desde || '') <= mesFin && (l.fecha_hasta || '') >= mesIni);
+    const matchM = !mes || (licDia(l.fecha_desde) <= mesFin && licDia(l.fecha_hasta) >= mesIni);
     return matchQ && matchE && matchM;
   }).sort((a, b) => (b.fecha_desde || '').localeCompare(a.fecha_desde || ''));
 
   if (!data.length) {
-    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">🩺</div><p>No hay licencias médicas registradas</p></div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">🩺</div><p>No hay licencias médicas registradas</p></div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = data.map(l => {
-    const enCurso = (l.fecha_desde || '') <= hoy && (l.fecha_hasta || '') >= hoy;
+    const est = licEstado(l, hoy);
+    const estBadge = est === 'completada' ? ' <span class="badge badge-green">Completada</span>'
+                   : est === 'curso'      ? ' <span class="badge badge-orange">En curso</span>'
+                                          : ' <span class="badge badge-gray">Programada</span>';
+    const cert = l.foto_url
+      ? `<button class="btn btn-secondary btn-sm" onclick="verCertificado('${licEsc(l.__ID__)}')">📎 Ver</button>`
+      : '<span style="color:var(--text3)">—</span>';
     return `<tr>
       <td><strong>${licEsc(l.empleado)}</strong></td>
       <td>${fmtDate(l.fecha_desde)}</td>
       <td>${fmtDate(l.fecha_hasta)}</td>
-      <td><span class="badge badge-blue" style="font-family:'DM Mono',monospace">${l.dias || 0} días</span>${enCurso ? ' <span class="badge badge-orange">En curso</span>' : ''}</td>
+      <td><span class="badge badge-blue" style="font-family:'DM Mono',monospace">${l.dias || 0} días</span>${estBadge}</td>
       <td style="font-size:13px">${licEsc(l.motivo) || '—'}</td>
+      <td>${cert}</td>
       <td class="actions-cell">
         <button class="icon-btn del" onclick="deleteLicencia('${licEsc(l.__ID__)}')" title="Eliminar">🗑️</button>
       </td>
@@ -6223,6 +6275,7 @@ function openLicModal() {
   document.getElementById('lic_hasta').value    = '';
   document.getElementById('lic_dias').value     = '';
   document.getElementById('lic_motivo').value   = '';
+  licFotoQuitar();
   document.getElementById('licenciaModal').classList.add('open');
 }
 function closeLicModal() { document.getElementById('licenciaModal').classList.remove('open'); }
@@ -6230,6 +6283,52 @@ function closeLicModal() { document.getElementById('licenciaModal').classList.re
 function calcLicDias() {
   const dias = diasCorridos(document.getElementById('lic_desde').value, document.getElementById('lic_hasta').value);
   document.getElementById('lic_dias').value = dias > 0 ? dias : '';
+}
+
+// ── Foto del certificado médico (opcional) ──
+let licFotoData = null; // { dataUrl, mime }
+
+function licFotoQuitar() {
+  licFotoData = null;
+  const inp = document.getElementById('lic_foto'); if (inp) inp.value = '';
+  const pv = document.getElementById('licFotoPreview'); if (pv) pv.style.display = 'none';
+}
+
+// Reduce la foto (máx. 1600 px, JPEG) para que suba rápido desde el celular
+function licFotoChange(input) {
+  const file = input.files && input.files[0];
+  if (!file) { licFotoQuitar(); return; }
+  if (!file.type.startsWith('image/')) { showToast('Elegí un archivo de imagen', 'error'); licFotoQuitar(); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1600;
+      const k = Math.min(1, MAX / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      licFotoData = { dataUrl: c.toDataURL('image/jpeg', 0.75), mime: 'image/jpeg' };
+      document.getElementById('licFotoImg').src = licFotoData.dataUrl;
+      document.getElementById('licFotoPreview').style.display = 'flex';
+    };
+    img.onerror = () => { showToast('No se pudo leer la imagen', 'error'); licFotoQuitar(); };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function verCertificado(id) {
+  const l = licenciasData.find(x => x.__ID__ == id);
+  if (!l || !l.foto_url) return;
+  if (String(l.foto_url).startsWith('data:')) {
+    const w = window.open('', '_blank');
+    if (w) w.document.write('<title>Certificado</title><body style="margin:0;background:#111"><img src="' + l.foto_url + '" style="max-width:100%;display:block;margin:auto">');
+  } else {
+    window.open(l.foto_url, '_blank', 'noopener');
+  }
 }
 
 async function saveLicencia() {
@@ -6246,12 +6345,25 @@ async function saveLicencia() {
 
   const data = { empleado: nombre, fecha_desde: desde, fecha_hasta: hasta, dias, motivo };
 
-  if (API_URL) {
-    const res = await apiCall('addLicencia', { data });
-    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
-    if (res?.id) data.__ID__ = res.id;
-  } else {
-    data.__ID__ = Date.now().toString();
+  const btn = document.getElementById('licSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = licFotoData ? '⏳ Subiendo foto...' : '⏳ Guardando...'; }
+  try {
+    if (API_URL) {
+      const payload = { ...data };
+      if (licFotoData) {
+        payload.foto_base64 = licFotoData.dataUrl.split(',')[1];
+        payload.foto_mime = licFotoData.mime;
+      }
+      const res = await apiCall('addLicencia', { data: payload });
+      if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+      if (res?.id) data.__ID__ = res.id;
+      if (res?.foto_url) data.foto_url = res.foto_url;
+    } else {
+      data.__ID__ = Date.now().toString();
+      if (licFotoData) data.foto_url = licFotoData.dataUrl;
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar'; }
   }
   licenciasData.push(data);
   if (!API_URL) localStorage.setItem('rrhh_licencias', JSON.stringify(licenciasData));
@@ -6273,12 +6385,14 @@ async function deleteLicencia(id) {
 }
 
 function exportLicCSV() {
-  const headers = ['Empleado','Sector','Desde','Hasta','Días','Motivo'];
+  const headers = ['Empleado','Sector','Desde','Hasta','Días','Estado','Motivo','Certificado'];
+  const hoy = licHoyISO();
+  const estTxt = { completada: 'Completada', curso: 'En curso', programada: 'Programada' };
   const rows = [...licenciasData]
     .sort((a, b) => (b.fecha_desde || '').localeCompare(a.fecha_desde || ''))
     .map(l => {
       const e = employees.find(x => x.nombre === l.empleado);
-      return [l.empleado, e ? e.sector : '', fmtDate(l.fecha_desde), fmtDate(l.fecha_hasta), l.dias || 0, l.motivo];
+      return [l.empleado, e ? e.sector : '', fmtDate(l.fecha_desde), fmtDate(l.fecha_hasta), l.dias || 0, estTxt[licEstado(l, hoy)], l.motivo, (l.foto_url && !String(l.foto_url).startsWith('data:')) ? l.foto_url : (l.foto_url ? 'Sí (guardada localmente)' : '')];
     });
   const csv = [headers, ...rows].map(r => r.map(v => `"${(v == null ? '' : v).toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
