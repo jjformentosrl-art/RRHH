@@ -2666,6 +2666,15 @@
       <p class="hint" id="editFichadaInfo" style="margin-bottom:12px"></p>
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="config-field"><label>Hora registrada</label><input type="time" id="editFichHora"></div>
+        <div class="config-field">
+          <label>Ubicación al fichar</label>
+          <select class="filter-select" id="editFichGeo" style="width:100%">
+            <option value="Sí">✅ Dentro del depósito</option>
+            <option value="No">⚠️ Fuera del depósito</option>
+            <option value="Manual">🖊️ Manual (sin dato de GPS)</option>
+          </select>
+          <p class="hint" style="margin-top:4px">Usalo para corregir un error de medición del GPS.</p>
+        </div>
         <div class="config-field" id="editFichTardanzaWrap">
           <label>¿Marcar como tardanza?</label>
           <select class="filter-select" id="editFichTardanza" style="width:100%" onchange="document.getElementById('editFichMinutosWrap').style.display = this.value === 'Sí' ? '' : 'none'">
@@ -7071,7 +7080,7 @@ function renderFichadasRegistros() {
       <span>${f.hora || ''}</span>
       <span><span class="turno-pill">${f.turno || '—'}</span></span>
       <span><span class="tipo-pill ${f.tipo === 'Entrada' ? 'tipo-entrada' : 'tipo-salida'}">${f.tipo === 'Entrada' ? '🟢 Entrada' : '🔴 Salida'}</span></span>
-      <span class="${f.dentro_geocerca === 'No' ? 'geo-bad' : (f.dentro_geocerca === 'Sí' ? 'geo-ok' : '')}">${f.dentro_geocerca === 'No' ? `⚠️ Fuera (${Math.round(f.distancia_m||0)}m)` : (f.dentro_geocerca === 'Sí' ? '✅ En depósito' : '🖊️ Manual')}</span>
+      <span class="${f.dentro_geocerca === 'No' ? 'geo-bad' : (f.dentro_geocerca === 'Sí' ? 'geo-ok' : '')}">${f.dentro_geocerca === 'No' ? (f.distancia_m ? `⚠️ Fuera (${Math.round(f.distancia_m)}m)` : '⚠️ Fuera') : (f.dentro_geocerca === 'Sí' ? '✅ En depósito' : '🖊️ Manual')}</span>
       <span class="${f.tardanza === 'Sí' ? 'tarde-si' : 'tarde-no'}">${f.tardanza === 'Sí' ? `+${f.minutos_tarde}m tarde` : (f.tipo === 'Entrada' ? 'A tiempo' : '—')}</span>
       <span style="display:flex;gap:6px">
         <button class="btn btn-secondary btn-sm" style="padding:4px 8px" onclick="openEditFichadaModal('${f.__ID__}')" title="Corregir">✏️</button>
@@ -7091,6 +7100,7 @@ function openEditFichadaModal(id) {
   document.getElementById('editFichHora').value = f.hora || '';
   document.getElementById('editFichTardanza').value = f.tardanza === 'Sí' ? 'Sí' : 'No';
   document.getElementById('editFichMinutos').value = f.minutos_tarde || 0;
+  document.getElementById('editFichGeo').value = (f.dentro_geocerca === 'Sí' || f.dentro_geocerca === 'No') ? f.dentro_geocerca : 'Manual';
   // La tardanza solo aplica a las entradas; en salidas se oculta ese bloque.
   const esEntrada = f.tipo === 'Entrada';
   document.getElementById('editFichTardanzaWrap').style.display = esEntrada ? '' : 'none';
@@ -7110,7 +7120,8 @@ async function saveEditFichada() {
   const hora = document.getElementById('editFichHora').value;
   const tardanza = esEntrada ? document.getElementById('editFichTardanza').value : '';
   const minutos_tarde = (esEntrada && tardanza === 'Sí') ? (parseInt(document.getElementById('editFichMinutos').value) || 0) : 0;
-  const data = esEntrada ? { hora, tardanza, minutos_tarde } : { hora };
+  const dentro_geocerca = document.getElementById('editFichGeo').value;
+  const data = esEntrada ? { hora, tardanza, minutos_tarde, dentro_geocerca } : { hora, dentro_geocerca };
   if (API_URL) {
     const res = await apiCall('updateFichada', { id: editFichadaId, data });
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
