@@ -508,6 +508,9 @@
   .kiosk-geo.ok .dot { background: var(--success); }
   .kiosk-geo.bad .dot { background: var(--danger); }
   .kiosk-geo.loading .dot { background: var(--warning); animation: pulse 1s infinite; }
+  #kioskGeoText { flex: 1; min-width: 0; }
+  .kiosk-geo-btn { flex-shrink: 0; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 7px 10px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .kiosk-geo-btn:active { background: var(--surface2); }
   .kiosk-shift-group { display: flex; flex-direction: column; gap: 8px; }
   .kiosk-shift-label { font-size: 12px; font-weight: 700; color: var(--text2); text-transform: uppercase; letter-spacing: 0.4px; }
   .kiosk-btns { display: flex; flex-direction: column; gap: 10px; }
@@ -1666,6 +1669,7 @@
     </div>
     <div class="kiosk-geo loading" id="kioskGeoStatus">
       <span class="dot"></span><span id="kioskGeoText">Obteniendo tu ubicación...</span>
+      <button type="button" class="kiosk-geo-btn" onclick="kioskGetLocation()">🔄 Actualizar</button>
     </div>
     <div id="kioskProgress" class="kiosk-progress" style="display:none;"></div>
     <div class="kiosk-shift-group">
@@ -7538,16 +7542,18 @@ async function deleteExcepcion(id) {
   showToast('Eliminada ✓', 'success');
 }
 
-function useMyLocationForConfig() {
+async function useMyLocationForConfig() {
   if (!navigator.geolocation) { showToast('Este navegador no soporta geolocalización', 'error'); return; }
-  showToast('Obteniendo tu ubicación actual...', '');
-  navigator.geolocation.getCurrentPosition(pos => {
-    document.getElementById('cfg_lat').value = pos.coords.latitude.toFixed(7);
-    document.getElementById('cfg_lng').value = pos.coords.longitude.toFixed(7);
-    showToast('Ubicación capturada ✓ — revisá y guardá la configuración', 'success');
-  }, err => {
-    showToast('No se pudo obtener la ubicación: ' + err.message, 'error');
-  }, { enableHighAccuracy: true, timeout: 15000 });
+  showToast('Buscando la mejor ubicación (hasta 15 s), quedate quieto...', '');
+  try {
+    const fix = await kioskLocate(12000);
+    document.getElementById('cfg_lat').value = fix.lat.toFixed(7);
+    document.getElementById('cfg_lng').value = fix.lng.toFixed(7);
+    if (fix.acc > KIOSK_ACC_MAX) showToast('Ubicación capturada pero imprecisa (±' + Math.round(fix.acc) + ' m). Conviene repetirlo desde un celular, al aire libre en el depósito', 'error');
+    else showToast('Ubicación capturada ✓ (±' + Math.round(fix.acc) + ' m) — revisá y guardá la configuración', 'success');
+  } catch (err) {
+    showToast('No se pudo obtener la ubicación: ' + ((err && err.message) || 'revisá permisos y GPS'), 'error');
+  }
 }
 
 async function saveConfigForm() {
@@ -7686,13 +7692,28 @@ let kioskEmployees = [];
 let kioskConfig = {};
 let kioskFichadasHoy = [];
 
+// ─── Ubicación del kiosco ───
+// Precisión (m) considerada buena: al alcanzarla se corta la búsqueda.
+const KIOSK_ACC_BUENA = 50;
+// Por encima de este valor se avisa al empleado que la ubicación es imprecisa.
+const KIOSK_ACC_MAX = 150;
+let kioskGeoJob = null;       // búsqueda de ubicación en curso
+let kioskGeoJobStart = 0;
+let kioskMarcando = false;
+
 function initKiosk(apiUrl) {
   document.getElementById('kioskScreen').classList.add('active');
   kioskApiUrl = apiUrl || '';
   tickKioskClock();
   // Al volver a la pestaña (o desbloquear el celular) se corrige la hora al instante
   document.addEventListener('visibilitychange', function () {
-    if (!document.hidden) tickKioskClock();
+    if (document.hidden) return;
+    tickKioskClock();
+    kioskRefreshOnReturn();
+  });
+  // Safari (iPhone) puede restaurar la página desde caché con la ubicación vieja: se vuelve a pedir
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) { tickKioskClock(); kioskRefreshOnReturn(); }
   });
   if (!kioskApiUrl) {
     setKioskGeoStatus('bad', 'Enlace sin configurar. Pedile al administrador que genere el enlace de fichaje desde Configuración.');
@@ -7751,6 +7772,8 @@ async function kioskLoadEmployees() {
   if (res.companyName) document.getElementById('kioskCompanyName').textContent = res.companyName;
   const sel = document.getElementById('kioskEmpleado');
   sel.innerHTML = '<option value="">Seleccioná tu nombre...</option>' + kioskEmployees.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
+  // La ubicación puede haber llegado antes que la config del depósito: se vuelve a evaluar
+  if (kioskGeo) kioskRenderGeo();
 }
 
 function kioskNormalizar(txt) {
@@ -7818,27 +7841,106 @@ function kioskRenderProgress() {
   }).join('');
 }
 
+// Busca la mejor posición posible. El navegador (sobre todo Safari en iPhone) devuelve primero una
+// lectura "gruesa" por Wi-Fi/antenas, que puede estar a 1000 m o más, y recién después afina con el GPS.
+// Por eso se escucha con watchPosition y se conserva la lectura más PRECISA, en vez de usar la primera.
+// Devuelve una promesa {lat, lng, acc, ts} con .cancel(). Rechaza con {code}: 0 sin soporte,
+// 1 permiso denegado, 2 sin señal, 3 tiempo agotado.
+function kioskLocate(refineMs, onUpdate) {
+  let cancel = function () {};
+  const p = new Promise((resolve, reject) => {
+    if (!navigator.geolocation) { reject({ code: 0 }); return; }
+    let best = null, finished = false, lastErr = null, refineTimer = null, watchId = null;
+    const finish = err => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(refineTimer);
+      try { navigator.geolocation.clearWatch(watchId); } catch (e) {}
+      if (best) resolve(best); else reject(err || lastErr || { code: 3 });
+    };
+    cancel = () => finish();
+    watchId = navigator.geolocation.watchPosition(pos => {
+      const c = pos.coords;
+      const fix = { lat: c.latitude, lng: c.longitude, acc: (typeof c.accuracy === 'number' ? c.accuracy : 99999), ts: Date.now() };
+      if (!best || fix.acc <= best.acc) best = fix;
+      if (onUpdate) onUpdate(best);
+      if (best.acc <= KIOSK_ACC_BUENA) { finish(); return; }
+      if (!refineTimer) refineTimer = setTimeout(finish, refineMs);
+    }, err => {
+      lastErr = err;
+      // 1 = permiso denegado, 3 = tiempo agotado: se corta. 2 (sin señal momentánea): se sigue esperando.
+      if (err.code !== 2) finish(err);
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
+  });
+  p.cancel = () => cancel();
+  return p;
+}
+
+function kioskGeoErrorText(err) {
+  const code = err && err.code;
+  if (code === 0) return 'Tu navegador no soporta geolocalización.';
+  if (code === 1) return 'La ubicación está bloqueada para este sitio. iPhone: Ajustes → Privacidad y seguridad → Localización → Safari → "Al usar la app", y en Safari tocá "aA" → Ajustes del sitio web → Ubicación → Permitir. Android: tocá el candado de la barra de direcciones → Permisos → Ubicación → Permitir. Después tocá Actualizar.';
+  if (code === 2) return 'No se detecta señal de ubicación. Revisá que el GPS esté activado, acercate a una ventana o salí un momento y tocá Actualizar.';
+  return 'La ubicación tardó demasiado. Tocá Actualizar; si estás adentro, acercate a una ventana o a la puerta.';
+}
+
+// Se llama cada vez que se abre el enlace, al volver a la pantalla (desbloquear el celular, cambiar de app)
+// y al tocar "Actualizar": se descarta la posición anterior y se pide una nueva.
 function kioskGetLocation() {
+  if (kioskMarcando) return;
   if (!navigator.geolocation) { setKioskGeoStatus('bad', 'Tu navegador no soporta geolocalización.'); return; }
-  setKioskGeoStatus('loading', 'Obteniendo tu ubicación...');
-  navigator.geolocation.getCurrentPosition(pos => {
-    kioskGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
-    if (kioskConfig.depot_lat && kioskConfig.depot_lng) {
-      const dist = haversineDistance(kioskGeo.lat, kioskGeo.lng, parseFloat(kioskConfig.depot_lat), parseFloat(kioskConfig.depot_lng));
-      const radio = parseFloat(kioskConfig.radio_m) || 150;
-      if (dist !== null && dist <= radio) {
-        setKioskGeoStatus('ok', `📍 Ubicación detectada — estás dentro del depósito (${Math.round(dist)}m)`);
-      } else {
-        setKioskGeoStatus('bad', `📍 Estás fuera del rango del depósito (${dist!==null?Math.round(dist):'?'}m). Podés marcar igual, quedará registrado para revisión.`);
-      }
-    } else {
-      setKioskGeoStatus('ok', '📍 Ubicación detectada');
-    }
+  if (kioskGeoJob) kioskGeoJob.cancel();
+  kioskGeo = null;
+  kioskUpdateButtons();
+  setKioskGeoStatus('loading', 'Buscando tu ubicación...');
+  const job = kioskLocate(12000, fix => {
+    if (kioskGeoJob !== job) return;
+    kioskGeo = fix;               // se habilita el botón con la primera lectura; se va afinando
+    kioskRenderGeo();
     kioskUpdateButtons();
-  }, err => {
-    setKioskGeoStatus('bad', 'No se pudo obtener tu ubicación. Activá el GPS y los permisos de ubicación para este sitio, y volvé a intentar.');
+  });
+  kioskGeoJob = job;
+  kioskGeoJobStart = Date.now();
+  job.then(fix => {
+    if (kioskGeoJob !== job) return;
+    kioskGeoJob = null;
+    kioskGeo = fix;
+    kioskRenderGeo();
     kioskUpdateButtons();
-  }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  }).catch(err => {
+    if (kioskGeoJob !== job) return;
+    kioskGeoJob = null;
+    kioskGeo = null;
+    setKioskGeoStatus('bad', kioskGeoErrorText(err));
+    kioskUpdateButtons();
+  });
+}
+
+function kioskRefreshOnReturn() {
+  if (!kioskApiUrl || kioskMarcando) return;
+  // Si justo se está pidiendo la ubicación (ej. diálogo de permiso), no se reinicia
+  if (kioskGeoJob && Date.now() - kioskGeoJobStart < 8000) return;
+  kioskGetLocation();
+}
+
+function kioskRenderGeo() {
+  if (!kioskGeo) return;
+  const prec = Math.round(kioskGeo.acc);
+  const tienePunto = kioskConfig.depot_lat && kioskConfig.depot_lng;
+  const dist = tienePunto ? haversineDistance(kioskGeo.lat, kioskGeo.lng, parseFloat(kioskConfig.depot_lat), parseFloat(kioskConfig.depot_lng)) : null;
+  const radio = parseFloat(kioskConfig.radio_m) || 150;
+  if (kioskGeoJob && kioskGeo.acc > KIOSK_ACC_BUENA) {
+    setKioskGeoStatus('loading', `Afinando tu ubicación... (precisión actual ±${prec} m)`);
+    return;
+  }
+  if (dist === null) { setKioskGeoStatus('ok', `📍 Ubicación detectada (±${prec} m)`); return; }
+  if (dist <= radio) {
+    setKioskGeoStatus('ok', `📍 Ubicación detectada — estás dentro del depósito (${Math.round(dist)} m · precisión ±${prec} m)`);
+  } else if (kioskGeo.acc > KIOSK_ACC_MAX) {
+    setKioskGeoStatus('bad', `📍 El GPS está poco preciso (±${prec} m) y por eso figurás a ${Math.round(dist)} m del depósito. Acercate a una ventana o salí un momento y tocá "Actualizar".`);
+  } else {
+    setKioskGeoStatus('bad', `📍 Estás fuera del rango del depósito (${Math.round(dist)} m). Podés marcar igual, quedará registrado para revisión.`);
+  }
 }
 
 function setKioskGeoStatus(state, text) {
@@ -7872,6 +7974,12 @@ function kioskUpdateButtons() {
 }
 
 async function kioskMarcar(tipo, turno) {
+  if (kioskMarcando) return;
+  kioskMarcando = true;
+  try { await kioskMarcarInterno(tipo, turno); } finally { kioskMarcando = false; }
+}
+
+async function kioskMarcarInterno(tipo, turno) {
   const empleado = document.getElementById('kioskEmpleado').value;
   if (!empleado) { showKioskResult('error', 'Seleccioná tu nombre.'); return; }
   if (!kioskGeo) { showKioskResult('error', 'Todavía no se detectó tu ubicación.'); return; }
@@ -7887,13 +7995,30 @@ async function kioskMarcar(tipo, turno) {
   document.querySelectorAll('.kiosk-btn').forEach(b => b.disabled = true);
   showKioskResult('', 'Enviando fichada...');
 
-  // Refrescamos la ubicación justo antes de marcar, para que sea lo más precisa posible
-  await new Promise(resolve => {
-    navigator.geolocation.getCurrentPosition(pos => {
-      kioskGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
-      resolve();
-    }, () => resolve(), { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
-  });
+  // Ubicación fresca justo antes de marcar: si la lectura actual es vieja o imprecisa se vuelve a buscar
+  // (hasta ~10 s tras la primera lectura) y se usa la más precisa. Nunca se ficha con una posición vieja.
+  if (kioskGeoJob) { kioskGeoJob.cancel(); kioskGeoJob = null; }
+  let geo = kioskGeo;
+  const lecturaBuena = geo && (Date.now() - geo.ts) < 30000 && geo.acc <= KIOSK_ACC_BUENA;
+  if (!lecturaBuena) {
+    showKioskResult('', 'Actualizando tu ubicación...');
+    try {
+      geo = await kioskLocate(10000);
+      kioskGeo = geo;
+      kioskRenderGeo();
+    } catch (err) {
+      // Solo se acepta la lectura previa si es reciente (menos de 60 s)
+      if (!(geo && (Date.now() - geo.ts) < 60000)) {
+        kioskGeo = null;
+        const msg = kioskGeoErrorText(err);
+        setKioskGeoStatus('bad', msg);
+        showKioskResult('error', msg);
+        kioskUpdateButtons();
+        return;
+      }
+    }
+  }
+  showKioskResult('', 'Enviando fichada...');
 
   const now = new Date();
   // Usamos la fecha en horario LOCAL del celular (no UTC) para que la fichada
@@ -7904,7 +8029,7 @@ async function kioskMarcar(tipo, turno) {
     empleado, tipo, turno,
     fecha: `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`,
     hora: now.toTimeString().split(' ')[0].slice(0,5),
-    lat: kioskGeo.lat, lng: kioskGeo.lng,
+    lat: geo.lat, lng: geo.lng,
     pin: pin || ''
   };
   const res = await kioskApiCall('addFichada', { data });
@@ -7917,7 +8042,7 @@ async function kioskMarcar(tipo, turno) {
   kioskFichadasHoy.push({ tipo, turno, hora: data.hora });
 
   if (res.dentro_geocerca === false || res.dentro_geocerca === 'No') {
-    showKioskResult('warn', `⚠️ Fichada registrada, pero estás fuera del rango del depósito (${Math.round(res.distancia_m||0)}m). Quedó marcada para revisión.`);
+    showKioskResult('warn', `⚠️ Fichada registrada, pero estás fuera del rango del depósito (${Math.round(res.distancia_m||0)}m, precisión del GPS ±${Math.round(geo.acc)}m). Quedó marcada para revisión.`);
   } else if (res.tardanza === 'Sí') {
     showKioskResult('warn', `✅ Entrada de ${turno.toLowerCase()} registrada — llegaste ${res.minutos_tarde} minutos tarde.`);
   } else {
