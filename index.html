@@ -4108,7 +4108,7 @@ function renderConducta() {
   }
   grid.innerHTML = data.map(c => `
     <div class="conduct-card">
-      <h4>${c.empleado || '🏢 Sin empleado (condición de la empresa)'}</h4>
+      <h4>${c.empleado === 'Depósito' ? '🏭 Depósito' : (c.empleado || '🏢 Sin empleado (condición de la empresa)')}</h4>
       <div class="conduct-meta">
         <span>${tipoConductaBadge(c.tipo)}</span>
         <span>📅 ${fmtDate(c.fecha)}</span>
@@ -5077,6 +5077,9 @@ function populateVacEmpleadoSelect() {
 function populateEmployeeSelects() {
   const opts = '<option value="">Seleccionar empleado...</option>' + employees.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
   ['c_empleado','r_empleado','p_responsable'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
+  // Gestión de Conducta: permitir asignar el registro al "Depósito" (instalaciones, equipos, portón, etc.)
+  const cEmp = document.getElementById('c_empleado');
+  if (cEmp) cEmp.insertAdjacentHTML('beforeend', '<option value="Depósito">🏭 Depósito (instalaciones / equipos)</option>');
   populateDesempenoEmpleados();
   if (typeof updateConductaEmpleadoRequired === 'function') updateConductaEmpleadoRequired();
 }
