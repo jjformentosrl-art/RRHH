@@ -862,6 +862,21 @@
           <input type="text" placeholder="Buscar registros de conducta..." id="conductaSearch" oninput="filterConducta()">
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          <span style="font-size:13px;color:var(--text-muted,#6b7280)">🏷️ Tipo:</span>
+          <select id="conductaTipoFilter" onchange="filterConducta()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border,#e5e7eb);font-size:13px;">
+            <option value="">Todos</option>
+            <option value="Llamado de atención">Llamado de atención</option>
+            <option value="Apercibimiento">Apercibimiento</option>
+            <option value="Suspensión">Suspensión</option>
+            <option value="Reconocimiento">Reconocimiento</option>
+            <option value="Comportamiento Inseguro">Comportamiento Inseguro</option>
+            <option value="Incidente">Incidente</option>
+            <option value="Accidente">Accidente</option>
+            <option value="Condición Insegura">Condición Insegura</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
           <span style="font-size:13px;color:var(--text-muted,#6b7280)">📅 Mes:</span>
           <select id="conductaMes" onchange="filterConducta()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border,#e5e7eb);font-size:13px;">
             <option value="">Todos</option>
@@ -1987,7 +2002,7 @@
     <div class="modal-body">
       <div class="form-grid">
         <div class="form-group full">
-          <label>Empleado</label>
+          <label id="c_empleado_label">Empleado *</label>
           <select id="c_empleado"></select>
         </div>
         <div class="form-group">
@@ -1996,7 +2011,7 @@
         </div>
         <div class="form-group">
           <label>Tipo</label>
-          <select id="c_tipo">
+          <select id="c_tipo" onchange="updateConductaEmpleadoRequired()">
             <option value="Llamado de atención">Llamado de atención</option>
             <option value="Apercibimiento">Apercibimiento</option>
             <option value="Suspensión">Suspensión</option>
@@ -2004,6 +2019,7 @@
             <option value="Comportamiento Inseguro">Comportamiento Inseguro</option>
             <option value="Incidente">Incidente</option>
             <option value="Accidente">Accidente</option>
+            <option value="Condición Insegura">Condición Insegura</option>
             <option value="Otro">Otro</option>
           </select>
         </div>
@@ -4020,8 +4036,10 @@ function getConductaFiltered() {
   const q   = document.getElementById('conductaSearch')?.value?.toLowerCase()||'';
   const mes = document.getElementById('conductaMes')?.value||'';
   const anio= document.getElementById('conductaAnio')?.value||'';
+  const tipoF = document.getElementById('conductaTipoFilter')?.value||'';
   return conductaData.filter(c => {
     if (q && ![c.empleado,c.tipo,c.descripcion].some(v=>(v||'').toLowerCase().includes(q))) return false;
+    if (tipoF && (c.tipo||'Otro') !== tipoF) return false;
     if (mes || anio) {
       const d = new Date(c.fecha);
       if (isNaN(d)) return false;
@@ -4040,6 +4058,7 @@ function renderConductaAnalysis(data) {
     { key:'Comportamiento Inseguro', icon:'⚠️',  cls:'badge-orange' },
     { key:'Incidente',               icon:'🔶',  cls:'badge-yellow' },
     { key:'Accidente',               icon:'🚨',  cls:'badge-red'    },
+    { key:'Condición Insegura',      icon:'🚧',  cls:'badge-purple', always:true },
     { key:'Suspensión',              icon:'🚫',  cls:'badge-red'    },
     { key:'Apercibimiento',          icon:'📌',  cls:'badge-yellow' },
     { key:'Llamado de atención',     icon:'🔔',  cls:'badge-yellow' },
@@ -4057,11 +4076,11 @@ function renderConductaAnalysis(data) {
   else if (mes)    periodoLabel = MESES[+mes];
   else if (anio)   periodoLabel = `Año ${anio}`;
 
-  const cards = tipos.filter(t=>counts[t.key]).map(t=>`
+  const cards = tipos.filter(t=>counts[t.key]||t.always).map(t=>`
     <div style="display:flex;align-items:center;gap:8px;background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:10px 14px;min-width:160px;flex:1;">
       <span style="font-size:22px">${t.icon}</span>
       <div>
-        <div style="font-size:22px;font-weight:700;line-height:1;color:var(--text,#111)">${counts[t.key]}</div>
+        <div style="font-size:22px;font-weight:700;line-height:1;color:var(--text,#111)">${counts[t.key]||0}</div>
         <div style="font-size:11px;color:var(--text-muted,#6b7280);margin-top:2px">${t.key}</div>
       </div>
     </div>
@@ -4073,7 +4092,8 @@ function renderConductaAnalysis(data) {
         <span style="font-weight:600;font-size:14px;">📊 Análisis por Tipo — <span style="color:var(--primary,#3b82f6)">${periodoLabel}</span></span>
         <span style="font-size:13px;color:var(--text-muted,#6b7280)">${total} registro${total!==1?'s':''}</span>
       </div>
-      ${total ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${cards}</div>` : `<div style="color:var(--text-muted,#6b7280);font-size:13px;">Sin registros para el período seleccionado.</div>`}
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">${cards}</div>
+      ${total ? '' : `<div style="color:var(--text-muted,#6b7280);font-size:13px;margin-top:8px;">Sin registros para el período seleccionado.</div>`}
     </div>`;
 }
 
@@ -4088,7 +4108,7 @@ function renderConducta() {
   }
   grid.innerHTML = data.map(c => `
     <div class="conduct-card">
-      <h4>${c.empleado || ''}</h4>
+      <h4>${c.empleado || '🏢 Sin empleado (condición de la empresa)'}</h4>
       <div class="conduct-meta">
         <span>${tipoConductaBadge(c.tipo)}</span>
         <span>📅 ${fmtDate(c.fecha)}</span>
@@ -4110,6 +4130,7 @@ function tipoConductaBadge(tipo) {
     'Comportamiento Inseguro':'badge-orange',
     'Incidente':             'badge-yellow',
     'Accidente':             'badge-red',
+    'Condición Insegura':    'badge-purple',
   };
   const cls = map[tipo]||'badge-gray';
   return `<span class="badge ${cls}">${tipo||''}</span>`;
@@ -5057,6 +5078,7 @@ function populateEmployeeSelects() {
   const opts = '<option value="">Seleccionar empleado...</option>' + employees.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('');
   ['c_empleado','r_empleado','p_responsable'].forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = opts; });
   populateDesempenoEmpleados();
+  if (typeof updateConductaEmpleadoRequired === 'function') updateConductaEmpleadoRequired();
 }
 
 // Desempeño: cada modal lista únicamente al personal de su puesto
@@ -5153,7 +5175,19 @@ async function deleteEmployee(id) {
 }
 
 // CONDUCTA
-function openConductaModal() { document.getElementById('conductaModal').classList.add('open'); }
+function updateConductaEmpleadoRequired() {
+  const esCond = document.getElementById('c_tipo').value === 'Condición Insegura';
+  const lbl = document.getElementById('c_empleado_label');
+  const sel = document.getElementById('c_empleado');
+  if (lbl) lbl.textContent = esCond ? 'Empleado (opcional)' : 'Empleado *';
+  if (sel && sel.options.length) sel.options[0].textContent = esCond ? 'Sin empleado (condición de la empresa)' : 'Seleccionar empleado...';
+}
+function openConductaModal() {
+  const f = document.getElementById('c_fecha');
+  if (f && !f.value) f.value = new Date().toISOString().split('T')[0];
+  updateConductaEmpleadoRequired();
+  document.getElementById('conductaModal').classList.add('open');
+}
 function closeConductaModal() { document.getElementById('conductaModal').classList.remove('open'); }
 
 async function saveConducta() {
@@ -5163,7 +5197,7 @@ async function saveConducta() {
     tipo: document.getElementById('c_tipo').value,
     descripcion: document.getElementById('c_desc').value
   };
-  if (!data.empleado) { showToast('Seleccione un empleado', 'error'); return; }
+  if (!data.empleado && data.tipo !== 'Condición Insegura') { showToast('Seleccione un empleado', 'error'); return; }
   if (API_URL) {
     const res = await apiCall('addConducta', { data });
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
@@ -5173,6 +5207,7 @@ async function saveConducta() {
   }
   conductaData.push(data);
   if (!API_URL) localStorage.setItem('rrhh_conducta', JSON.stringify(conductaData));
+  document.getElementById('c_desc').value = '';
   closeConductaModal();
   renderConducta();
   showToast('Registro guardado ✓', 'success');
