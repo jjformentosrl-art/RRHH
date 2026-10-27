@@ -1571,34 +1571,72 @@
 
     <!-- LIMPIEZA -->
     <div class="panel" id="panel-capacitaciones">
-      <div class="stats" id="capStats"></div>
-      <div class="toolbar">
-        <select class="filter-select" id="capAnio" onchange="renderCapacitaciones()" title="Año"></select>
-        <div class="search-box" style="flex:1">
-          <span>🔍</span>
-          <input type="text" id="capSearch" placeholder="Buscar capacitación..." oninput="renderCapacitaciones()">
-        </div>
-        <select class="filter-select" id="capEstadoF" onchange="renderCapacitaciones()">
-          <option value="">Todos los estados</option>
-          <option value="Pendiente">Pendientes</option>
-          <option value="Completada">Completadas</option>
-        </select>
-        <button class="btn btn-primary" onclick="openCapModal()">+ Nueva Capacitación</button>
+      <div class="desempeño-tabs" style="flex-shrink:0;align-items:center">
+        <button class="dtab active" onclick="showCapTab('lista', this)">🎓 Capacitaciones</button>
+        <button class="dtab" onclick="showCapTab('emp', this)">👤 Por empleado</button>
+        <select class="filter-select" id="capAnio" onchange="renderCapacitaciones()" title="Año" style="margin-left:auto"></select>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Capacitación</th>
-              <th>Fecha programada</th>
-              <th>Convocados</th>
-              <th>Asistencia</th>
-              <th>Estado</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="capTbody"></tbody>
-        </table>
+
+      <div class="dpanel active" id="cpanel-lista">
+        <div class="stats" id="capStats"></div>
+        <div class="toolbar">
+          <div class="search-box" style="flex:1">
+            <span>🔍</span>
+            <input type="text" id="capSearch" placeholder="Buscar capacitación..." oninput="renderCapacitaciones()">
+          </div>
+          <select class="filter-select" id="capEstadoF" onchange="renderCapacitaciones()">
+            <option value="">Todos los estados</option>
+            <option value="Pendiente">Pendientes</option>
+            <option value="Completada">Completadas</option>
+          </select>
+          <button class="btn btn-primary" onclick="openCapModal()">+ Nueva Capacitación</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Capacitación</th>
+                <th>Fecha programada</th>
+                <th>Convocados</th>
+                <th>Asistencia</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="capTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel" id="cpanel-emp">
+        <div class="toolbar">
+          <div class="search-box" style="flex:1">
+            <span>🔍</span>
+            <input type="text" id="capEmpSearch" placeholder="Buscar empleado..." oninput="renderCapPorEmpleado()">
+          </div>
+          <select class="filter-select" id="capEmpPuesto" onchange="renderCapPorEmpleado()"></select>
+          <select class="filter-select" id="capEmpFiltro" onchange="renderCapPorEmpleado()">
+            <option value="">Todos</option>
+            <option value="aus">Solo con inasistencias</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Empleado</th>
+                <th>Puesto</th>
+                <th>Citaciones</th>
+                <th>Asistió</th>
+                <th>No asistió</th>
+                <th>Pendientes</th>
+                <th>% asistencia</th>
+                <th>Detalle</th>
+              </tr>
+            </thead>
+            <tbody id="capEmpTbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -2356,8 +2394,12 @@
           <input type="date" id="cap_fecha">
         </div>
         <div class="form-group">
+          <label>Profesional que dicta la capacitación</label>
+          <input type="text" id="cap_profesional" placeholder="Ej: Lic. Juan Pérez (Seguridad e Higiene)">
+        </div>
+        <div class="form-group full">
           <label>Observaciones</label>
-          <input type="text" id="cap_obs" placeholder="Opcional (instructor, lugar, duración...)">
+          <input type="text" id="cap_obs" placeholder="Opcional (lugar, duración...)">
         </div>
         <div class="form-group full">
           <label>Personal que debe asistir — por puesto</label>
@@ -3175,6 +3217,7 @@ function getAllData() {
   var riSheet = getOrCreateSheet('ROPA_INGRESOS', ropaIngresosHeaders);
   var lmSheet = getOrCreateSheet('LIMPIEZA', LIMPIEZA_HEADERS);
   var capSheet = getOrCreateSheet('CAPACITACIONES', CAP_HEADERS);
+  ensureColumns(capSheet, ['profesional']); // migración: agrega la columna a la hoja ya existente
   var capAsSheet = getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
@@ -3597,12 +3640,12 @@ function guardarLimpieza(data, origen) {
 }
 
 // ─── CAPACITACIONES (plan anual + asistencia por enlace) ───
-var CAP_HEADERS = ['nombre','fecha_programada','fecha_realizada','estado','puestos','empleados','observaciones'];
+var CAP_HEADERS = ['nombre','fecha_programada','fecha_realizada','estado','puestos','empleados','observaciones','profesional'];
 var CAPASIS_HEADERS = ['capacitacion_id','empleado','fecha','hora','origen'];
 var CAP_NOMINA_HEADERS = ['nombre','genero','cuil','dni','tel','localidad','nacimiento','edad','art','alta','antiguedad','sector'];
 
 function addCapacitacion(data) {
-  getOrCreateSheet('CAPACITACIONES', CAP_HEADERS);
+  ensureColumns(getOrCreateSheet('CAPACITACIONES', CAP_HEADERS), ['profesional']);
   return addRow('CAPACITACIONES', data);
 }
 
@@ -3633,7 +3676,7 @@ function getCapacitacionKiosk(data) {
   var asis = sheetToJson(getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS))
     .filter(function(a) { return String(a.capacitacion_id) === String(cap.__ID__); })
     .map(function(a) { return { empleado: a.empleado, fecha: a.fecha, hora: a.hora }; });
-  return { cap: { id: cap.__ID__, nombre: cap.nombre, fecha_programada: cap.fecha_programada, estado: cap.estado, puestos: cap.puestos, empleados: cap.empleados },
+  return { cap: { id: cap.__ID__, nombre: cap.nombre, fecha_programada: cap.fecha_programada, estado: cap.estado, puestos: cap.puestos, empleados: cap.empleados, profesional: cap.profesional || '' },
            employees: employees, asistencias: asis };
 }
 
@@ -9517,6 +9560,7 @@ function renderCapacitaciones() {
   sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
   sel.value = years.map(String).includes(cur) ? cur : String(yNow);
   const anio = sel.value;
+  renderCapPorEmpleado();
 
   const delAnio = capacitacionesData.filter(c => String(c.fecha_programada).startsWith(anio));
   const m = capMetricas(delAnio);
@@ -9542,7 +9586,7 @@ function renderCapacitaciones() {
       : venc ? '<span class="badge badge-red">Pendiente · vencida</span>' : '<span class="badge badge-orange">Pendiente</span>';
     const id = licEsc(c.__ID__);
     return `<tr>
-      <td><strong>${licEsc(c.nombre)}</strong>${c.observaciones ? `<div style="font-size:11px;color:var(--text3)">${licEsc(c.observaciones)}</div>` : ''}</td>
+      <td><strong>${licEsc(c.nombre)}</strong>${c.profesional ? `<div style="font-size:12px;color:var(--text2)">👤 ${licEsc(c.profesional)}</div>` : ''}${c.observaciones ? `<div style="font-size:11px;color:var(--text3)">${licEsc(c.observaciones)}</div>` : ''}</td>
       <td>${fmtDate(c.fecha_programada)}${done && c.fecha_realizada ? `<div style="font-size:11px;color:var(--text3)">Realizada: ${fmtDate(c.fecha_realizada)}</div>` : ''}</td>
       <td>${cv.length}</td>
       <td><div style="display:flex;align-items:center;gap:8px"><div class="cap-bar" style="flex:1"><i style="width:${p || 0}%"></i></div><span style="font-size:12px;white-space:nowrap">${asis}/${cv.length}${p === null ? '' : ' · ' + p + '%'}</span></div></td>
@@ -9564,6 +9608,7 @@ function openCapModal(id) {
   document.getElementById('cap_nombre').value = c ? c.nombre : '';
   document.getElementById('cap_fecha').value = c ? String(c.fecha_programada).slice(0, 10) : '';
   document.getElementById('cap_obs').value = c ? (c.observaciones || '') : '';
+  document.getElementById('cap_profesional').value = c ? (c.profesional || '') : '';
   document.getElementById('capEmpBuscar').value = '';
   capRenderPuestos(); capRenderEmps();
   document.getElementById('capModal').classList.add('open');
@@ -9597,7 +9642,7 @@ async function saveCap() {
   if (!nombre) { showToast('Ingresá el nombre de la capacitación', 'error'); return; }
   if (!fecha) { showToast('Ingresá la fecha programada', 'error'); return; }
   if (!capEdit.puestos.size && !capEdit.emps.size) { showToast('Elegí al menos un puesto o un empleado', 'error'); return; }
-  const data = { nombre, fecha_programada: fecha, puestos: [...capEdit.puestos].join('|'), empleados: [...capEdit.emps].join('|'), observaciones: document.getElementById('cap_obs').value.trim() };
+  const data = { nombre, fecha_programada: fecha, puestos: [...capEdit.puestos].join('|'), empleados: [...capEdit.emps].join('|'), observaciones: document.getElementById('cap_obs').value.trim(), profesional: document.getElementById('cap_profesional').value.trim() };
   const id = capEdit.id;
   if (id) {
     if (API_URL) { const r = await apiCall('updateCapacitacion', { id, data }); if (r?.error) { showToast('Error: ' + r.error, 'error'); return; } }
@@ -9675,6 +9720,75 @@ async function capQuitar(id, nombre) {
   capAsistData = capAsistData.filter(a => a !== rec); capSave(); openCapAsist(id); renderCapacitaciones();
 }
 
+// ── Vista por empleado ──
+function showCapTab(tab, el) {
+  document.querySelectorAll('#panel-capacitaciones .dtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#panel-capacitaciones .dpanel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('cpanel-' + tab).classList.add('active');
+  renderCapacitaciones();
+}
+
+// Por cada empleado: las capacitaciones del año a las que fue convocado y qué pasó con cada una
+function capItemsPorEmpleado(anio) {
+  const res = {};
+  employees.forEach(e => { res[e.nombre] = []; });
+  capacitacionesData.filter(c => String(c.fecha_programada).startsWith(anio)).forEach(c => {
+    const marc = new Map(capAsisDe(c.__ID__).map(a => [a.empleado, a]));
+    capConvocados(c).forEach(n => {
+      if (!res[n]) return;
+      const a = marc.get(n);
+      res[n].push({ c, estado: a ? 'presente' : (c.estado === 'Completada' ? 'ausente' : 'pendiente'), hora: a ? (a.hora || '') : '' });
+    });
+  });
+  return res;
+}
+
+function renderCapPorEmpleado() {
+  const tb = document.getElementById('capEmpTbody');
+  if (!tb) return;
+  const anio = document.getElementById('capAnio').value || String(new Date().getFullYear());
+  const selP = document.getElementById('capEmpPuesto');
+  const curP = selP.value;
+  const sectores = [...new Set(employees.map(e => e.sector).filter(Boolean))].sort();
+  selP.innerHTML = '<option value="">Todos los puestos</option>' + sectores.map(x => `<option value="${licEsc(x)}">${licEsc(x)}</option>`).join('');
+  selP.value = sectores.includes(curP) ? curP : '';
+  const q = (document.getElementById('capEmpSearch').value || '').toLowerCase();
+  const soloAus = document.getElementById('capEmpFiltro').value === 'aus';
+  const items = capItemsPorEmpleado(anio);
+  const filas = employees.filter(e => items[e.nombre].length && (!q || e.nombre.toLowerCase().includes(q)) && (!selP.value || e.sector === selP.value))
+    .map(e => {
+      const it = items[e.nombre];
+      const pres = it.filter(x => x.estado === 'presente').length, aus = it.filter(x => x.estado === 'ausente').length, pen = it.filter(x => x.estado === 'pendiente').length;
+      return { e, total: it.length, pres, aus, pen, pct: capPct(pres, pres + aus) };
+    })
+    .filter(r => !soloAus || r.aus > 0)
+    .sort((a, b) => a.e.nombre.localeCompare(b.e.nombre));
+  if (!filas.length) { tb.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="icon">👤</div><p>No hay empleados convocados a capacitaciones en ${anio}</p></div></td></tr>`; return; }
+  tb.innerHTML = filas.map(r => `<tr>
+    <td><strong>${licEsc(r.e.nombre)}</strong></td>
+    <td style="font-size:13px">${licEsc(r.e.sector || '—')}</td>
+    <td>${r.total}</td>
+    <td style="color:var(--success);font-weight:700">${r.pres}</td>
+    <td style="color:${r.aus ? 'var(--danger)' : 'var(--text3)'};font-weight:700">${r.aus}</td>
+    <td style="color:var(--text3)">${r.pen}</td>
+    <td><div style="display:flex;align-items:center;gap:8px"><div class="cap-bar" style="flex:1"><i style="width:${r.pct || 0}%;background:${capColor(r.pct)}"></i></div><span style="font-size:12px;white-space:nowrap">${r.pct === null ? '—' : r.pct + '%'}</span></div></td>
+    <td><button class="btn btn-secondary btn-sm" data-n="${licEsc(r.e.nombre)}" onclick="capEmpDetalle(this.dataset.n)">Ver</button></td>
+  </tr>`).join('');
+}
+
+function capEmpDetalle(nombre) {
+  const anio = document.getElementById('capAnio').value;
+  const it = (capItemsPorEmpleado(anio)[nombre] || []).sort((a, b) => String(a.c.fecha_programada).localeCompare(String(b.c.fecha_programada)));
+  const pres = it.filter(x => x.estado === 'presente').length;
+  document.getElementById('capAsistTitle').textContent = '👤 ' + nombre + ' — ' + anio;
+  document.getElementById('capAsistLink').innerHTML = '';
+  const ico = { presente: x => '✅ Asistió' + (x.hora ? ' (' + licEsc(x.hora) + ')' : ''), ausente: () => '<span style="color:var(--danger)">❌ No asistió</span>', pendiente: () => '<span style="color:var(--text3)">⏳ Pendiente</span>' };
+  document.getElementById('capAsistLista').innerHTML = `<div style="font-weight:700;margin-bottom:6px">Citado/a a ${it.length} · asistió a ${pres}</div>` +
+    it.map(x => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px"><span><strong>${licEsc(x.c.nombre)}</strong><span style="color:var(--text3)"> · ${fmtDate(x.c.fecha_programada)}</span></span><span style="white-space:nowrap">${ico[x.estado](x)}</span></div>`).join('');
+  document.getElementById('capAsistModal').classList.add('open');
+}
+
 // ═══ ENLACE MÓVIL DE ASISTENCIA (?capacitacion=1&id=...) ═══
 let capPub = { id: '', cap: null, emps: [], asis: [], sel: null, lista: [], busy: false };
 
@@ -9688,7 +9802,7 @@ async function initCapPublic(apiUrl, id) {
   capPub.emps.forEach(e => { e._n = kioskNormalizar(e.nombre); });
   capPub.asis = res.asistencias || [];
   document.getElementById('capPubTitulo').textContent = res.cap.nombre;
-  document.getElementById('capPubFecha').textContent = 'Programada: ' + fmtDate(res.cap.fecha_programada);
+  document.getElementById('capPubFecha').textContent = 'Programada: ' + fmtDate(res.cap.fecha_programada) + (res.cap.profesional ? ' · Dicta: ' + res.cap.profesional : '');
 }
 function capPubMsg(type, html) {
   document.getElementById('capPubEstado').innerHTML = html ? `<div class="kiosk-result ${type}">${html}</div>` : '';
