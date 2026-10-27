@@ -9,7 +9,7 @@
    Se detecta antes de pintar nada: se oculta toda la app de administración,
    no se descargan tipografías externas y se desactivan animaciones/sombras. */
 (function(){
-  var lite = /[?&](fichaje|vacaciones|limpieza)=1(&|$)/.test(location.search);
+  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion)=1(&|$)/.test(location.search);
   if (lite) { document.documentElement.className += ' lite'; }
   else {
     var l = document.createElement('link');
@@ -662,6 +662,20 @@
   html.lite .gantt-namecell, html.lite .gantt-sectorrow { background: var(--surface); }
   html.lite .gantt-namecell.head, html.lite .gantt-trackhead, html.lite .gantt-sectorrow { background: var(--surface2); }
 
+  /* ═══ CAPACITACIONES ═══ */
+  #capScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
+  #capScreen.active { display: flex; }
+  html.lite #capScreen { position: static; padding: 16px 12px 32px; overflow: visible; }
+  html.lite #capScreen.active { display: block; }
+  .cap-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cap-chip { padding: 5px 11px; border: 1px solid var(--border); border-radius: 999px; font-size: 12px; cursor: pointer; background: var(--surface); user-select: none; }
+  .cap-chip.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cap-emps { max-height: 190px; overflow-y: auto; border: 1px solid var(--border); border-radius: 10px; padding: 6px; }
+  .cap-emps label { display: flex; gap: 8px; align-items: center; padding: 4px 6px; font-size: 13px; cursor: pointer; }
+  .cap-emps label.auto { color: var(--text3); }
+  .cap-bar { height: 8px; border-radius: 6px; background: var(--surface2); overflow: hidden; min-width: 60px; }
+  .cap-bar > i { display: block; height: 100%; background: var(--success); }
+
   /* ═══ LIMPIEZA ═══ */
   #limpScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
   #limpScreen.active { display: flex; }
@@ -795,6 +809,7 @@
     <button class="tab" onclick="showTab('fichadas')">📍 Fichadas / Asistencia</button>
     <button class="tab" onclick="showTab('ropa')">👕 Entrega Ropa</button>
     <button class="tab" onclick="showTab('limpieza')">🧹 Limpieza</button>
+    <button class="tab" onclick="showTab('capacitaciones')">🎓 Capacitaciones</button>
     <button class="tab" onclick="showTab('organigrama')">🏢 Organigrama</button>
   </div>
 
@@ -1555,6 +1570,38 @@
     </div>
 
     <!-- LIMPIEZA -->
+    <div class="panel" id="panel-capacitaciones">
+      <div class="stats" id="capStats"></div>
+      <div class="toolbar">
+        <select class="filter-select" id="capAnio" onchange="renderCapacitaciones()" title="Año"></select>
+        <div class="search-box" style="flex:1">
+          <span>🔍</span>
+          <input type="text" id="capSearch" placeholder="Buscar capacitación..." oninput="renderCapacitaciones()">
+        </div>
+        <select class="filter-select" id="capEstadoF" onchange="renderCapacitaciones()">
+          <option value="">Todos los estados</option>
+          <option value="Pendiente">Pendientes</option>
+          <option value="Completada">Completadas</option>
+        </select>
+        <button class="btn btn-primary" onclick="openCapModal()">+ Nueva Capacitación</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Capacitación</th>
+              <th>Fecha programada</th>
+              <th>Convocados</th>
+              <th>Asistencia</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="capTbody"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="panel" id="panel-limpieza">
       <div class="desempeño-tabs" style="flex-shrink:0">
         <button class="dtab active" onclick="showLimpTab('dia', this)">📅 Día</button>
@@ -1726,6 +1773,28 @@
     </div>
     <div id="limpMsg"></div>
     <button class="kiosk-btn" style="background:var(--surface2);color:var(--text2)" onclick="limpRefrescar()">↻ Actualizar</button>
+  </div>
+</div>
+<!-- CAPACITACIONES: PANTALLA MÓVIL DE ASISTENCIA -->
+<div id="capScreen">
+  <div class="kiosk-card" style="max-width:480px">
+    <div class="kiosk-title">
+      <div class="icon">🎓</div>
+      <h2 id="capPubTitulo">Capacitación</h2>
+      <p id="capPubFecha">Cargando...</p>
+    </div>
+    <div class="kiosk-field kiosk-combo">
+      <label>Tu nombre</label>
+      <input type="text" id="capPubBuscar" placeholder="Escribí o elegí tu nombre..." autocomplete="off"
+        oninput="capPubFiltrar(this.value)" onfocus="capPubFiltrar(this.value)" onblur="setTimeout(capPubCerrar,200)">
+      <div id="capPubDrop" class="kiosk-combo-dropdown"></div>
+    </div>
+    <div class="kiosk-field" id="capPubPinField" style="display:none;">
+      <label>PIN</label>
+      <input type="password" id="capPubPin" inputmode="numeric" maxlength="4" placeholder="••••">
+    </div>
+    <div id="capPubEstado"></div>
+    <button class="kiosk-btn entrada" id="capPubBtn" style="display:none" onclick="capPubMarcar()">✅ MARCAR ASISTENCIA</button>
   </div>
 </div>
 <div class="limp-overlay" id="limpConfirm">
@@ -2269,6 +2338,59 @@
   </div>
 </div>
 
+<!-- CAPACITACIONES: MODALES -->
+<div class="modal-overlay" id="capModal">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <span class="modal-title" id="capModalTitle">🎓 Nueva Capacitación</span>
+      <button class="modal-close" onclick="closeCapModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Nombre de la capacitación *</label>
+          <input type="text" id="cap_nombre" placeholder="Ej: Manejo seguro de autoelevadores">
+        </div>
+        <div class="form-group">
+          <label>Fecha programada *</label>
+          <input type="date" id="cap_fecha">
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <input type="text" id="cap_obs" placeholder="Opcional (instructor, lugar, duración...)">
+        </div>
+        <div class="form-group full">
+          <label>Personal que debe asistir — por puesto</label>
+          <div class="cap-chips" id="capPuestos"></div>
+        </div>
+        <div class="form-group full">
+          <label>Personal que debe asistir — por nombre</label>
+          <input type="text" id="capEmpBuscar" placeholder="Buscar empleado..." oninput="capRenderEmps()">
+          <div class="cap-emps" id="capEmps"></div>
+        </div>
+        <div class="form-group full" style="font-size:13px;font-weight:700;color:var(--accent)" id="capConvCount"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCapModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCap()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="capAsistModal">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <span class="modal-title" id="capAsistTitle">👥 Asistencia</span>
+      <button class="modal-close" onclick="document.getElementById('capAsistModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="capAsistLink"></div>
+      <div id="capAsistLista" style="margin-top:14px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ENTREGA ROPA: MODAL ENTREGA -->
 <div class="modal-overlay" id="ropaEntregaModal">
   <div class="modal" style="width:580px">
@@ -2789,6 +2911,7 @@ const WRITE_ACTIONS = [
   'addRopaEntrega','deleteRopaEntrega',
   'addRopaIngreso','deleteRopaIngreso',
   'addLimpiezaManual','deleteLimpieza',
+  'addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -2953,7 +3076,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -2997,6 +3120,13 @@ function handleRequest(e) {
     else if (action === 'addLimpieza')         result = addLimpieza(body.data);
     else if (action === 'addLimpiezaManual')   result = guardarLimpieza(body.data, 'Manual');
     else if (action === 'deleteLimpieza')      result = deleteRow('LIMPIEZA', body.id);
+    else if (action === 'addCapacitacion')     result = addCapacitacion(body.data);
+    else if (action === 'updateCapacitacion')  result = updateRow('CAPACITACIONES', body.id, body.data);
+    else if (action === 'deleteCapacitacion')  result = deleteCapacitacion(body.id);
+    else if (action === 'getCapacitacionKiosk') result = getCapacitacionKiosk(body.data);
+    else if (action === 'addCapAsistencia')    result = addCapAsistencia(body.data);
+    else if (action === 'addCapAsistenciaManual') result = addCapAsistenciaManual(body.data);
+    else if (action === 'deleteCapAsistencia') result = deleteRow('CAPACITACIONES_ASIST', body.id);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -3044,6 +3174,8 @@ function getAllData() {
   var reSheet = getOrCreateSheet('ROPA_ENTREGAS', ropaEntregasHeaders);
   var riSheet = getOrCreateSheet('ROPA_INGRESOS', ropaIngresosHeaders);
   var lmSheet = getOrCreateSheet('LIMPIEZA', LIMPIEZA_HEADERS);
+  var capSheet = getOrCreateSheet('CAPACITACIONES', CAP_HEADERS);
+  var capAsSheet = getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -3063,6 +3195,8 @@ function getAllData() {
     ropaEntregas: sheetToJson(reSheet),
     ropaIngresos: sheetToJson(riSheet),
     limpieza:     sheetToJson(lmSheet),
+    capacitaciones: sheetToJson(capSheet),
+    capAsistencias: sheetToJson(capAsSheet),
     config:       getConfig()
   };
 }
@@ -3462,6 +3596,101 @@ function guardarLimpieza(data, origen) {
   }
 }
 
+// ─── CAPACITACIONES (plan anual + asistencia por enlace) ───
+var CAP_HEADERS = ['nombre','fecha_programada','fecha_realizada','estado','puestos','empleados','observaciones'];
+var CAPASIS_HEADERS = ['capacitacion_id','empleado','fecha','hora','origen'];
+var CAP_NOMINA_HEADERS = ['nombre','genero','cuil','dni','tel','localidad','nacimiento','edad','art','alta','antiguedad','sector'];
+
+function addCapacitacion(data) {
+  getOrCreateSheet('CAPACITACIONES', CAP_HEADERS);
+  return addRow('CAPACITACIONES', data);
+}
+
+function deleteCapacitacion(id) {
+  var sh = getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS);
+  var rows = sh.getDataRange().getValues();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][1]) === String(id)) sh.deleteRow(i + 1);
+  }
+  return deleteRow('CAPACITACIONES', id);
+}
+
+function capBuscar(id) {
+  if (!id) return null;
+  var sh = getOrCreateSheet('CAPACITACIONES', CAP_HEADERS);
+  return sheetToJson(sh).filter(function(c) { return String(c.__ID__) === String(id); })[0] || null;
+}
+
+function getCapacitacionKiosk(data) {
+  var cap = capBuscar(data && data.id);
+  if (!cap) return { error: 'Capacitación no encontrada' };
+  var nSheet = getOrCreateSheet('NOMINA', CAP_NOMINA_HEADERS);
+  var pinSheet = getOrCreateSheet('PINES', ['empleado','pin']);
+  var conPin = sheetToJson(pinSheet).map(function(p) { return p.empleado; });
+  var employees = sheetToJson(nSheet).filter(function(e) { return e.nombre; }).map(function(e) {
+    return { nombre: e.nombre, sector: e.sector, tienePin: conPin.indexOf(e.nombre) > -1 };
+  });
+  var asis = sheetToJson(getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS))
+    .filter(function(a) { return String(a.capacitacion_id) === String(cap.__ID__); })
+    .map(function(a) { return { empleado: a.empleado, fecha: a.fecha, hora: a.hora }; });
+  return { cap: { id: cap.__ID__, nombre: cap.nombre, fecha_programada: cap.fecha_programada, estado: cap.estado, puestos: cap.puestos, empleados: cap.empleados },
+           employees: employees, asistencias: asis };
+}
+
+// Marcado desde el celular (sin sesión de admin): solo si el empleado está convocado; valida PIN si tiene.
+function addCapAsistencia(data) {
+  if (!data || !data.id || !data.empleado) return { error: 'Faltan datos' };
+  var cap = capBuscar(data.id);
+  if (!cap) return { error: 'Capacitación no encontrada' };
+  var emp = sheetToJson(getOrCreateSheet('NOMINA', CAP_NOMINA_HEADERS)).filter(function(e) { return e.nombre === data.empleado; })[0];
+  if (!emp) return { error: 'Empleado no encontrado' };
+  var nombres = String(cap.empleados || '').split('|');
+  var puestos = String(cap.puestos || '').split('|');
+  var convocado = nombres.indexOf(emp.nombre) > -1 || (emp.sector && puestos.indexOf(emp.sector) > -1);
+  if (!convocado) return { error: 'Sin capacitación por realizar' };
+  var pinReg = sheetToJson(getOrCreateSheet('PINES', ['empleado','pin'])).filter(function(p) { return p.empleado === emp.nombre; })[0];
+  if (pinReg && pinReg.pin !== String(data.pin || '')) return { error: 'PIN incorrecto' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS);
+    var ya = sheetToJson(sheet).filter(function(a) { return String(a.capacitacion_id) === String(cap.__ID__) && a.empleado === emp.nombre; })[0];
+    if (ya) return { success: true, yaRegistrada: true, hora: ya.hora };
+    var tz = Session.getScriptTimeZone();
+    var ahora = new Date();
+    var fila = { capacitacion_id: String(cap.__ID__), empleado: emp.nombre, fecha: Utilities.formatDate(ahora, tz, 'yyyy-MM-dd'), hora: Utilities.formatDate(ahora, tz, 'HH:mm'), origen: 'Celular' };
+    var id = Date.now().toString() + Math.floor(Math.random()*1000);
+    sheet.appendRow([id].concat(CAPASIS_HEADERS.map(function(h) { return fila[h]; })));
+    forceDateColumnsAsText(sheet, sheet.getLastRow(), CAPASIS_HEADERS, fila);
+    return { success: true, id: id, hora: fila.hora };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Carga manual por el administrador (requiere sesión): para quien no puede usar el celular.
+function addCapAsistenciaManual(data) {
+  if (!data || !data.id || !data.empleado) return { error: 'Faltan datos' };
+  var cap = capBuscar(data.id);
+  if (!cap) return { error: 'Capacitación no encontrada' };
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var sheet = getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS);
+    var ya = sheetToJson(sheet).filter(function(a) { return String(a.capacitacion_id) === String(cap.__ID__) && a.empleado === data.empleado; })[0];
+    if (ya) return { error: 'Esa asistencia ya estaba registrada' };
+    var tz = Session.getScriptTimeZone();
+    var ahora = new Date();
+    var fila = { capacitacion_id: String(cap.__ID__), empleado: data.empleado, fecha: data.fecha || Utilities.formatDate(ahora, tz, 'yyyy-MM-dd'), hora: data.hora || Utilities.formatDate(ahora, tz, 'HH:mm'), origen: 'Manual' };
+    var id = Date.now().toString() + Math.floor(Math.random()*1000);
+    sheet.appendRow([id].concat(CAPASIS_HEADERS.map(function(h) { return fila[h]; })));
+    forceDateColumnsAsText(sheet, sheet.getLastRow(), CAPASIS_HEADERS, fila);
+    return { success: true, id: id, fecha: fila.fecha, hora: fila.hora };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function sheetToJson(sheet) {
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return [];
@@ -3694,12 +3923,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (params.get('fichaje') === '1') initKiosk(params.get('api') || API_URL);
   else if (params.get('vacaciones') === '1') initVacPublic(params.get('api') || API_URL);
   else if (params.get('limpieza') === '1') initLimpiezaPublic(params.get('api') || API_URL);
+  else if (params.get('capacitacion') === '1') initCapPublic(params.get('api') || API_URL, params.get('id') || '');
 });
 
 window.onload = () => {
   const params = new URLSearchParams(location.search);
   // Kiosko y vacaciones ya arrancaron en DOMContentLoaded (modo liviano)
-  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1') return;
+  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1') return;
   const today = new Date().toISOString().split('T')[0];
   ['c_fecha','d_fecha','f_alta','f_art','r_fecha','e_fecha','p_fecha'].forEach(id => {
     const el = document.getElementById(id);
@@ -3754,6 +3984,8 @@ function loadLocalData() {
   ropaEntregasData = storedRE ? JSON.parse(storedRE) : [];
   const storedRI = localStorage.getItem('rrhh_ropa_ingresos');
   ropaIngresosData = storedRI ? JSON.parse(storedRI) : [];
+  capacitacionesData = JSON.parse(localStorage.getItem('rrhh_capacitaciones') || '[]');
+  capAsistData = JSON.parse(localStorage.getItem('rrhh_cap_asist') || '[]');
   const storedLimp = localStorage.getItem('rrhh_limpieza');
   limpiezaData = storedLimp ? JSON.parse(storedLimp) : [];
   const storedCfg = localStorage.getItem('rrhh_config');
@@ -3844,6 +4076,8 @@ async function loadAllData() {
   ropaEntregasData = data.ropaEntregas || [];
   ropaIngresosData = data.ropaIngresos || [];
   limpiezaData = data.limpieza || [];
+  capacitacionesData = data.capacitaciones || [];
+  capAsistData = data.capAsistencias || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   orgData = null;
   setSyncStatus('ok', 'Conectado a Google Sheets');
@@ -7001,6 +7235,7 @@ function showTab(tab) {
   if (tab === 'encuestas') renderEncuestas();
   if (tab === 'fichadas') { renderFichadasRegistros(); populateFichEmpleadoFilter(); }
   if (tab === 'limpieza') renderLimpieza();
+  if (tab === 'capacitaciones') renderCapacitaciones();
   if (tab === 'organigrama') renderOrganigrama();
   if (tab === 'ropa') { renderRopaConsulta(); renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); }
 }
@@ -9230,6 +9465,272 @@ function orgPrint() {
     css + '.org-chart{min-width:0}</style></head><body><div class="org-chart" id="c">' + orgChartHTML(false) +
     '</div><script>window.onload=function(){var c=document.getElementById("c");var s=Math.min(1,1480/c.scrollWidth);c.style.zoom=s;setTimeout(function(){window.print()},300)}<\/script></body></html>');
   w.document.close();
+}
+
+// ═══════════════════════════════════════════════════
+// ═══ CAPACITACIONES ═══
+// ═══════════════════════════════════════════════════
+let capacitacionesData = [], capAsistData = [];
+let capEdit = null; // { id, puestos:Set, emps:Set }
+
+function capSplit(s) { return String(s || '').split('|').filter(Boolean); }
+function capConvocados(c) {
+  const nom = capSplit(c.empleados), pue = capSplit(c.puestos);
+  return employees.filter(e => nom.includes(e.nombre) || (e.sector && pue.includes(e.sector))).map(e => e.nombre);
+}
+function capAsisDe(id) { return capAsistData.filter(a => String(a.capacitacion_id) === String(id)); }
+function capColor(p) { return p === null ? 'var(--text3)' : p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--warning)' : 'var(--danger)'; }
+function capPct(a, b) { return b > 0 ? Math.round(a * 100 / b) : null; }
+function capSave() {
+  if (!API_URL) {
+    localStorage.setItem('rrhh_capacitaciones', JSON.stringify(capacitacionesData));
+    localStorage.setItem('rrhh_cap_asist', JSON.stringify(capAsistData));
+  }
+}
+
+function capMetricas(lista) {
+  const hoy = licHoyISO();
+  const comp = lista.filter(c => c.estado === 'Completada');
+  const pctReal = capPct(comp.length, lista.length);
+  // Adherencia al Gantt: de lo que ya debía hacerse (fecha vencida o ya completada),
+  // cuánto se realizó dentro del mes programado (o antes).
+  const debidas = lista.filter(c => c.estado === 'Completada' || (c.fecha_programada || '') <= hoy);
+  const enPlazo = debidas.filter(c => c.estado === 'Completada' &&
+    String(c.fecha_realizada || c.fecha_programada).slice(0, 7) <= String(c.fecha_programada).slice(0, 7));
+  const pctAdh = capPct(enPlazo.length, debidas.length);
+  // Asistencia: asistentes convocados / convocados, en capacitaciones completadas
+  let conv = 0, asis = 0;
+  comp.forEach(c => {
+    const cv = capConvocados(c), set = new Set(capAsisDe(c.__ID__).map(a => a.empleado));
+    conv += cv.length; asis += cv.filter(n => set.has(n)).length;
+  });
+  const vencidas = lista.filter(c => c.estado !== 'Completada' && (c.fecha_programada || '') < hoy).length;
+  return { total: lista.length, comp: comp.length, pctReal, debidas: debidas.length, enPlazo: enPlazo.length, pctAdh, conv, asis, pctAsis: capPct(asis, conv), vencidas };
+}
+
+function renderCapacitaciones() {
+  const sel = document.getElementById('capAnio');
+  if (!sel) return;
+  const yNow = new Date().getFullYear();
+  const years = [...new Set([yNow, ...capacitacionesData.map(c => parseInt(String(c.fecha_programada).slice(0, 4))).filter(Boolean)])].sort((a, b) => b - a);
+  const cur = sel.value || String(yNow);
+  sel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  sel.value = years.map(String).includes(cur) ? cur : String(yNow);
+  const anio = sel.value;
+
+  const delAnio = capacitacionesData.filter(c => String(c.fecha_programada).startsWith(anio));
+  const m = capMetricas(delAnio);
+  const f = v => v === null ? '—' : v + '%';
+  document.getElementById('capStats').innerHTML = `
+    <div class="stat-card"><span class="stat-icon">✅</span><div><div class="stat-value" style="color:${capColor(m.pctReal)}">${f(m.pctReal)}</div><div class="stat-label">Realizadas (${m.comp} de ${m.total})</div></div></div>
+    <div class="stat-card"><span class="stat-icon">📅</span><div><div class="stat-value" style="color:${capColor(m.pctAdh)}">${f(m.pctAdh)}</div><div class="stat-label">Adherencia al Gantt (${m.enPlazo} de ${m.debidas})</div></div></div>
+    <div class="stat-card"><span class="stat-icon">👥</span><div><div class="stat-value" style="color:${capColor(m.pctAsis)}">${f(m.pctAsis)}</div><div class="stat-label">Asistencia (${m.asis} de ${m.conv})</div></div></div>
+    <div class="stat-card"><span class="stat-icon">⏰</span><div><div class="stat-value" style="color:${m.vencidas ? 'var(--danger)' : 'var(--success)'}">${m.vencidas}</div><div class="stat-label">Pendientes vencidas</div></div></div>`;
+
+  const q = (document.getElementById('capSearch').value || '').toLowerCase();
+  const est = document.getElementById('capEstadoF').value;
+  const hoy = licHoyISO();
+  const data = delAnio.filter(c => (!q || String(c.nombre).toLowerCase().includes(q)) && (!est || c.estado === est))
+    .sort((a, b) => String(a.fecha_programada).localeCompare(String(b.fecha_programada)));
+  const tb = document.getElementById('capTbody');
+  if (!data.length) { tb.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="icon">🎓</div><p>No hay capacitaciones cargadas para ${anio}</p></div></td></tr>`; return; }
+  tb.innerHTML = data.map(c => {
+    const cv = capConvocados(c), set = new Set(capAsisDe(c.__ID__).map(a => a.empleado));
+    const asis = cv.filter(n => set.has(n)).length, p = capPct(asis, cv.length);
+    const done = c.estado === 'Completada', venc = !done && c.fecha_programada < hoy;
+    const badge = done ? '<span class="badge badge-green">Completada</span>'
+      : venc ? '<span class="badge badge-red">Pendiente · vencida</span>' : '<span class="badge badge-orange">Pendiente</span>';
+    const id = licEsc(c.__ID__);
+    return `<tr>
+      <td><strong>${licEsc(c.nombre)}</strong>${c.observaciones ? `<div style="font-size:11px;color:var(--text3)">${licEsc(c.observaciones)}</div>` : ''}</td>
+      <td>${fmtDate(c.fecha_programada)}${done && c.fecha_realizada ? `<div style="font-size:11px;color:var(--text3)">Realizada: ${fmtDate(c.fecha_realizada)}</div>` : ''}</td>
+      <td>${cv.length}</td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="cap-bar" style="flex:1"><i style="width:${p || 0}%"></i></div><span style="font-size:12px;white-space:nowrap">${asis}/${cv.length}${p === null ? '' : ' · ' + p + '%'}</span></div></td>
+      <td>${badge}</td>
+      <td class="actions-cell">
+        <button class="btn btn-secondary btn-sm" onclick="capToggleEstado('${id}')">${done ? '↩ Reabrir' : '✅ Completar'}</button>
+        <button class="btn btn-secondary btn-sm" onclick="openCapAsist('${id}')">👥 Asistencia</button>
+        <button class="icon-btn" onclick="openCapModal('${id}')" title="Editar">✏️</button>
+        <button class="icon-btn del" onclick="deleteCap('${id}')" title="Eliminar">🗑️</button>
+      </td></tr>`;
+  }).join('');
+}
+
+// ── Alta / edición ──
+function openCapModal(id) {
+  const c = id ? capacitacionesData.find(x => String(x.__ID__) === String(id)) : null;
+  capEdit = { id: c ? c.__ID__ : null, puestos: new Set(c ? capSplit(c.puestos) : []), emps: new Set(c ? capSplit(c.empleados) : []) };
+  document.getElementById('capModalTitle').textContent = c ? '✏️ Editar Capacitación' : '🎓 Nueva Capacitación';
+  document.getElementById('cap_nombre').value = c ? c.nombre : '';
+  document.getElementById('cap_fecha').value = c ? String(c.fecha_programada).slice(0, 10) : '';
+  document.getElementById('cap_obs').value = c ? (c.observaciones || '') : '';
+  document.getElementById('capEmpBuscar').value = '';
+  capRenderPuestos(); capRenderEmps();
+  document.getElementById('capModal').classList.add('open');
+}
+function closeCapModal() { document.getElementById('capModal').classList.remove('open'); capEdit = null; }
+function capRenderPuestos() {
+  const sectores = [...new Set(employees.map(e => e.sector).filter(Boolean))].sort();
+  document.getElementById('capPuestos').innerHTML = sectores.map((s, i) =>
+    `<span class="cap-chip${capEdit.puestos.has(s) ? ' on' : ''}" onclick="capTogglePuesto(${i})">${licEsc(s)}</span>`).join('') || '<span style="font-size:12px;color:var(--text3)">No hay puestos cargados en la Nómina</span>';
+}
+function capTogglePuesto(i) {
+  const s = [...new Set(employees.map(e => e.sector).filter(Boolean))].sort()[i];
+  if (capEdit.puestos.has(s)) capEdit.puestos.delete(s); else capEdit.puestos.add(s);
+  capRenderPuestos(); capRenderEmps();
+}
+function capRenderEmps() {
+  const q = (document.getElementById('capEmpBuscar').value || '').toLowerCase();
+  const lista = employees.filter(e => !q || e.nombre.toLowerCase().includes(q)).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  document.getElementById('capEmps').innerHTML = lista.map(e => {
+    const auto = e.sector && capEdit.puestos.has(e.sector);
+    return `<label class="${auto ? 'auto' : ''}"><input type="checkbox" ${auto || capEdit.emps.has(e.nombre) ? 'checked' : ''} ${auto ? 'disabled' : ''} onchange="capToggleEmp(this.dataset.n, this.checked)" data-n="${licEsc(e.nombre)}"> ${licEsc(e.nombre)} <span style="font-size:11px;color:var(--text3)">${licEsc(e.sector || '')}${auto ? ' · por puesto' : ''}</span></label>`;
+  }).join('') || '<div style="padding:8px;font-size:12px;color:var(--text3)">Sin resultados</div>';
+  const total = capConvocados({ empleados: [...capEdit.emps].join('|'), puestos: [...capEdit.puestos].join('|') }).length;
+  document.getElementById('capConvCount').textContent = `👥 Convocados: ${total} persona${total === 1 ? '' : 's'}`;
+}
+function capToggleEmp(n, on) { if (on) capEdit.emps.add(n); else capEdit.emps.delete(n); capRenderEmps(); }
+
+async function saveCap() {
+  const nombre = document.getElementById('cap_nombre').value.trim();
+  const fecha = document.getElementById('cap_fecha').value;
+  if (!nombre) { showToast('Ingresá el nombre de la capacitación', 'error'); return; }
+  if (!fecha) { showToast('Ingresá la fecha programada', 'error'); return; }
+  if (!capEdit.puestos.size && !capEdit.emps.size) { showToast('Elegí al menos un puesto o un empleado', 'error'); return; }
+  const data = { nombre, fecha_programada: fecha, puestos: [...capEdit.puestos].join('|'), empleados: [...capEdit.emps].join('|'), observaciones: document.getElementById('cap_obs').value.trim() };
+  const id = capEdit.id;
+  if (id) {
+    if (API_URL) { const r = await apiCall('updateCapacitacion', { id, data }); if (r?.error) { showToast('Error: ' + r.error, 'error'); return; } }
+    const c = capacitacionesData.find(x => String(x.__ID__) === String(id)); Object.assign(c, data);
+  } else {
+    data.estado = 'Pendiente'; data.fecha_realizada = '';
+    if (API_URL) { const r = await apiCall('addCapacitacion', { data }); if (r?.error) { showToast('Error: ' + r.error, 'error'); return; } data.__ID__ = r.id; }
+    else data.__ID__ = Date.now().toString();
+    capacitacionesData.push(data);
+  }
+  capSave(); closeCapModal(); renderCapacitaciones();
+  showToast('Capacitación guardada ✓', 'success');
+}
+
+async function capToggleEstado(id) {
+  const c = capacitacionesData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  let upd;
+  if (c.estado === 'Completada') {
+    if (!confirm('¿Volver esta capacitación a Pendiente?')) return;
+    upd = { estado: 'Pendiente', fecha_realizada: '' };
+  } else {
+    const f = prompt('¿En qué fecha se realizó? (AAAA-MM-DD)', licHoyISO());
+    if (f === null) return;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f.trim())) { showToast('Fecha inválida. Usá el formato AAAA-MM-DD', 'error'); return; }
+    upd = { estado: 'Completada', fecha_realizada: f.trim() };
+  }
+  if (API_URL) { const r = await apiCall('updateCapacitacion', { id, data: upd }); if (r?.error) { showToast('Error: ' + r.error, 'error'); return; } }
+  Object.assign(c, upd); capSave(); renderCapacitaciones();
+  showToast(upd.estado === 'Completada' ? 'Capacitación completada ✓' : 'Capacitación reabierta', 'success');
+}
+
+async function deleteCap(id) {
+  if (!confirm('¿Eliminar esta capacitación y sus asistencias registradas?')) return;
+  if (API_URL) { const r = await apiCall('deleteCapacitacion', { id }); if (r?.error) { showToast('Error: ' + r.error, 'error'); return; } }
+  capacitacionesData = capacitacionesData.filter(x => String(x.__ID__) !== String(id));
+  capAsistData = capAsistData.filter(a => String(a.capacitacion_id) !== String(id));
+  capSave(); renderCapacitaciones(); showToast('Eliminada ✓', 'success');
+}
+
+// ── Detalle de asistencia + enlace ──
+function openCapAsist(id) {
+  const c = capacitacionesData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  document.getElementById('capAsistTitle').textContent = '👥 ' + c.nombre;
+  const box = document.getElementById('capAsistLink');
+  if (!API_URL) box.innerHTML = '<p class="hint" style="font-size:12px;color:var(--text3)">Para generar el enlace de asistencia primero configurá la conexión a Google Sheets.</p>';
+  else {
+    const url = location.origin + location.pathname + '?capacitacion=1&id=' + encodeURIComponent(c.__ID__) + '&api=' + encodeURIComponent(API_URL);
+    const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(url);
+    box.innerHTML = `<div class="link-box"><span style="flex:1">${licEsc(url)}</span><button class="btn btn-secondary btn-sm" onclick="navigator.clipboard.writeText(this.dataset.u);showToast('Enlace copiado ✓','success')" data-u="${licEsc(url)}">📋 Copiar</button></div>
+      <div style="margin-top:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap"><img src="${qr}" alt="QR" style="border-radius:10px;border:1px solid var(--border)"><p style="font-size:12px;color:var(--text3);max-width:300px">Compartí este enlace (o imprimí el QR) para que cada empleado marque su asistencia desde el celular.</p></div>`;
+  }
+  const cv = capConvocados(c).sort(), mapa = {};
+  capAsisDe(id).forEach(a => { mapa[a.empleado] = a; });
+  const asis = cv.filter(n => mapa[n]).length;
+  document.getElementById('capAsistLista').innerHTML = `<div style="font-weight:700;margin-bottom:6px">Asistieron ${asis} de ${cv.length}${cv.length ? ' (' + Math.round(asis * 100 / cv.length) + '%)' : ''}</div>` +
+    cv.map(n => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--border);font-size:13px"><span>${licEsc(n)}</span><span style="display:flex;align-items:center;gap:8px">${mapa[n] ? '✅ ' + licEsc(mapa[n].hora || '') + (mapa[n].origen === 'Manual' ? ' <span class="badge badge-gray">manual</span>' : '') + `<button class="btn btn-secondary btn-sm" data-c="${licEsc(id)}" data-n="${licEsc(n)}" onclick="capQuitar(this.dataset.c,this.dataset.n)">↩ Quitar</button>` : `<span style="color:var(--text3)">⏳ Sin marcar</span><button class="btn btn-primary btn-sm" data-c="${licEsc(id)}" data-n="${licEsc(n)}" onclick="capManual(this.dataset.c,this.dataset.n)">✔ Marcar presente</button>`}</span></div>`).join('');
+  document.getElementById('capAsistModal').classList.add('open');
+}
+
+async function capManual(id, nombre) {
+  const d = new Date(), pad = v => String(v).padStart(2, '0');
+  const rec = { capacitacion_id: String(id), empleado: nombre, fecha: licHoyISO(), hora: pad(d.getHours()) + ':' + pad(d.getMinutes()), origen: 'Manual' };
+  if (API_URL) {
+    const r = await apiCall('addCapAsistenciaManual', { data: { id, empleado: nombre } });
+    if (r?.error) { showToast('Error: ' + r.error, 'error'); return; }
+    rec.__ID__ = r.id; rec.fecha = r.fecha || rec.fecha; rec.hora = r.hora || rec.hora;
+  } else rec.__ID__ = Date.now().toString();
+  capAsistData.push(rec); capSave(); openCapAsist(id); renderCapacitaciones();
+  showToast('Asistencia registrada ✓', 'success');
+}
+async function capQuitar(id, nombre) {
+  const rec = capAsisDe(id).find(a => a.empleado === nombre); if (!rec) return;
+  if (!confirm('¿Quitar la asistencia de ' + nombre + '?')) return;
+  if (API_URL) { const r = await apiCall('deleteCapAsistencia', { id: rec.__ID__ }); if (r?.error) { showToast('Error: ' + r.error, 'error'); return; } }
+  capAsistData = capAsistData.filter(a => a !== rec); capSave(); openCapAsist(id); renderCapacitaciones();
+}
+
+// ═══ ENLACE MÓVIL DE ASISTENCIA (?capacitacion=1&id=...) ═══
+let capPub = { id: '', cap: null, emps: [], asis: [], sel: null, lista: [], busy: false };
+
+async function initCapPublic(apiUrl, id) {
+  document.getElementById('capScreen').classList.add('active');
+  kioskApiUrl = apiUrl || ''; capPub.id = id;
+  if (!kioskApiUrl || !id) { capPubMsg('error', 'Enlace incompleto. Pedile al administrador que lo genere de nuevo.'); return; }
+  const res = await kioskApiCall('getCapacitacionKiosk', { data: { id } });
+  if (!res || res.error) { capPubMsg('error', (res && res.error) || 'No se pudo conectar con el sistema. Revisá la señal e intentá de nuevo.'); return; }
+  capPub.cap = res.cap; capPub.emps = (res.employees || []).slice().sort((a, b) => a.nombre.localeCompare(b.nombre));
+  capPub.emps.forEach(e => { e._n = kioskNormalizar(e.nombre); });
+  capPub.asis = res.asistencias || [];
+  document.getElementById('capPubTitulo').textContent = res.cap.nombre;
+  document.getElementById('capPubFecha').textContent = 'Programada: ' + fmtDate(res.cap.fecha_programada);
+}
+function capPubMsg(type, html) {
+  document.getElementById('capPubEstado').innerHTML = html ? `<div class="kiosk-result ${type}">${html}</div>` : '';
+}
+function capPubFiltrar(v) {
+  const q = kioskNormalizar(v);
+  capPub.sel = null; capPubReset();
+  capPub.lista = capPub.emps.filter(e => !q || e._n.includes(q)).slice(0, 60);
+  const d = document.getElementById('capPubDrop');
+  d.innerHTML = capPub.lista.length ? capPub.lista.map((e, i) => `<div class="kiosk-combo-option" onclick="capPubElegir(${i})">${licEsc(e.nombre)}</div>`).join('') : '<div class="kiosk-combo-empty">Sin coincidencias</div>';
+  d.classList.add('open');
+}
+function capPubCerrar() { document.getElementById('capPubDrop').classList.remove('open'); }
+function capPubReset() {
+  document.getElementById('capPubBtn').style.display = 'none';
+  document.getElementById('capPubPinField').style.display = 'none';
+  capPubMsg('', '');
+}
+function capPubElegir(i) {
+  const e = capPub.lista[i]; if (!e) return;
+  capPub.sel = e; document.getElementById('capPubBuscar').value = e.nombre; capPubCerrar(); capPubEvaluar();
+}
+function capPubEvaluar() {
+  const e = capPub.sel, c = capPub.cap; if (!e || !c) return;
+  const conv = capSplit(c.empleados).includes(e.nombre) || (e.sector && capSplit(c.puestos).includes(e.sector));
+  const ya = capPub.asis.find(a => a.empleado === e.nombre);
+  capPubReset();
+  if (!conv) { capPubMsg('warn', '🚫 <b>Sin capacitación por realizar</b><br>No estás convocado/a a esta capacitación.'); return; }
+  if (ya) { capPubMsg('ok', '✅ Tu asistencia ya está registrada' + (ya.hora ? ' (' + licEsc(ya.hora) + ')' : '') + '.'); return; }
+  document.getElementById('capPubPinField').style.display = e.tienePin ? 'block' : 'none';
+  document.getElementById('capPubBtn').style.display = 'flex';
+}
+async function capPubMarcar() {
+  if (capPub.busy || !capPub.sel) return;
+  capPub.busy = true;
+  const btn = document.getElementById('capPubBtn'); btn.disabled = true;
+  const res = await kioskApiCall('addCapAsistencia', { data: { id: capPub.id, empleado: capPub.sel.nombre, pin: document.getElementById('capPubPin').value } });
+  capPub.busy = false; btn.disabled = false;
+  if (!res || res.error) { capPubMsg('error', licEsc((res && res.error) || 'No se pudo registrar. Intentá de nuevo.')); return; }
+  capPub.asis.push({ empleado: capPub.sel.nombre, hora: res.hora });
+  capPubEvaluar();
+  capPubMsg('ok', '✅ <b>Asistencia registrada</b>' + (res.hora ? ' a las ' + licEsc(res.hora) : ''));
 }
 </script>
 </body>
