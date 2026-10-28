@@ -4047,6 +4047,7 @@ function guardarAuditoria(data, origen) {
   var zona = audTexto(data.zona, 80);
   if (!auditor) return { error: 'Falta el nombre del auditor' };
   if (!zona) return { error: 'Falta la zona auditada' };
+  if (origen === 'Enlace' && audZonasDelMes().indexOf(zona.trim()) !== -1) return { error: 'Esa zona ya fue auditada este mes' };
   var tz = Session.getScriptTimeZone();
   var hoy = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var fila = {
@@ -4077,13 +4078,24 @@ function guardarAuditoria(data, origen) {
   return r;
 }
 
+// Zonas que ya tienen una auditoría registrada en el mes en curso
+function audZonasDelMes() {
+  var tz = Session.getScriptTimeZone();
+  var mes = Utilities.formatDate(new Date(), tz, 'yyyy-MM');
+  var hechas = [];
+  sheetToJson(getOrCreateSheet('AUDITORIAS', audHeaders())).forEach(function(a) {
+    if (String(a.fecha).substring(0, 7) === mes && a.zona && hechas.indexOf(String(a.zona).trim()) === -1) hechas.push(String(a.zona).trim());
+  });
+  return hechas;
+}
+
 // Lista de la nómina para el desplegable del enlace público (solo nombres)
 function getAuditoriaKiosk() {
   var nSheet = getOrCreateSheet('NOMINA', CAP_NOMINA_HEADERS);
   var empleados = sheetToJson(nSheet).filter(function(e) { return e.nombre; }).map(function(e) {
     return { nombre: e.nombre, sector: e.sector };
   });
-  return { employees: empleados };
+  return { employees: empleados, auditadas: audZonasDelMes() };
 }
 
 function addAuditoriaPlan(data) {
@@ -10669,19 +10681,35 @@ async function deleteAudPlan(id) {
 }
 
 // ═══ ENLACE PÚBLICO PARA AUDITORES (celular) ═══
-let audPub = { emps: [], lista: [], busy: false };
+let audPub = { emps: [], lista: [], busy: false, auditadas: [] };
+
+// Zonas ya auditadas en el mes: se muestran con tilde y no se pueden elegir
+function audPubZonas() {
+  const sel = $a('audPubZona');
+  const hechas = audPub.auditadas || [];
+  sel.innerHTML = '<option value="">Seleccioná la zona...</option>' + AUD_ZONAS.map(z =>
+    hechas.includes(z)
+      ? `<option value="" disabled>✅ ${licEsc(z)} — ya auditada este mes</option>`
+      : `<option value="${licEsc(z)}">${licEsc(z)}</option>`).join('');
+  const todas = AUD_ZONAS.every(z => hechas.includes(z));
+  $a('audPubBtn').disabled = todas;
+  if (todas) audPubMsg('ok', '✅ ¡Todas las zonas ya fueron auditadas este mes! Gracias.');
+}
 
 async function initAudPublic(apiUrl) {
   kioskApiUrl = apiUrl || '';
   $a('audScreen').classList.add('active');
   $a('audPubFecha').textContent = 'Fecha: ' + fmtDate(licHoyISO()) + ' · Calificá cada punto del 0% al 100%';
-  $a('audPubZona').innerHTML = '<option value="">Seleccioná la zona...</option>' + AUD_ZONAS.map(z => `<option value="${licEsc(z)}">${licEsc(z)}</option>`).join('');
+  audPub.auditadas = [];
+  audPubZonas();
   audState.pub = { r: {}, o: {} };
   $a('audFormPub').innerHTML = audFormHTML('pub');
   audUpdateLive('pub');
   if (!kioskApiUrl) { audPubMsg('error', 'Este enlace no es válido. Pedí uno nuevo al administrador.'); $a('audPubBtn').disabled = true; return; }
   const res = await kioskApiCall('getAuditoriaKiosk');
   if (!res || res.error) { audPubMsg('warn', 'No se pudo cargar la lista de personal. Podés escribir tu nombre igualmente.'); return; }
+  audPub.auditadas = res.auditadas || [];
+  audPubZonas();
   audPub.emps = (res.employees || []).map(e => ({ nombre: e.nombre, _n: kioskNormalizar(e.nombre) })).sort((a, b) => a.nombre.localeCompare(b.nombre));
 }
 
@@ -10723,6 +10751,11 @@ async function audPubEnviar() {
   const rec = audBuildRecord(audState.pub, { auditor: nombre, zona, origen: 'Enlace' });
   const res = await kioskApiCall('addAuditoriaPublica', { data: rec });
   audPub.busy = false; $a('audPubBtn').disabled = false; $a('audPubBtn').textContent = '✅ ENVIAR AUDITORÍA';
+  if (res && res.error && /ya fue auditada/.test(res.error)) {
+    audPub.auditadas.push(zona); audPubZonas();
+    audPubMsg('warn', 'Esa zona ya fue auditada este mes. Elegí otra zona.');
+    return;
+  }
   if (!res || res.error || !res.success) {
     audPubMsg('error', 'No se pudo guardar: ' + ((res && res.error) || 'sin conexión') + '. Probá de nuevo.');
     return;
@@ -10730,6 +10763,7 @@ async function audPubEnviar() {
   $a('audPubForm').style.display = 'none';
   const done = $a('audPubDone');
   done.style.display = 'block';
+  audPub.auditadas.push(zona);
   done.innerHTML = `<div class="kiosk-result ok" style="font-size:15px;padding:18px">✅ <b>¡Auditoría registrada!</b><br>${licEsc(zona)}<br>Resultado total: <b style="font-size:20px;color:${audColor(rec.total_pct)}">${audFmt(rec.total_pct)}</b></div>
     <button class="kiosk-btn salida" style="width:100%;margin-top:16px" onclick="audPubOtra()">➕ Cargar otra auditoría</button>`;
   try { window.scrollTo(0, 0); } catch (e) {}
@@ -10738,9 +10772,11 @@ async function audPubEnviar() {
 function audPubOtra() {
   audState.pub = { r: {}, o: {} };
   $a('audFormPub').innerHTML = audFormHTML('pub');
-  $a('audPubZona').value = '';
+  audPubZonas();
   audUpdateLive('pub');
   audPubMsg('', '');
+  if (!(AUD_ZONAS.every(z => audPub.auditadas.includes(z)))) audPubMsg('', '');
+  else audPubZonas();
   $a('audPubDone').style.display = 'none';
   $a('audPubForm').style.display = 'block';
   try { window.scrollTo(0, 0); } catch (e) {}
