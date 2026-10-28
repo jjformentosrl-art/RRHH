@@ -9,7 +9,7 @@
    Se detecta antes de pintar nada: se oculta toda la app de administración,
    no se descargan tipografías externas y se desactivan animaciones/sombras. */
 (function(){
-  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion)=1(&|$)/.test(location.search);
+  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion|auditoria)=1(&|$)/.test(location.search);
   if (lite) { document.documentElement.className += ' lite'; }
   else {
     var l = document.createElement('link');
@@ -676,6 +676,29 @@
   .cap-bar { height: 8px; border-radius: 6px; background: var(--surface2); overflow: hidden; min-width: 60px; }
   .cap-bar > i { display: block; height: 100%; background: var(--success); }
 
+  /* ═══ AUDITORÍA CRUZADA 5S ═══ */
+  #audScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
+  #audScreen.active { display: flex; }
+  html.lite #audScreen { position: static; padding: 16px 12px 32px; overflow: visible; }
+  html.lite #audScreen.active { display: block; }
+  .aud-scroll { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 16px; }
+  .aud-etapa { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--accent); border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+  .aud-etapa-h { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .aud-q { margin-top: 10px; padding: 6px; border-radius: 10px; border: 1px solid transparent; }
+  .aud-q.aud-missing { border-color: var(--danger); background: rgba(239,68,68,0.06); }
+  .aud-q-t { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+  .aud-opts { display: flex; }
+  .aud-opt { flex: 1; margin-left: 4px; padding: 11px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .aud-opt:first-child { margin-left: 0; }
+  .aud-opt.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .aud-q textarea { width: 100%; padding: 10px; font-size: 14px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; background: var(--surface); color: var(--text); resize: vertical; box-sizing: border-box; }
+  .aud-prog { font-size: 13px; font-weight: 600; color: var(--text2); text-align: center; padding: 8px 0; }
+  .aud-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .aud-tbl th, .aud-tbl td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: center; }
+  .aud-tbl th:first-child, .aud-tbl td:first-child { text-align: left; }
+  .aud-tbl th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); background: var(--surface2); }
+  .aud-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; flex-shrink: 0; }
+
   /* ═══ LIMPIEZA ═══ */
   #limpScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
   #limpScreen.active { display: flex; }
@@ -810,6 +833,7 @@
     <button class="tab" onclick="showTab('ropa')">👕 Entrega Ropa</button>
     <button class="tab" onclick="showTab('limpieza')">🧹 Limpieza</button>
     <button class="tab" onclick="showTab('capacitaciones')">🎓 Capacitaciones</button>
+    <button class="tab" onclick="showTab('auditorias')">🔍 Auditoría Cruzada</button>
     <button class="tab" onclick="showTab('organigrama')">🏢 Organigrama</button>
   </div>
 
@@ -1722,6 +1746,77 @@
         </div>
       </div>
     </div>
+    <!-- AUDITORÍA CRUZADA 5S -->
+    <div class="panel" id="panel-auditorias">
+      <div class="desempeño-tabs" id="audTabsTop" style="flex-shrink:0">
+        <button class="dtab active" onclick="audTab('registros', this)">📋 Registros</button>
+        <button class="dtab" onclick="audTab('analisis', this)">📊 Análisis de Auditorías</button>
+      </div>
+
+      <div class="dpanel aud-p1 active" id="apanel-registros">
+        <div id="audLinkBox" style="flex-shrink:0"></div>
+        <div class="stats" id="audStats"></div>
+        <div class="toolbar">
+          <select class="filter-select" id="audFZona" onchange="renderAudRegistros()"></select>
+          <div class="search-box" style="flex:1;min-width:160px">
+            <span>🔍</span>
+            <input type="text" id="audFBuscar" placeholder="Buscar auditor u observación..." oninput="renderAudRegistros()">
+          </div>
+          <input type="date" class="filter-select" id="audFDesde" onchange="renderAudRegistros()" title="Desde" style="max-width:150px">
+          <input type="date" class="filter-select" id="audFHasta" onchange="renderAudRegistros()" title="Hasta" style="max-width:150px">
+          <button class="btn btn-secondary" onclick="exportAudCSV()">⬇ CSV</button>
+          <button class="btn btn-primary" onclick="openAudModal()">+ Nueva Auditoría</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th><th>Zona</th><th>Auditor</th>
+                <th>1S</th><th>2S</th><th>3S</th><th>4S</th><th>5S</th>
+                <th>Total</th><th>Origen</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="audTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel aud-p1" id="apanel-analisis">
+        <div class="desempeño-tabs" id="audTabsIn" style="flex-shrink:0">
+          <button class="dtab active" onclick="audTabIn('evo', this)">📈 Evolución por área</button>
+          <button class="dtab" onclick="audTabIn('plan', this)">🎯 Plan de Acción</button>
+        </div>
+
+        <div class="dpanel aud-p2 active" id="apanel2-evo">
+          <div class="aud-scroll">
+            <div class="aud-box" id="audEvoTabla"></div>
+            <div class="toolbar">
+              <label style="font-size:13px;font-weight:600">Gráfico de evolución:</label>
+              <select class="filter-select" id="audEvoZona" onchange="renderAudEvolucion()"></select>
+            </div>
+            <div class="chart-card" id="audEvoChart"></div>
+            <div class="aud-box" id="audEvoHist"></div>
+          </div>
+        </div>
+
+        <div class="dpanel aud-p2" id="apanel2-plan">
+          <div class="stats" id="audPlanStats"></div>
+          <div class="toolbar">
+            <select class="filter-select" id="audPlanFEstado" onchange="renderAudPlan()">
+              <option value="">Todos los estados</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="En curso">En curso</option>
+              <option value="Completada">Completada</option>
+            </select>
+            <select class="filter-select" id="audPlanFZona" onchange="renderAudPlan()"></select>
+            <select class="filter-select" id="audPlanFResp" onchange="renderAudPlan()"></select>
+            <button class="btn btn-primary" style="margin-left:auto" onclick="openAudPlanModal()">+ Nueva Acción</button>
+          </div>
+          <div class="conduct-grid" id="audPlanGrid" style="flex:1;min-height:0;align-content:start"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ORGANIGRAMA -->
     <div class="panel" id="panel-organigrama">
       <div class="org-toolbar">
@@ -1813,6 +1908,33 @@
     <button class="kiosk-btn" style="background:var(--surface2);color:var(--text2)" onclick="limpRefrescar()">↻ Actualizar</button>
   </div>
 </div>
+<!-- AUDITORÍA CRUZADA: PANTALLA MÓVIL PARA AUDITORES -->
+<div id="audScreen">
+  <div class="kiosk-card" style="max-width:560px;width:100%">
+    <div class="kiosk-title">
+      <div class="icon">🔍</div>
+      <h2>Auditoría Cruzada 5S</h2>
+      <p id="audPubFecha"></p>
+    </div>
+    <div id="audPubForm">
+      <div class="kiosk-field kiosk-combo">
+        <label>Tu nombre (auditor)</label>
+        <input type="text" id="audPubNombre" placeholder="Elegí de la lista o escribí tu nombre..." autocomplete="off" oninput="audPubFiltrar(this.value)" onfocus="audPubFiltrar(this.value)" onblur="setTimeout(audPubCerrar, 200)">
+        <div class="kiosk-combo-dropdown" id="audPubDrop"></div>
+      </div>
+      <div class="kiosk-field" style="margin-top:16px">
+        <label>Zona que vas a auditar</label>
+        <select id="audPubZona"></select>
+      </div>
+      <div class="aud-prog" id="aud_pub_prog"></div>
+      <div id="audFormPub"></div>
+      <div id="audPubMsg" class="kiosk-result" style="display:none;margin-top:14px"></div>
+      <button class="kiosk-btn entrada" id="audPubBtn" onclick="audPubEnviar()" style="width:100%;margin-top:16px">✅ ENVIAR AUDITORÍA</button>
+    </div>
+    <div id="audPubDone" style="display:none"></div>
+  </div>
+</div>
+
 <!-- CAPACITACIONES: PANTALLA MÓVIL DE ASISTENCIA -->
 <div id="capScreen">
   <div class="kiosk-card" style="max-width:480px">
@@ -2372,6 +2494,99 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeLicModal()">Cancelar</button>
       <button class="btn btn-primary" id="licSaveBtn" onclick="saveLicencia()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- AUDITORÍA CRUZADA: MODALES -->
+<div class="modal-overlay" id="audModal">
+  <div class="modal" style="width:760px">
+    <div class="modal-header">
+      <span class="modal-title">🔍 Nueva Auditoría Cruzada 5S</span>
+      <button class="modal-close" onclick="closeAudModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Nombre del auditor *</label>
+          <select id="aud_auditor_sel" onchange="audAuditorChange()"></select>
+          <input type="text" id="aud_auditor_otro" placeholder="Escribí el nombre del auditor" style="display:none;margin-top:8px">
+        </div>
+        <div class="form-group">
+          <label>Fecha de la auditoría *</label>
+          <input type="date" id="aud_fecha">
+        </div>
+        <div class="form-group full">
+          <label>Zona auditada *</label>
+          <select id="aud_zona"></select>
+        </div>
+      </div>
+      <div class="aud-prog" id="aud_adm_prog"></div>
+      <div id="audFormAdm"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAudModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAud()">💾 Guardar auditoría</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="audDetailModal">
+  <div class="modal" style="width:680px">
+    <div class="modal-header">
+      <span class="modal-title" id="audDetailTitle">🔍 Auditoría</span>
+      <button class="modal-close" onclick="document.getElementById('audDetailModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="audDetailBody"></div>
+    <div class="modal-footer" id="audDetailFoot"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="audPlanModal">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <span class="modal-title" id="audPlanTitle">🎯 Nueva Acción</span>
+      <button class="modal-close" onclick="closeAudPlanModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Zona *</label>
+          <select id="aplan_zona"></select>
+        </div>
+        <div class="form-group">
+          <label>Etapa 5S</label>
+          <select id="aplan_etapa"></select>
+        </div>
+        <div class="form-group full">
+          <label>Acción a realizar *</label>
+          <textarea id="aplan_accion" rows="3" style="resize:vertical" placeholder="Describí la acción concreta a implementar..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Responsable *</label>
+          <select id="aplan_resp"></select>
+        </div>
+        <div class="form-group">
+          <label>Fecha límite</label>
+          <input type="date" id="aplan_limite">
+        </div>
+        <div class="form-group full">
+          <label>Estado</label>
+          <select id="aplan_estado">
+            <option value="Pendiente">Pendiente</option>
+            <option value="En curso">En curso</option>
+            <option value="Completada">Completada</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Notas / seguimiento</label>
+          <textarea id="aplan_notas" rows="2" style="resize:vertical" placeholder="Avances, resultado obtenido..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAudPlanModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAudPlan()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -2954,6 +3169,7 @@ const WRITE_ACTIONS = [
   'addRopaIngreso','deleteRopaIngreso',
   'addLimpiezaManual','deleteLimpieza',
   'addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia',
+  'addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -3118,7 +3334,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -3169,6 +3385,13 @@ function handleRequest(e) {
     else if (action === 'addCapAsistencia')    result = addCapAsistencia(body.data);
     else if (action === 'addCapAsistenciaManual') result = addCapAsistenciaManual(body.data);
     else if (action === 'deleteCapAsistencia') result = deleteRow('CAPACITACIONES_ASIST', body.id);
+    else if (action === 'addAuditoria')        result = guardarAuditoria(body.data, 'Admin');
+    else if (action === 'deleteAuditoria')     result = deleteRow('AUDITORIAS', body.id);
+    else if (action === 'addAuditoriaPlan')    result = addAuditoriaPlan(body.data);
+    else if (action === 'updateAuditoriaPlan') result = updateAuditoriaPlan(body.id, body.data);
+    else if (action === 'deleteAuditoriaPlan') result = deleteRow('AUDITORIAS_PLAN', body.id);
+    else if (action === 'getAuditoriaKiosk')   result = getAuditoriaKiosk();
+    else if (action === 'addAuditoriaPublica') result = guardarAuditoria(body.data, 'Enlace');
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -3219,6 +3442,8 @@ function getAllData() {
   var capSheet = getOrCreateSheet('CAPACITACIONES', CAP_HEADERS);
   ensureColumns(capSheet, ['profesional']); // migración: agrega la columna a la hoja ya existente
   var capAsSheet = getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS);
+  var audSheet = getOrCreateSheet('AUDITORIAS', audHeaders());
+  var audPlanSheet = getOrCreateSheet('AUDITORIAS_PLAN', AUDPLAN_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -3240,6 +3465,8 @@ function getAllData() {
     limpieza:     sheetToJson(lmSheet),
     capacitaciones: sheetToJson(capSheet),
     capAsistencias: sheetToJson(capAsSheet),
+    auditorias:   sheetToJson(audSheet),
+    auditoriasPlan: sheetToJson(audPlanSheet),
     config:       getConfig()
   };
 }
@@ -3794,6 +4021,81 @@ function ensureColumns(sheet, cols) {
   });
 }
 
+// ─── AUDITORÍA CRUZADA 5S (registro por enlace + plan de acción) ───
+var AUDPLAN_HEADERS = ['fecha','zona','etapa','accion','responsable','fecha_limite','estado','fecha_cierre','notas','auditoria_id'];
+
+function audHeaders() {
+  var h = ['fecha','auditor','zona','origen'];
+  for (var i = 1; i <= 5; i++) h.push('s' + i + '_q1', 's' + i + '_q2', 's' + i + '_q3', 's' + i + '_obs');
+  for (var j = 1; j <= 5; j++) h.push('s' + j + '_pct');
+  h.push('total_pct');
+  return h;
+}
+
+function audTexto(v, max) {
+  var t = String(v === undefined || v === null ? '' : v).trim();
+  if (t.length > max) t = t.substring(0, max);
+  var c = t.charAt(0);
+  if (c === '=' || c === '+' || c === '-' || c === '@') t = ' ' + t;
+  return t;
+}
+
+// Guarda una auditoría (la usan el administrador y el enlace público). Valida y recalcula los porcentajes en el servidor.
+function guardarAuditoria(data, origen) {
+  if (!data) return { error: 'Sin datos' };
+  var auditor = audTexto(data.auditor, 80);
+  var zona = audTexto(data.zona, 80);
+  if (!auditor) return { error: 'Falta el nombre del auditor' };
+  if (!zona) return { error: 'Falta la zona auditada' };
+  var tz = Session.getScriptTimeZone();
+  var hoy = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+  var fila = {
+    fecha: (origen === 'Admin' && data.fecha && String(data.fecha).length === 10) ? String(data.fecha) : hoy,
+    auditor: auditor, zona: zona, origen: origen
+  };
+  var validos = [0, 25, 50, 75, 100];
+  var sumaEtapas = 0;
+  for (var i = 1; i <= 5; i++) {
+    var suma = 0;
+    for (var q = 1; q <= 3; q++) {
+      var key = 's' + i + '_q' + q;
+      var raw = data[key];
+      if (raw === undefined || raw === null || raw === '') return { error: 'Falta responder: ' + key };
+      var v = Number(raw);
+      if (validos.indexOf(v) === -1) return { error: 'Valor inválido en ' + key };
+      fila[key] = v;
+      suma += v;
+    }
+    fila['s' + i + '_obs'] = audTexto(data['s' + i + '_obs'], 500);
+    fila['s' + i + '_pct'] = Math.round(suma / 3 * 10) / 10;
+    sumaEtapas += suma / 3;
+  }
+  fila.total_pct = Math.round(sumaEtapas / 5 * 10) / 10;
+  getOrCreateSheet('AUDITORIAS', audHeaders());
+  var r = addRow('AUDITORIAS', fila);
+  if (r && r.success) r.total_pct = fila.total_pct;
+  return r;
+}
+
+// Lista de la nómina para el desplegable del enlace público (solo nombres)
+function getAuditoriaKiosk() {
+  var nSheet = getOrCreateSheet('NOMINA', CAP_NOMINA_HEADERS);
+  var empleados = sheetToJson(nSheet).filter(function(e) { return e.nombre; }).map(function(e) {
+    return { nombre: e.nombre, sector: e.sector };
+  });
+  return { employees: empleados };
+}
+
+function addAuditoriaPlan(data) {
+  getOrCreateSheet('AUDITORIAS_PLAN', AUDPLAN_HEADERS);
+  return addRow('AUDITORIAS_PLAN', data);
+}
+
+function updateAuditoriaPlan(id, data) {
+  getOrCreateSheet('AUDITORIAS_PLAN', AUDPLAN_HEADERS);
+  return updateRow('AUDITORIAS_PLAN', id, data);
+}
+
 function getOrCreateSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
@@ -3967,12 +4269,13 @@ document.addEventListener('DOMContentLoaded', () => {
   else if (params.get('vacaciones') === '1') initVacPublic(params.get('api') || API_URL);
   else if (params.get('limpieza') === '1') initLimpiezaPublic(params.get('api') || API_URL);
   else if (params.get('capacitacion') === '1') initCapPublic(params.get('api') || API_URL, params.get('id') || '');
+  else if (params.get('auditoria') === '1') initAudPublic(params.get('api') || API_URL);
 });
 
 window.onload = () => {
   const params = new URLSearchParams(location.search);
   // Kiosko y vacaciones ya arrancaron en DOMContentLoaded (modo liviano)
-  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1') return;
+  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1' || params.get('auditoria') === '1') return;
   const today = new Date().toISOString().split('T')[0];
   ['c_fecha','d_fecha','f_alta','f_art','r_fecha','e_fecha','p_fecha'].forEach(id => {
     const el = document.getElementById(id);
@@ -4029,6 +4332,8 @@ function loadLocalData() {
   ropaIngresosData = storedRI ? JSON.parse(storedRI) : [];
   capacitacionesData = JSON.parse(localStorage.getItem('rrhh_capacitaciones') || '[]');
   capAsistData = JSON.parse(localStorage.getItem('rrhh_cap_asist') || '[]');
+  auditoriasData = JSON.parse(localStorage.getItem('rrhh_auditorias') || '[]');
+  auditoriasPlanData = JSON.parse(localStorage.getItem('rrhh_auditorias_plan') || '[]');
   const storedLimp = localStorage.getItem('rrhh_limpieza');
   limpiezaData = storedLimp ? JSON.parse(storedLimp) : [];
   const storedCfg = localStorage.getItem('rrhh_config');
@@ -4121,6 +4426,8 @@ async function loadAllData() {
   limpiezaData = data.limpieza || [];
   capacitacionesData = data.capacitaciones || [];
   capAsistData = data.capAsistencias || [];
+  auditoriasData = data.auditorias || [];
+  auditoriasPlanData = data.auditoriasPlan || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   orgData = null;
   setSyncStatus('ok', 'Conectado a Google Sheets');
@@ -4155,6 +4462,7 @@ function renderAll() {
   renderRopaIngresos();
   populateRopaEmpleadoSelect();
   renderLimpieza();
+  renderAuditorias();
   if (!orgData) orgLoad();
   renderOrganigrama();
 }
@@ -7279,6 +7587,7 @@ function showTab(tab) {
   if (tab === 'fichadas') { renderFichadasRegistros(); populateFichEmpleadoFilter(); }
   if (tab === 'limpieza') renderLimpieza();
   if (tab === 'capacitaciones') renderCapacitaciones();
+  if (tab === 'auditorias') renderAuditorias();
   if (tab === 'organigrama') renderOrganigrama();
   if (tab === 'ropa') { renderRopaConsulta(); renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); }
 }
@@ -9845,6 +10154,596 @@ async function capPubMarcar() {
   capPub.asis.push({ empleado: capPub.sel.nombre, hora: res.hora });
   capPubEvaluar();
   capPubMsg('ok', '✅ <b>Asistencia registrada</b>' + (res.hora ? ' a las ' + licEsc(res.hora) : ''));
+}
+
+// ═══════════════════════════════════════════════════
+// ═══ AUDITORÍA CRUZADA 5S ═══
+// ═══════════════════════════════════════════════════
+let auditoriasData = [], auditoriasPlanData = [];
+
+const AUD_ZONAS = ['DEPÓSITO', 'ZONA REFRIGERADOS', 'ZONA CONGELADOS', 'DESPACHO Y RECEPCIÓN', 'POP Y MOBILIARIO', 'ZONA RESIDUOS', 'ZONA NO APTOS', 'OFICINAS', 'ISLAS DE CERTIFICACIÓN'];
+const AUD_VALORES = [0, 25, 50, 75, 100];
+const AUD_ETAPAS = [
+  { k: 's1', nombre: '1S CLASIFICAR', corto: '1S', ico: '🗂️', color: '#6c47ff', preguntas: ['Elementos innecesarios en el lugar', 'Materiales correctamente identificados', 'Área libre de objetos obsoletos'] },
+  { k: 's2', nombre: '2S ORDENAR', corto: '2S', ico: '📍', color: '#3b82f6', preguntas: ['Herramientas ubicadas en el lugar definido', 'Identificación visual clara', 'Pasillo y accesos despejados'] },
+  { k: 's3', nombre: '3S LIMPIAR', corto: '3S', ico: '🧽', color: '#10b981', preguntas: ['Pisos y superficies limpias', 'Equipos sin suciedad visible', 'Contenedores de residuos adecuados'] },
+  { k: 's4', nombre: '4S ESTANDARIZAR', corto: '4S', ico: '📏', color: '#f59e0b', preguntas: ['El personal recibe capacitaciones', 'Se llevan a cabo métricas de productividad', 'Se realizan auditorías internas para verificar cumplimiento de los estándares'] },
+  { k: 's5', nombre: '5S DISCIPLINA', corto: '5S', ico: '🛡️', color: '#ef4444', preguntas: ['Cumplimiento sostenido de 5S', 'Participación del personal', 'Uso correcto de EPP'] }
+];
+const AUD_PALETA = ['#6c47ff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#8b5cf6', '#64748b', '#84cc16'];
+const AUD_ESTADOS = ['Pendiente', 'En curso', 'Completada'];
+
+const audState = { adm: { r: {}, o: {} }, pub: { r: {}, o: {} } };
+let audPlanEdit = null, audPlanLink = '';
+const $a = id => document.getElementById(id);
+
+// ─── helpers ───
+function audNum(v) { const n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function audFmt(p) { return (Math.round(p * 10) / 10).toString().replace('.', ',') + '%'; }
+function audColor(p) { return p == null ? 'var(--text3)' : p >= 80 ? 'var(--success)' : p >= 50 ? 'var(--warning)' : 'var(--danger)'; }
+function audStagePct(a, k) {
+  if (a[k + '_pct'] !== undefined && a[k + '_pct'] !== '') return audNum(a[k + '_pct']);
+  return Math.round([1, 2, 3].reduce((s, i) => s + audNum(a[k + '_q' + i]), 0) / 3 * 10) / 10;
+}
+function audTotal(a) {
+  if (a.total_pct !== undefined && a.total_pct !== '') return audNum(a.total_pct);
+  return Math.round(AUD_ETAPAS.reduce((s, e) => s + audStagePct(a, e.k), 0) / 5 * 10) / 10;
+}
+function audSorted(list) {
+  return [...list].filter(a => a.fecha).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)) || String(a.__ID__).localeCompare(String(b.__ID__)));
+}
+function audZonasAll() {
+  const extra = [...new Set(auditoriasData.map(a => a.zona).filter(z => z && !AUD_ZONAS.includes(z)))];
+  return [...AUD_ZONAS, ...extra];
+}
+function audSave() {
+  if (!API_URL) {
+    localStorage.setItem('rrhh_auditorias', JSON.stringify(auditoriasData));
+    localStorage.setItem('rrhh_auditorias_plan', JSON.stringify(auditoriasPlanData));
+  }
+}
+function audDeltaHTML(cur, prev) {
+  if (prev === null || prev === undefined) return '<span style="color:var(--text3)">1ª auditoría</span>';
+  const d = Math.round((cur - prev) * 10) / 10;
+  if (d > 0) return `<span style="color:var(--success);font-weight:600">▲ +${audFmt(d).replace('%', '')} pts</span>`;
+  if (d < 0) return `<span style="color:var(--danger);font-weight:600">▼ ${audFmt(d).replace('%', '')} pts</span>`;
+  return '<span style="color:var(--text3)">■ sin cambios</span>';
+}
+function audLink() {
+  return location.origin + location.pathname + '?auditoria=1&api=' + encodeURIComponent(API_URL);
+}
+
+// ─── formulario de preguntas (compartido por el modal del administrador y el enlace público) ───
+function audFormHTML(ctx) {
+  return AUD_ETAPAS.map(et => `
+    <div class="aud-etapa" style="border-left-color:${et.color}">
+      <div class="aud-etapa-h"><span>${et.ico} ${et.nombre}</span><b id="aud_${ctx}_${et.k}_pct" style="color:var(--text3)">0/3</b></div>
+      ${et.preguntas.map((q, i) => {
+        const id = et.k + '_q' + (i + 1);
+        return `<div class="aud-q" id="audq_${ctx}_${id}">
+          <div class="aud-q-t">${licEsc(q)}</div>
+          <div class="aud-opts">${AUD_VALORES.map(v => `<button type="button" class="aud-opt" data-v="${v}" onclick="audPick('${ctx}','${id}',${v})">${v}%</button>`).join('')}</div>
+        </div>`;
+      }).join('')}
+      <div class="aud-q">
+        <div class="aud-q-t">Observaciones</div>
+        <textarea rows="2" oninput="audState.${ctx}.o['${et.k}']=this.value" placeholder="Opcional..."></textarea>
+      </div>
+    </div>`).join('');
+}
+
+function audPick(ctx, id, v) {
+  audState[ctx].r[id] = v;
+  const box = $a('audq_' + ctx + '_' + id);
+  if (box) {
+    box.classList.remove('aud-missing');
+    box.querySelectorAll('.aud-opt').forEach(b => b.classList.toggle('on', parseInt(b.dataset.v, 10) === v));
+  }
+  audUpdateLive(ctx);
+}
+
+function audUpdateLive(ctx) {
+  const st = audState[ctx];
+  let resp = 0, suma = 0, completas = 0;
+  AUD_ETAPAS.forEach(et => {
+    const vals = [1, 2, 3].map(i => st.r[et.k + '_q' + i]);
+    const hechas = vals.filter(v => v !== undefined);
+    resp += hechas.length;
+    const el = $a('aud_' + ctx + '_' + et.k + '_pct');
+    if (!el) return;
+    if (hechas.length === 3) {
+      const p = vals.reduce((a, b) => a + b, 0) / 3;
+      el.textContent = audFmt(p); el.style.color = audColor(p);
+      suma += p; completas++;
+    } else {
+      el.textContent = hechas.length + '/3'; el.style.color = 'var(--text3)';
+    }
+  });
+  const prog = $a('aud_' + ctx + '_prog');
+  if (prog) {
+    prog.innerHTML = 'Respondidas ' + resp + ' de 15' +
+      (completas === 5 ? ' · Resultado total: <b style="color:' + audColor(suma / 5) + '">' + audFmt(suma / 5) + '</b>' : '');
+  }
+}
+
+function audFirstMissing(ctx) {
+  let first = null;
+  AUD_ETAPAS.forEach(et => [1, 2, 3].forEach(i => {
+    const id = et.k + '_q' + i;
+    if (audState[ctx].r[id] === undefined) {
+      const box = $a('audq_' + ctx + '_' + id);
+      if (box) box.classList.add('aud-missing');
+      if (!first) first = box;
+    }
+  }));
+  return first;
+}
+
+function audBuildRecord(st, base) {
+  const rec = { ...base };
+  let suma = 0;
+  AUD_ETAPAS.forEach(et => {
+    let s = 0;
+    [1, 2, 3].forEach(i => { const v = st.r[et.k + '_q' + i]; rec[et.k + '_q' + i] = v; s += v; });
+    rec[et.k + '_obs'] = (st.o[et.k] || '').trim();
+    rec[et.k + '_pct'] = Math.round(s / 3 * 10) / 10;
+    suma += s / 3;
+  });
+  rec.total_pct = Math.round(suma / 5 * 10) / 10;
+  return rec;
+}
+
+// ─── pestañas internas ───
+function audTab(tab, el) {
+  document.querySelectorAll('#audTabsTop .dtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#panel-auditorias .aud-p1').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  $a('apanel-' + tab).classList.add('active');
+  renderAuditorias();
+}
+function audTabIn(tab, el) {
+  document.querySelectorAll('#audTabsIn .dtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#panel-auditorias .aud-p2').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  $a('apanel2-' + tab).classList.add('active');
+  renderAuditorias();
+}
+
+// ─── render general ───
+function audFillSelect(id, firstLabel, values) {
+  const sel = $a(id); if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">${firstLabel}</option>` + values.map(v => `<option value="${licEsc(v)}">${licEsc(v)}</option>`).join('');
+  if (values.includes(cur)) sel.value = cur;
+}
+
+function renderAuditorias() {
+  if (!$a('panel-auditorias')) return;
+  const zonas = audZonasAll();
+  audFillSelect('audFZona', 'Todas las zonas', zonas);
+  audFillSelect('audEvoZona', 'Todas las zonas (resultado total)', zonas);
+  audFillSelect('audPlanFZona', 'Todas las zonas', zonas);
+  audFillSelect('audPlanFResp', 'Todos los responsables', [...new Set(auditoriasPlanData.map(p => p.responsable).filter(Boolean))].sort());
+  renderAudLink();
+  renderAudRegistros();
+  renderAudEvolucion();
+  renderAudPlan();
+}
+
+function renderAudLink() {
+  const box = $a('audLinkBox'); if (!box) return;
+  if (!API_URL) {
+    box.innerHTML = '<div class="link-box" style="font-family:inherit">🔗 Para generar el enlace de auditoría cruzada primero conectá el sistema con Google Sheets.</div>';
+    return;
+  }
+  const url = audLink();
+  box.innerHTML = `<div class="link-box" style="font-family:inherit">
+    <span style="flex:1;min-width:0"><b style="display:block;font-size:12px;margin-bottom:2px">🔗 Enlace para que los auditores completen la auditoría cruzada</b>
+    <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${licEsc(url)}</span></span>
+    <button class="btn btn-secondary btn-sm" data-u="${licEsc(url)}" onclick="navigator.clipboard.writeText(this.dataset.u).then(()=>showToast('Enlace copiado ✓','success'))">📋 Copiar</button>
+    <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center" href="https://wa.me/?text=${encodeURIComponent('Auditoría Cruzada 5S: completá tu auditoría desde este enlace: ' + url)}">📲 WhatsApp</a>
+  </div>`;
+}
+
+// ─── registros ───
+function audLatestByZona() {
+  const m = {};
+  audSorted(auditoriasData).forEach(a => { m[a.zona] = a; });
+  return m;
+}
+
+function audFiltered() {
+  const z = $a('audFZona').value, q = ($a('audFBuscar').value || '').toLowerCase().trim();
+  const d = $a('audFDesde').value, h = $a('audFHasta').value;
+  return audSorted(auditoriasData).filter(a =>
+    (!z || a.zona === z) && (!d || a.fecha >= d) && (!h || a.fecha <= h) &&
+    (!q || String(a.auditor || '').toLowerCase().includes(q) || AUD_ETAPAS.some(e => String(a[e.k + '_obs'] || '').toLowerCase().includes(q)))
+  ).reverse();
+}
+
+function renderAudRegistros() {
+  const tb = $a('audTbody'); if (!tb) return;
+  const last = Object.values(audLatestByZona());
+  const prom = last.length ? last.reduce((s, a) => s + audTotal(a), 0) / last.length : null;
+  const orden = [...last].sort((a, b) => audTotal(b) - audTotal(a));
+  const mejor = orden[0], peor = orden.length > 1 ? orden[orden.length - 1] : null;
+  const card = (ico, val, lab, color) => `<div class="stat-card"><span class="stat-icon">${ico}</span><div><div class="stat-value" style="${color ? 'color:' + color : ''}">${val}</div><div class="stat-label">${lab}</div></div></div>`;
+  $a('audStats').innerHTML =
+    card('📋', auditoriasData.length, 'Auditorías registradas') +
+    card('🎯', prom === null ? '—' : audFmt(prom), 'Promedio (última de cada zona)', prom === null ? '' : audColor(prom)) +
+    card('🏆', mejor ? licEsc(mejor.zona) : '—', mejor ? 'Mejor zona · ' + audFmt(audTotal(mejor)) : 'Mejor zona') +
+    card('⚠️', peor ? licEsc(peor.zona) : '—', peor ? 'A reforzar · ' + audFmt(audTotal(peor)) : 'A reforzar');
+
+  const rows = audFiltered();
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="icon">🔍</div><p>No hay auditorías registradas</p></div></td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(a => {
+    const t = audTotal(a);
+    return `<tr>
+      <td>${fmtDate(a.fecha)}</td>
+      <td><strong>${licEsc(a.zona)}</strong></td>
+      <td>${licEsc(a.auditor)}</td>
+      ${AUD_ETAPAS.map(e => { const p = audStagePct(a, e.k); return `<td><b style="color:${audColor(p)}">${audFmt(p)}</b></td>`; }).join('')}
+      <td><b style="color:${audColor(t)}">${audFmt(t)}</b></td>
+      <td><span class="badge ${a.origen === 'Enlace' ? 'badge-blue' : 'badge-gray'}">${a.origen === 'Enlace' ? 'Enlace' : 'Admin'}</span></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick="audVer('${a.__ID__}')">👁 Ver</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAud('${a.__ID__}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function audVer(id) {
+  const a = auditoriasData.find(x => String(x.__ID__) === String(id)); if (!a) return;
+  const t = audTotal(a);
+  $a('audDetailTitle').textContent = '🔍 ' + a.zona + ' — ' + fmtDate(a.fecha);
+  $a('audDetailBody').innerHTML = `
+    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;font-size:13px;margin-bottom:6px">
+      <span>👤 <b>${licEsc(a.auditor)}</b> · ${a.origen === 'Enlace' ? 'cargada por enlace' : 'cargada por administración'}</span>
+      <span>Resultado total: <b style="color:${audColor(t)};font-size:16px">${audFmt(t)}</b></span>
+    </div>` + AUD_ETAPAS.map(et => {
+      const p = audStagePct(a, et.k);
+      return `<div class="aud-etapa" style="border-left-color:${et.color}">
+        <div class="aud-etapa-h"><span>${et.ico} ${et.nombre}</span><b style="color:${audColor(p)}">${audFmt(p)}</b></div>
+        ${et.preguntas.map((q, i) => `<div style="display:flex;justify-content:space-between;gap:12px;font-size:13px;padding:4px 0;border-bottom:1px solid var(--border)"><span>${licEsc(q)}</span><b>${audNum(a[et.k + '_q' + (i + 1)])}%</b></div>`).join('')}
+        ${a[et.k + '_obs'] ? `<div style="font-size:13px;color:var(--text2);margin-top:8px;font-style:italic">📝 ${licEsc(a[et.k + '_obs'])}</div>` : ''}
+      </div>`;
+    }).join('');
+  const peor = [...AUD_ETAPAS].sort((x, y) => audStagePct(a, x.k) - audStagePct(a, y.k))[0];
+  $a('audDetailFoot').innerHTML = `<button class="btn btn-secondary" onclick="document.getElementById('audDetailModal').classList.remove('open')">Cerrar</button>
+    <button class="btn btn-primary" onclick="document.getElementById('audDetailModal').classList.remove('open');openAudPlanModal(null,{zona:'${licEsc(a.zona).replace(/'/g, '')}',etapa:'${peor.nombre}',auditoria_id:'${a.__ID__}'})">🎯 Crear acción de mejora</button>`;
+  $a('audDetailModal').classList.add('open');
+}
+
+async function deleteAud(id) {
+  if (!confirm('¿Eliminar esta auditoría? Esta acción no se puede deshacer.')) return;
+  if (API_URL) {
+    const res = await apiCall('deleteAuditoria', { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  auditoriasData = auditoriasData.filter(a => String(a.__ID__) !== String(id));
+  audSave(); renderAuditorias();
+  showToast('Auditoría eliminada ✓', 'success');
+}
+
+function exportAudCSV() {
+  const heads = ['Fecha', 'Zona', 'Auditor', 'Origen'];
+  AUD_ETAPAS.forEach(e => { e.preguntas.forEach(q => heads.push(e.corto + ' - ' + q)); heads.push(e.corto + ' - Observaciones'); heads.push(e.nombre + ' %'); });
+  heads.push('Total %');
+  const rows = audFiltered().reverse().map(a => {
+    const r = [a.fecha, a.zona, a.auditor, a.origen];
+    AUD_ETAPAS.forEach(e => { [1, 2, 3].forEach(i => r.push(audNum(a[e.k + '_q' + i]))); r.push(a[e.k + '_obs'] || ''); r.push(audStagePct(a, e.k)); });
+    r.push(audTotal(a));
+    return r;
+  });
+  const csv = [heads, ...rows].map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const l = document.createElement('a');
+  l.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  l.download = 'auditorias_cruzadas_5s.csv';
+  l.click();
+  showToast('CSV exportado ✓', 'success');
+}
+
+// ─── nueva auditoría (administrador) ───
+function openAudModal() {
+  audState.adm = { r: {}, o: {} };
+  const nombres = employees.map(e => e.nombre).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  $a('aud_auditor_sel').innerHTML = '<option value="">Seleccioná un auditor...</option>' +
+    nombres.map(n => `<option value="${licEsc(n)}">${licEsc(n)}</option>`).join('') +
+    '<option value="__otro__">✍️ Otro (escribir nombre)</option>';
+  $a('aud_auditor_otro').value = ''; $a('aud_auditor_otro').style.display = 'none';
+  $a('aud_zona').innerHTML = '<option value="">Seleccioná la zona...</option>' + AUD_ZONAS.map(z => `<option value="${licEsc(z)}">${licEsc(z)}</option>`).join('');
+  $a('aud_fecha').value = licHoyISO();
+  $a('audFormAdm').innerHTML = audFormHTML('adm');
+  audUpdateLive('adm');
+  $a('audModal').classList.add('open');
+}
+function closeAudModal() { $a('audModal').classList.remove('open'); }
+function audAuditorChange() {
+  $a('aud_auditor_otro').style.display = $a('aud_auditor_sel').value === '__otro__' ? 'block' : 'none';
+}
+
+async function saveAud() {
+  const sel = $a('aud_auditor_sel').value;
+  const auditor = (sel === '__otro__' ? $a('aud_auditor_otro').value : sel).trim();
+  const zona = $a('aud_zona').value, fecha = $a('aud_fecha').value;
+  if (!auditor) { showToast('Elegí o escribí el nombre del auditor', 'error'); return; }
+  if (!fecha) { showToast('Indicá la fecha de la auditoría', 'error'); return; }
+  if (!zona) { showToast('Seleccioná la zona auditada', 'error'); return; }
+  const falta = audFirstMissing('adm');
+  if (falta) { showToast('Faltan preguntas por calificar', 'error'); falta.scrollIntoView({ block: 'center' }); return; }
+  const rec = audBuildRecord(audState.adm, { fecha, auditor, zona, origen: 'Admin' });
+  if (API_URL) {
+    const res = await apiCall('addAuditoria', { data: rec });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+    if (res?.id) rec.__ID__ = res.id;
+  } else {
+    rec.__ID__ = Date.now().toString();
+  }
+  auditoriasData.push(rec);
+  audSave(); closeAudModal(); renderAuditorias();
+  showToast('Auditoría registrada: ' + audFmt(rec.total_pct) + ' ✓', 'success');
+}
+
+// ─── análisis: evolución por área ───
+function audLineChart(title, series, dates) {
+  if (!dates.length) return `<h3>${title}</h3><div style="color:var(--text3);font-size:13px">Sin datos suficientes.</div>`;
+  const W = 720, H = 260, padL = 38, padR = 16, padT = 16, padB = 34;
+  const iw = W - padL - padR, ih = H - padT - padB, n = dates.length;
+  const x = i => n === 1 ? padL + iw / 2 : padL + iw * i / (n - 1);
+  const y = v => padT + ih - Math.max(0, Math.min(100, v)) / 100 * ih;
+  const grid = [0, 25, 50, 75, 100].map(v => `<line x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}" stroke="var(--border)"/><text x="${padL - 6}" y="${y(v) + 4}" font-size="10" fill="var(--text3)" text-anchor="end">${v}%</text>`).join('');
+  const step = Math.ceil(n / 8);
+  const xl = dates.map((d, i) => (i % step === 0 || i === n - 1) ? `<text x="${x(i)}" y="${H - 10}" font-size="10" fill="var(--text3)" text-anchor="middle">${fmtDate(d)}</text>` : '').join('');
+  const lines = series.map(s => {
+    const pts = dates.map((d, i) => s.map[d] !== undefined ? [x(i), y(s.map[d]), d] : null).filter(Boolean);
+    return `<polyline points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}" fill="none" stroke="${s.color}" stroke-width="${s.bold ? 3 : 2}"/>` +
+      pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${s.color}"><title>${licEsc(s.label)}: ${audFmt(s.map[p[2]])} (${fmtDate(p[2])})</title></circle>`).join('');
+  }).join('');
+  const legend = series.map(s => `<span><span class="dot" style="background:${s.color}"></span>${licEsc(s.label)}</span>`).join('');
+  return `<h3>${title}</h3><div class="line-chart-legend">${legend}</div>
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible">${grid}${lines}${xl}</svg>`;
+}
+
+function renderAudEvolucion() {
+  const tabla = $a('audEvoTabla'); if (!tabla) return;
+  const zonas = audZonasAll();
+  const porZona = {};
+  zonas.forEach(z => { porZona[z] = audSorted(auditoriasData.filter(a => a.zona === z)); });
+
+  tabla.innerHTML = `<table class="aud-tbl"><thead><tr><th>Zona</th><th>Auditorías</th><th>Última</th><th>Total</th>${AUD_ETAPAS.map(e => `<th>${e.corto}</th>`).join('')}</tr></thead><tbody>` +
+    zonas.map(z => {
+      const l = porZona[z];
+      if (!l.length) return `<tr style="color:var(--text3)"><td>${licEsc(z)}</td><td>0</td><td colspan="${AUD_ETAPAS.length + 2}" style="text-align:left">Sin auditorías registradas</td></tr>`;
+      const cur = l[l.length - 1], prev = l.length > 1 ? l[l.length - 2] : null;
+      const cell = (c, p) => `<td><div style="font-weight:700;color:${audColor(c)}">${audFmt(c)}</div><div style="font-size:11px">${audDeltaHTML(c, p)}</div></td>`;
+      return `<tr><td><strong>${licEsc(z)}</strong></td><td>${l.length}</td><td>${fmtDate(cur.fecha)}</td>${cell(audTotal(cur), prev ? audTotal(prev) : null)}${AUD_ETAPAS.map(e => cell(audStagePct(cur, e.k), prev ? audStagePct(prev, e.k) : null)).join('')}</tr>`;
+    }).join('') + '</tbody></table>';
+
+  const zSel = $a('audEvoZona').value;
+  let series = [], dates = [], titulo;
+  if (zSel) {
+    const l = porZona[zSel] || [];
+    dates = [...new Set(l.map(a => a.fecha))];
+    const mk = (label, color, fn, bold) => { const map = {}; l.forEach(a => { map[a.fecha] = fn(a); }); return { label, color, map, bold }; };
+    series = [mk('Total', '#1f2937', audTotal, true), ...AUD_ETAPAS.map(e => mk(e.nombre, e.color, a => audStagePct(a, e.k)))];
+    titulo = `Evolución — ${licEsc(zSel)}`;
+  } else {
+    const activas = zonas.filter(z => porZona[z].length);
+    dates = [...new Set(auditoriasData.map(a => a.fecha).filter(Boolean))].sort();
+    series = activas.map((z, i) => { const map = {}; porZona[z].forEach(a => { map[a.fecha] = audTotal(a); }); return { label: z, color: AUD_PALETA[i % AUD_PALETA.length], map }; });
+    titulo = 'Evolución del resultado total por zona';
+  }
+  $a('audEvoChart').innerHTML = audLineChart(titulo, series, dates);
+
+  const hist = $a('audEvoHist');
+  if (!zSel) { hist.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--text3)">Elegí una zona en el selector de arriba para ver el detalle auditoría por auditoría, con la variación de cada etapa.</div>'; return; }
+  const l = porZona[zSel] || [];
+  if (!l.length) { hist.innerHTML = '<div style="padding:14px;font-size:13px;color:var(--text3)">Esta zona todavía no tiene auditorías.</div>'; return; }
+  hist.innerHTML = `<table class="aud-tbl"><thead><tr><th>Fecha</th><th>Auditor</th><th>Total</th>${AUD_ETAPAS.map(e => `<th>${e.corto}</th>`).join('')}</tr></thead><tbody>` +
+    l.map((a, i) => {
+      const p = i > 0 ? l[i - 1] : null;
+      const cell = (c, pv) => `<td><div style="font-weight:700;color:${audColor(c)}">${audFmt(c)}</div><div style="font-size:11px">${audDeltaHTML(c, pv)}</div></td>`;
+      return `<tr><td>${fmtDate(a.fecha)}</td><td>${licEsc(a.auditor)}</td>${cell(audTotal(a), p ? audTotal(p) : null)}${AUD_ETAPAS.map(e => cell(audStagePct(a, e.k), p ? audStagePct(p, e.k) : null)).join('')}</tr>`;
+    }).reverse().join('') + '</tbody></table>';
+}
+
+// ─── análisis: plan de acción ───
+function audEstadoColor(e) {
+  if (e === 'Completada') return { bg: 'rgba(16,185,129,0.12)', fg: '#047857' };
+  if (e === 'En curso') return { bg: 'rgba(245,158,11,0.14)', fg: '#b45309' };
+  return { bg: 'rgba(239,68,68,0.12)', fg: '#b91c1c' };
+}
+function audPlanVencida(p) { return p.estado !== 'Completada' && p.fecha_limite && String(p.fecha_limite) < licHoyISO(); }
+
+function renderAudPlan() {
+  const grid = $a('audPlanGrid'); if (!grid) return;
+  const cuenta = e => auditoriasPlanData.filter(p => (p.estado || 'Pendiente') === e).length;
+  const card = (ico, v, l) => `<div class="stat-card"><span class="stat-icon">${ico}</span><div><div class="stat-value">${v}</div><div class="stat-label">${l}</div></div></div>`;
+  $a('audPlanStats').innerHTML = card('🕒', cuenta('Pendiente'), 'Pendientes') + card('🔧', cuenta('En curso'), 'En curso') + card('✅', cuenta('Completada'), 'Completadas') + card('⏰', auditoriasPlanData.filter(audPlanVencida).length, 'Vencidas');
+
+  const fe = $a('audPlanFEstado').value, fz = $a('audPlanFZona').value, fr = $a('audPlanFResp').value;
+  const orden = { 'Pendiente': 0, 'En curso': 1, 'Completada': 2 };
+  const lista = auditoriasPlanData.filter(p => (!fe || (p.estado || 'Pendiente') === fe) && (!fz || p.zona === fz) && (!fr || p.responsable === fr))
+    .sort((a, b) => (orden[a.estado] ?? 0) - (orden[b.estado] ?? 0) || String(a.fecha_limite || '9999').localeCompare(String(b.fecha_limite || '9999')));
+  if (!lista.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🎯</div><p>No hay acciones registradas</p></div>'; return; }
+  grid.innerHTML = lista.map(p => {
+    const est = p.estado || 'Pendiente', c = audEstadoColor(est), venc = audPlanVencida(p);
+    return `<div class="plan-card">
+      <div class="plan-top"><h4>${licEsc(p.zona || 'General')}${p.etapa ? ' · ' + licEsc(p.etapa) : ''}</h4><span class="estado-pill" style="background:${c.bg};color:${c.fg}">${est}</span></div>
+      <div class="conduct-body">${licEsc(p.accion)}</div>
+      <div class="conduct-meta" style="flex-wrap:wrap">
+        <span>👤 ${licEsc(p.responsable || 'Sin asignar')}</span>
+        ${p.fecha ? `<span>📅 Creada: ${fmtDate(p.fecha)}</span>` : ''}
+        ${p.fecha_limite ? `<span style="${venc ? 'color:var(--danger);font-weight:600' : ''}">⏰ Límite: ${fmtDate(p.fecha_limite)}${venc ? ' (vencida)' : ''}</span>` : ''}
+        ${p.fecha_cierre ? `<span>✅ Cerrada: ${fmtDate(p.fecha_cierre)}</span>` : ''}
+      </div>
+      ${p.notas ? `<div class="conduct-body" style="font-style:italic;color:var(--text3)">${licEsc(p.notas)}</div>` : ''}
+      <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <select class="filter-select" onchange="audPlanEstado('${p.__ID__}', this.value)">${AUD_ESTADOS.map(e => `<option value="${e}" ${e === est ? 'selected' : ''}>${e}</option>`).join('')}</select>
+        <span><button class="btn btn-secondary btn-sm" onclick="openAudPlanModal('${p.__ID__}')">✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAudPlan('${p.__ID__}')">🗑️</button></span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAudPlanModal(id, pre) {
+  audPlanEdit = id || null;
+  const p = id ? auditoriasPlanData.find(x => String(x.__ID__) === String(id)) : null;
+  pre = pre || {};
+  $a('audPlanTitle').textContent = p ? '✏️ Editar acción' : '🎯 Nueva Acción';
+  $a('aplan_zona').innerHTML = '<option value="">Seleccioná la zona...</option>' + audZonasAll().map(z => `<option value="${licEsc(z)}">${licEsc(z)}</option>`).join('');
+  $a('aplan_etapa').innerHTML = AUD_ETAPAS.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('') + '<option value="General">General</option>';
+  const nombres = employees.map(e => e.nombre).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  if (p && p.responsable && !nombres.includes(p.responsable)) nombres.push(p.responsable);
+  $a('aplan_resp').innerHTML = '<option value="">Seleccioná el responsable...</option>' + nombres.map(n => `<option value="${licEsc(n)}">${licEsc(n)}</option>`).join('');
+  $a('aplan_zona').value = p ? (p.zona || '') : (pre.zona || '');
+  $a('aplan_etapa').value = p ? (p.etapa || 'General') : (pre.etapa || 'General');
+  $a('aplan_accion').value = p ? (p.accion || '') : '';
+  $a('aplan_resp').value = p ? (p.responsable || '') : '';
+  $a('aplan_limite').value = p ? (p.fecha_limite || '') : '';
+  $a('aplan_estado').value = p ? (p.estado || 'Pendiente') : 'Pendiente';
+  $a('aplan_notas').value = p ? (p.notas || '') : '';
+  audPlanLink = p ? (p.auditoria_id || '') : (pre.auditoria_id || '');
+  $a('audPlanModal').classList.add('open');
+}
+function closeAudPlanModal() { $a('audPlanModal').classList.remove('open'); }
+
+async function saveAudPlan() {
+  const data = {
+    zona: $a('aplan_zona').value, etapa: $a('aplan_etapa').value, accion: $a('aplan_accion').value.trim(),
+    responsable: $a('aplan_resp').value, fecha_limite: $a('aplan_limite').value, estado: $a('aplan_estado').value,
+    notas: $a('aplan_notas').value.trim(), auditoria_id: audPlanLink
+  };
+  if (!data.zona) { showToast('Seleccioná la zona', 'error'); return; }
+  if (!data.accion) { showToast('Describí la acción a realizar', 'error'); return; }
+  if (!data.responsable) { showToast('Indicá quién debe realizar la acción', 'error'); return; }
+  const prev = audPlanEdit ? auditoriasPlanData.find(x => String(x.__ID__) === String(audPlanEdit)) : null;
+  data.fecha = prev ? (prev.fecha || licHoyISO()) : licHoyISO();
+  data.fecha_cierre = data.estado === 'Completada' ? ((prev && prev.fecha_cierre) || licHoyISO()) : '';
+  if (prev) {
+    if (API_URL) {
+      const res = await apiCall('updateAuditoriaPlan', { id: prev.__ID__, data });
+      if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+    }
+    Object.assign(prev, data);
+  } else {
+    if (API_URL) {
+      const res = await apiCall('addAuditoriaPlan', { data });
+      if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+      if (res?.id) data.__ID__ = res.id;
+    } else {
+      data.__ID__ = Date.now().toString();
+    }
+    auditoriasPlanData.push(data);
+  }
+  audSave(); closeAudPlanModal(); renderAuditorias();
+  showToast('Acción guardada ✓', 'success');
+}
+
+async function audPlanEstado(id, estado) {
+  const p = auditoriasPlanData.find(x => String(x.__ID__) === String(id)); if (!p) return;
+  p.estado = estado;
+  p.fecha_cierre = estado === 'Completada' ? (p.fecha_cierre || licHoyISO()) : '';
+  if (API_URL) {
+    const res = await apiCall('updateAuditoriaPlan', { id: p.__ID__, data: p });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  audSave(); renderAuditorias();
+  showToast('Estado actualizado a "' + estado + '" ✓', 'success');
+}
+
+async function deleteAudPlan(id) {
+  if (!confirm('¿Eliminar esta acción del plan?')) return;
+  if (API_URL) {
+    const res = await apiCall('deleteAuditoriaPlan', { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  auditoriasPlanData = auditoriasPlanData.filter(p => String(p.__ID__) !== String(id));
+  audSave(); renderAuditorias();
+  showToast('Acción eliminada ✓', 'success');
+}
+
+// ═══ ENLACE PÚBLICO PARA AUDITORES (celular) ═══
+let audPub = { emps: [], lista: [], busy: false };
+
+async function initAudPublic(apiUrl) {
+  kioskApiUrl = apiUrl || '';
+  $a('audScreen').classList.add('active');
+  $a('audPubFecha').textContent = 'Fecha: ' + fmtDate(licHoyISO()) + ' · Calificá cada punto del 0% al 100%';
+  $a('audPubZona').innerHTML = '<option value="">Seleccioná la zona...</option>' + AUD_ZONAS.map(z => `<option value="${licEsc(z)}">${licEsc(z)}</option>`).join('');
+  audState.pub = { r: {}, o: {} };
+  $a('audFormPub').innerHTML = audFormHTML('pub');
+  audUpdateLive('pub');
+  if (!kioskApiUrl) { audPubMsg('error', 'Este enlace no es válido. Pedí uno nuevo al administrador.'); $a('audPubBtn').disabled = true; return; }
+  const res = await kioskApiCall('getAuditoriaKiosk');
+  if (!res || res.error) { audPubMsg('warn', 'No se pudo cargar la lista de personal. Podés escribir tu nombre igualmente.'); return; }
+  audPub.emps = (res.employees || []).map(e => ({ nombre: e.nombre, _n: kioskNormalizar(e.nombre) })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+}
+
+function audPubMsg(tipo, txt) {
+  const el = $a('audPubMsg');
+  if (!txt) { el.style.display = 'none'; return; }
+  el.className = 'kiosk-result ' + tipo; el.textContent = txt; el.style.display = 'block';
+}
+
+function audPubFiltrar(txt) {
+  const n = kioskNormalizar(txt);
+  audPub.lista = audPub.emps.filter(e => !n || e._n.includes(n)).slice(0, 40);
+  const dd = $a('audPubDrop');
+  dd.innerHTML = audPub.lista.length
+    ? audPub.lista.map((e, i) => `<div class="kiosk-combo-option" onmousedown="audPubElegir(${i})" ontouchstart="audPubElegir(${i})">${licEsc(e.nombre)}</div>`).join('')
+    : '<div class="kiosk-combo-empty">Sin coincidencias: podés usar el nombre que escribiste</div>';
+  dd.classList.add('open');
+}
+function audPubElegir(i) {
+  const e = audPub.lista[i]; if (!e) return;
+  $a('audPubNombre').value = e.nombre;
+  audPubCerrar();
+}
+function audPubCerrar() { $a('audPubDrop').classList.remove('open'); }
+
+async function audPubEnviar() {
+  if (audPub.busy) return;
+  const nombre = ($a('audPubNombre').value || '').trim(), zona = $a('audPubZona').value;
+  if (!nombre) { audPubMsg('error', 'Elegí o escribí tu nombre.'); $a('audPubNombre').focus(); return; }
+  if (!zona) { audPubMsg('error', 'Seleccioná la zona que vas a auditar.'); return; }
+  const falta = audFirstMissing('pub');
+  if (falta) {
+    audPubMsg('error', 'Faltan preguntas por calificar (marcadas en rojo).');
+    try { falta.scrollIntoView({ block: 'center' }); } catch (e) {}
+    return;
+  }
+  audPubMsg('', '');
+  audPub.busy = true; $a('audPubBtn').disabled = true; $a('audPubBtn').textContent = 'Enviando...';
+  const rec = audBuildRecord(audState.pub, { auditor: nombre, zona, origen: 'Enlace' });
+  const res = await kioskApiCall('addAuditoriaPublica', { data: rec });
+  audPub.busy = false; $a('audPubBtn').disabled = false; $a('audPubBtn').textContent = '✅ ENVIAR AUDITORÍA';
+  if (!res || res.error || !res.success) {
+    audPubMsg('error', 'No se pudo guardar: ' + ((res && res.error) || 'sin conexión') + '. Probá de nuevo.');
+    return;
+  }
+  $a('audPubForm').style.display = 'none';
+  const done = $a('audPubDone');
+  done.style.display = 'block';
+  done.innerHTML = `<div class="kiosk-result ok" style="font-size:15px;padding:18px">✅ <b>¡Auditoría registrada!</b><br>${licEsc(zona)}<br>Resultado total: <b style="font-size:20px;color:${audColor(rec.total_pct)}">${audFmt(rec.total_pct)}</b></div>
+    <button class="kiosk-btn salida" style="width:100%;margin-top:16px" onclick="audPubOtra()">➕ Cargar otra auditoría</button>`;
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+
+function audPubOtra() {
+  audState.pub = { r: {}, o: {} };
+  $a('audFormPub').innerHTML = audFormHTML('pub');
+  $a('audPubZona').value = '';
+  audUpdateLive('pub');
+  audPubMsg('', '');
+  $a('audPubDone').style.display = 'none';
+  $a('audPubForm').style.display = 'block';
+  try { window.scrollTo(0, 0); } catch (e) {}
 }
 </script>
 </body>
