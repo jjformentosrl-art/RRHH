@@ -891,8 +891,14 @@
 
     <!-- CONDUCTA -->
     <div class="panel" id="panel-conducta">
+      <div class="desempeño-tabs">
+        <button class="dtab active" onclick="showConductaTab('registros', this)">📝 Registros</button>
+        <button class="dtab" onclick="showConductaTab('alertas', this)">🚨 Alertas de Incidente / Accidente</button>
+      </div>
+
+      <div class="dpanel active" id="dpanel-conducta-registros">
       <!-- ANÁLISIS RÁPIDO POR TIPO -->
-      <div id="conductaAnalysis" style="margin-bottom:18px;"></div>
+      <div id="conductaAnalysis" style="margin-bottom:18px;flex-shrink:0"></div>
 
       <!-- FILTROS -->
       <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
@@ -933,6 +939,24 @@
         <button class="btn btn-primary" onclick="openConductaModal()">+ Nuevo Registro</button>
       </div>
       <div class="conduct-grid" id="conductaGrid"></div>
+      </div>
+
+      <!-- SUB-PANEL: ALERTAS DE INCIDENTE / ACCIDENTE -->
+      <div class="dpanel" id="dpanel-conducta-alertas">
+        <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
+          <div class="search-box" style="flex:1;min-width:180px">
+            <span>🔍</span>
+            <input type="text" placeholder="Buscar alerta por nombre, causa, equipo..." id="alertasSearch" oninput="dbn(renderAlertas)">
+          </div>
+          <select class="filter-select" id="alertasTipoFilter" onchange="renderAlertas()">
+            <option value="">Todos</option>
+            <option value="Accidente">Accidente</option>
+            <option value="Incidente">Incidente</option>
+          </select>
+          <button class="btn btn-primary" onclick="openAlertaModal()">🚨 Nueva Alerta</button>
+        </div>
+        <div class="conduct-grid" id="alertasGrid"></div>
+      </div>
     </div>
 
     <!-- DESEMPEÑO DEPÓSITO -->
@@ -2280,6 +2304,185 @@
   </div>
 </div>
 
+<!-- ALERTA INCIDENTE / ACCIDENTE: FORMULARIO -->
+<div class="modal-overlay" id="alertaModal">
+  <div class="modal" style="width:760px">
+    <div class="modal-header">
+      <span class="modal-title">🚨 Nueva Alerta de Incidente / Accidente</span>
+      <button class="modal-close" onclick="closeAlertaModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Tomar datos de un registro de Conducta (opcional)</label>
+          <select id="al_registro" onchange="alPrefillDesdeRegistro(this.value)"></select>
+        </div>
+        <div class="form-group">
+          <label>Tipo de alerta *</label>
+          <select id="al_tipo">
+            <option value="Accidente">Accidente</option>
+            <option value="Incidente">Incidente</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha del suceso *</label>
+          <input type="date" id="al_fecha">
+        </div>
+        <div class="form-group">
+          <label>Hora del suceso</label>
+          <div style="display:flex;gap:10px;align-items:center">
+            <input type="time" id="al_hora" style="flex:1">
+            <label style="display:flex;gap:6px;align-items:center;font-size:12px;white-space:nowrap;cursor:pointer">
+              <input type="checkbox" id="al_hora_conf" onchange="alHoraToggle()"> A confirmar
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Turno de trabajo</label>
+          <select id="al_turno">
+            <option value="Mañana">Mañana</option>
+            <option value="Tarde">Tarde</option>
+          </select>
+        </div>
+
+        <div class="form-group full">
+          <label>Nombre del damnificado *</label>
+          <select id="al_empleado" onchange="alOnEmpleado()"></select>
+          <input type="text" id="al_empleado_otro" placeholder="Escribir nombre o descripción..." style="display:none;margin-top:6px">
+        </div>
+        <div class="form-group">
+          <label>Puesto de trabajo</label>
+          <input type="text" id="al_puesto">
+        </div>
+        <div class="form-group">
+          <label>Relación laboral</label>
+          <select id="al_relacion">
+            <option>Relación de dependencia</option>
+            <option>Contratado</option>
+            <option>Eventual</option>
+            <option>Tercerizado</option>
+            <option>No aplica</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Antigüedad laboral</label>
+          <input type="text" id="al_antig" placeholder="Se completa según la nómina">
+        </div>
+        <div class="form-group">
+          <label>Jornada laboral</label>
+          <select id="al_jornada">
+            <option>Completa</option>
+            <option>Parcial</option>
+            <option>Horas extra</option>
+            <option>Franco / feriado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Supervisor a cargo</label>
+          <input type="text" id="al_supervisor" list="alSupList" placeholder="Nombre del supervisor">
+          <datalist id="alSupList"></datalist>
+        </div>
+        <div class="form-group">
+          <label>Distribuidora</label>
+          <input type="text" id="al_distribuidora" value="Juan Jose Formento S.R.L">
+        </div>
+
+        <div class="form-group full">
+          <label>Tipo de causalidad 9c *</label>
+          <select id="al_causalidad">
+            <option value="">Seleccionar...</option>
+            <option>Contacto con sustancia tóxica y/o corrosivas</option>
+            <option>Contacto con temperaturas extremas</option>
+            <option>Contacto Eléctrico</option>
+            <option>Caída de persona a distinto nivel</option>
+            <option>Caída de Objetos</option>
+            <option>Golpes y Cortes por Herramienta</option>
+            <option>Atrapamiento por o entre objetos</option>
+            <option>Atrapamiento por vuelco de máquinas o vehículos</option>
+            <option>Atropellos golpes con o contra vehículos</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Parte del cuerpo afectada</label>
+          <input type="text" id="al_parte" list="alParteList" placeholder="Ej: Mano derecha / Sin lesión">
+          <datalist id="alParteList">
+            <option value="Sin lesión"></option><option value="Cabeza"></option><option value="Ojos"></option>
+            <option value="Cara"></option><option value="Cuello"></option><option value="Hombro"></option>
+            <option value="Brazo"></option><option value="Codo"></option><option value="Mano / Dedos"></option>
+            <option value="Tórax"></option><option value="Espalda"></option><option value="Abdomen"></option>
+            <option value="Cadera"></option><option value="Pierna"></option><option value="Rodilla"></option>
+            <option value="Tobillo / Pie"></option><option value="Múltiples partes"></option>
+          </datalist>
+        </div>
+        <div class="form-group">
+          <label>Asistencia médica</label>
+          <select id="al_asistencia">
+            <option>No requirió</option>
+            <option>Primeros auxilios en el lugar</option>
+            <option>Traslado a centro médico</option>
+            <option>Derivación a ART</option>
+            <option>Internación</option>
+            <option>A confirmar</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Equipo asociado (con qué equipo se accidentó)</label>
+          <input type="text" id="al_equipo" list="alEquipoList" placeholder="Ej: Autoelevador, zorra hidráulica, camión...">
+          <datalist id="alEquipoList">
+            <option value="Ninguno"></option><option value="Autoelevador"></option><option value="Zorra hidráulica"></option>
+            <option value="Zorra manual"></option><option value="Camión de reparto"></option><option value="Utilitario"></option>
+            <option value="Portón"></option><option value="Estantería"></option><option value="Escalera"></option>
+          </datalist>
+        </div>
+        <div class="form-group full">
+          <label>Forma de ocurrencia (breve)</label>
+          <textarea id="al_forma" rows="2" style="resize:vertical" placeholder="Ej: Al descargar un pallet, el producto cayó sobre el pie derecho."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Contexto</label>
+          <textarea id="al_contexto" rows="2" style="resize:vertical" placeholder="Ej: Descarga de mercadería en playa, piso mojado por lluvia."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Descripción del incidente / accidente</label>
+          <textarea id="al_desc" rows="3" style="resize:vertical"></textarea>
+        </div>
+        <div class="form-group full">
+          <label>📷 Fotografía de los daños ocurridos (opcional)</label>
+          <input type="file" id="al_foto" accept="image/*" onchange="alFotoChange(this)">
+          <div id="alFotoPreview" style="display:none;align-items:center;gap:10px;margin-top:8px">
+            <img id="alFotoImg" style="max-height:90px;border-radius:8px;border:1px solid var(--border)">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="alFotoQuitar()">Quitar foto</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeAlertaModal()">Cancelar</button>
+      <button class="btn btn-primary" id="alSaveBtn" onclick="saveAlerta()">💾 Guardar y generar imagen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ALERTA INCIDENTE / ACCIDENTE: VISTA PREVIA DE LA IMAGEN -->
+<div class="modal-overlay" id="alertaPreviewModal">
+  <div class="modal" style="width:620px">
+    <div class="modal-header">
+      <span class="modal-title">Imagen de la alerta</span>
+      <button class="modal-close" onclick="closeAlertaPreview()">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div id="alPrevLoading" style="padding:30px;color:var(--text3)">⏳ Generando imagen...</div>
+      <img id="alPrevImg" style="max-width:100%;border-radius:10px;border:1px solid var(--border);display:none">
+    </div>
+    <div class="modal-footer" style="flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="closeAlertaPreview()">Cerrar</button>
+      <button class="btn btn-secondary" onclick="alDescargar()">⬇ Descargar PNG</button>
+      <button class="btn btn-secondary" id="alShareBtn" onclick="alCompartir()" style="display:none">📤 Compartir</button>
+      <button class="btn btn-primary" onclick="alCopiar()">📋 Copiar imagen</button>
+    </div>
+  </div>
+</div>
+
 <!-- DESEMPEÑO MODAL -->
 <div class="modal-overlay" id="depositoModal">
   <div class="modal" style="width:680px">
@@ -3180,6 +3383,7 @@
 let API_URL = localStorage.getItem('rrhh_api_url') || 'https://script.google.com/macros/s/AKfycbzCRZG2OfXoCUdBb4G8tlzFODPa1FcWUqXx0-pgAwPhw2ElSonQhGpyGPZ3ARgyu3bzlg/exec';
 let employees = [];
 let conductaData = [];
+let alertasData = [];
 let depositoData = [];
 let distribucionData = [];
 let reclamosData = [];
@@ -3203,6 +3407,7 @@ let authUser = sessionStorage.getItem('rrhh_auth_user') || null;
 const WRITE_ACTIONS = [
   'addEmployee','updateEmployee','deleteEmployee',
   'addConducta','deleteConducta',
+  'addAlerta','deleteAlerta','getAlertaFoto',
   'addDeposito','deleteDeposito',
   'addDistribucion','deleteDistribucion',
   'addReclamo','updateReclamo','deleteReclamo',
@@ -3381,7 +3586,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -3394,6 +3599,9 @@ function handleRequest(e) {
     else if (action === 'deleteEmployee')      result = deleteRow('NOMINA', body.id);
     else if (action === 'addConducta')         result = addRow('CONDUCTA', body.data);
     else if (action === 'deleteConducta')      result = deleteRow('CONDUCTA', body.id);
+    else if (action === 'addAlerta')           result = addAlerta(body.data);
+    else if (action === 'deleteAlerta')        result = deleteRow('ALERTAS', body.id);
+    else if (action === 'getAlertaFoto')       result = getAlertaFoto(body.data);
     else if (action === 'addDeposito')         result = addDesempeno(body.data);
     else if (action === 'deleteDeposito')      result = deleteRow('DESEMPENO', body.id);
     else if (action === 'addDistribucion')     result = addDistribucion(body.data);
@@ -3472,6 +3680,7 @@ function getAllData() {
   var ropaIngresosHeaders = ['fecha','prenda','talle','cantidad','observaciones'];
   var nSheet = getOrCreateSheet('NOMINA',       nominaHeaders);
   var cSheet = getOrCreateSheet('CONDUCTA',     conductaHeaders);
+  var alertasSheet = getOrCreateSheet('ALERTAS', ALERTAS_HEADERS);
   var dSheet = getOrCreateSheet('DESEMPENO',    desempenoHeaders);
   ensureColumns(dSheet, ['reclamos']); // migración: agrega la columna a la hoja ya existente
   var rSheet = getOrCreateSheet('DISTRIBUCION', distribHeaders);
@@ -3498,6 +3707,7 @@ function getAllData() {
   return {
     employees:    sheetToJson(nSheet),
     conducta:     sheetToJson(cSheet),
+    alertas:      sheetToJson(alertasSheet),
     deposito:     sheetToJson(dSheet),
     distribucion: sheetToJson(rSheet),
     reclamos:     sheetToJson(rcSheet),
@@ -3681,6 +3891,46 @@ function guardarCertificado(base64, mime, empleado, desde) {
   var blob = Utilities.newBlob(bytes, mime || 'image/jpeg', 'certificado_' + safe + '_' + desde + '.' + ext);
   return getCertFolder().createFile(blob).getUrl();
 }
+// Alertas de incidente / accidente: hoja propia + foto de los daños en carpeta PRIVADA de Drive
+var ALERTAS_HEADERS = ['tipo','empleado','puesto','relacion','hora','causalidad','forma','parte_cuerpo','asistencia','supervisor','distribuidora','fecha','contexto','antiguedad','jornada','turno','equipo','descripcion','foto_url','registro_id'];
+var ALERTAS_FOLDER_NAME = 'Alertas Incidentes RRHH';
+function getAlertasFolder() {
+  var it = DriveApp.getFoldersByName(ALERTAS_FOLDER_NAME);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(ALERTAS_FOLDER_NAME);
+}
+function addAlerta(data) {
+  if (!data) return { error: 'Sin datos' };
+  getOrCreateSheet('ALERTAS', ALERTAS_HEADERS);
+  if (data.foto_base64) {
+    try {
+      var bytes = Utilities.base64Decode(data.foto_base64);
+      var safe = String(data.empleado || '').replace(/[^A-Za-z0-9 ]/g, '').trim().replace(/ +/g, '_');
+      var blob = Utilities.newBlob(bytes, 'image/jpeg', 'alerta_' + safe + '_' + data.fecha + '.jpg');
+      data.foto_url = getAlertasFolder().createFile(blob).getUrl();
+    } catch (err) {
+      return { error: 'No se pudo guardar la foto en Drive: ' + err.message };
+    }
+    delete data.foto_base64;
+  }
+  var res = addRow('ALERTAS', data);
+  if (res && res.success && data.foto_url) res.foto_url = data.foto_url;
+  return res;
+}
+function getAlertaFoto(data) {
+  if (!data || !data.id) return { error: 'Sin id' };
+  var rows = sheetToJson(getOrCreateSheet('ALERTAS', ALERTAS_HEADERS));
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].__ID__) === String(data.id)) {
+      var url = String(rows[i].foto_url || '');
+      if (url.indexOf('/d/') === -1) return { success: true, dataUrl: '' };
+      var fid = url.split('/d/')[1].split('/')[0];
+      var b = DriveApp.getFileById(fid).getBlob();
+      return { success: true, dataUrl: 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes()) };
+    }
+  }
+  return { error: 'Alerta no encontrada' };
+}
+
 function addLicencia(data) {
   if (!data) return { error: 'Sin datos' };
   var sheet = getOrCreateSheet('LICENCIAS', LICENCIAS_HEADERS);
@@ -4367,6 +4617,7 @@ function loadLocalData() {
   }
   const storedC = localStorage.getItem('rrhh_conducta');
   conductaData = storedC ? JSON.parse(storedC) : [];
+  alertasData = JSON.parse(localStorage.getItem('rrhh_alertas') || '[]');
   const storedD = localStorage.getItem('rrhh_deposito');
   depositoData = storedD ? JSON.parse(storedD) : [];
   const storedDist = localStorage.getItem('rrhh_distribucion');
@@ -4471,6 +4722,7 @@ async function loadAllData() {
   }
   employees = data.employees || [];
   conductaData = data.conducta || [];
+  alertasData = data.alertas || [];
   depositoData = data.deposito || [];
   distribucionData = data.distribucion || [];
   vacacionesData = data.vacaciones || [];
@@ -4743,7 +4995,8 @@ function renderConducta() {
         <span>📅 ${fmtDate(c.fecha)}</span>
       </div>
       <div class="conduct-body">${c.descripcion||'Sin descripción'}</div>
-      <div style="margin-top:10px;display:flex;justify-content:flex-end">
+      <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+        ${(c.tipo === 'Incidente' || c.tipo === 'Accidente') ? `<button class="btn btn-secondary btn-sm" onclick="openAlertaModal('${c.__ID__}')">🚨 Crear alerta</button>` : ''}
         <button class="btn btn-danger btn-sm" onclick="deleteConducta('${c.__ID__}')">🗑️ Eliminar</button>
       </div>
     </div>
@@ -6001,6 +6254,494 @@ async function deleteConducta(id) {
   renderConducta();
   showToast('Eliminado ✓', 'success');
 }
+
+
+// ═══════════════════════════════════════════════════
+// ALERTAS DE INCIDENTE / ACCIDENTE (imagen para WhatsApp)
+// ═══════════════════════════════════════════════════
+let alFotoData = null;          // { dataUrl }
+let alFotoCache = {};           // id -> dataUrl (foto completa en memoria)
+let alUltimoBlob = null;        // PNG de la vista previa actual
+let alUltimoNombre = 'alerta.png';
+
+function alEsc(t) {
+  return String(t == null ? '' : t).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function alFecha(iso) {
+  if (!iso) return '';
+  const s = String(iso).split('T')[0].split('-');
+  return s.length === 3 ? s[2] + '/' + s[1] + '/' + s[0] : String(iso);
+}
+
+function showConductaTab(tab, el) {
+  document.querySelectorAll('#panel-conducta .dtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('#panel-conducta .dpanel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('dpanel-conducta-' + tab).classList.add('active');
+  if (tab === 'alertas') renderAlertas();
+}
+
+// Antigüedad (años y meses) calculada desde la fecha de alta de la nómina
+function alAntiguedadTexto(emp) {
+  if (!emp) return '';
+  const alta = emp.alta ? new Date(String(emp.alta).split('T')[0] + 'T00:00:00') : null;
+  if (alta && !isNaN(alta)) {
+    const hoy = new Date();
+    let m = (hoy.getFullYear() - alta.getFullYear()) * 12 + (hoy.getMonth() - alta.getMonth());
+    if (hoy.getDate() < alta.getDate()) m--;
+    if (m < 0) m = 0;
+    const a = Math.floor(m / 12), r = m % 12;
+    if (a === 0) return r + (r === 1 ? ' mes' : ' meses');
+    return a + (a === 1 ? ' año' : ' años') + (r ? ' y ' + r + (r === 1 ? ' mes' : ' meses') : '');
+  }
+  const n = parseInt(emp.antiguedad) || 0;
+  return n ? n + (n === 1 ? ' año' : ' años') : '';
+}
+
+function alHoraToggle() {
+  const c = document.getElementById('al_hora_conf').checked;
+  const h = document.getElementById('al_hora');
+  h.disabled = c; if (c) h.value = '';
+}
+
+function alOnEmpleado() {
+  const v = document.getElementById('al_empleado').value;
+  const otro = document.getElementById('al_empleado_otro');
+  otro.style.display = v === '__otro__' ? 'block' : 'none';
+  const puesto = document.getElementById('al_puesto');
+  const rel = document.getElementById('al_relacion');
+  const ant = document.getElementById('al_antig');
+  if (v === 'Depósito') {
+    puesto.value = 'Instalaciones / Depósito'; rel.value = 'No aplica'; ant.value = 'No aplica';
+  } else if (v === '__otro__') {
+    puesto.value = ''; ant.value = ''; rel.value = 'Relación de dependencia';
+  } else if (v) {
+    const e = employees.find(x => x.nombre === v);
+    puesto.value = e ? (e.sector || '') : '';
+    rel.value = 'Relación de dependencia';
+    ant.value = alAntiguedadTexto(e);
+  } else {
+    puesto.value = ''; ant.value = '';
+  }
+}
+
+function alFotoQuitar() {
+  alFotoData = null;
+  const inp = document.getElementById('al_foto'); if (inp) inp.value = '';
+  const pv = document.getElementById('alFotoPreview'); if (pv) pv.style.display = 'none';
+}
+function alFotoChange(input) {
+  const file = input.files && input.files[0];
+  if (!file) { alFotoQuitar(); return; }
+  if (!file.type.startsWith('image/')) { showToast('Elegí un archivo de imagen', 'error'); alFotoQuitar(); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1400;
+      const k = Math.min(1, MAX / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      alFotoData = { dataUrl: c.toDataURL('image/jpeg', 0.8) };
+      document.getElementById('alFotoImg').src = alFotoData.dataUrl;
+      document.getElementById('alFotoPreview').style.display = 'flex';
+    };
+    img.onerror = () => { showToast('No se pudo leer la imagen', 'error'); alFotoQuitar(); };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function alPopulateSelects() {
+  const sel = document.getElementById('al_empleado');
+  sel.innerHTML = '<option value="">Seleccionar damnificado...</option>' +
+    employees.map(e => `<option value="${alEsc(e.nombre)}">${alEsc(e.nombre)}</option>`).join('') +
+    '<option value="Depósito">🏭 Depósito (instalaciones / equipos)</option>' +
+    '<option value="__otro__">✏️ Otro (escribir)...</option>';
+  document.getElementById('alSupList').innerHTML = employees.map(e => `<option value="${alEsc(e.nombre)}"></option>`).join('');
+  const reg = conductaData.filter(c => c.tipo === 'Incidente' || c.tipo === 'Accidente')
+    .slice().sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  document.getElementById('al_registro').innerHTML = '<option value="">— Cargar manualmente —</option>' +
+    reg.map(c => `<option value="${alEsc(c.__ID__)}">${alEsc(alFecha(c.fecha))} · ${alEsc(c.tipo)} · ${alEsc(c.empleado || 'Sin empleado')}</option>`).join('');
+}
+
+function alSetEmpleado(nombre) {
+  const sel = document.getElementById('al_empleado');
+  const existe = Array.from(sel.options).some(o => o.value === nombre);
+  if (nombre && existe) { sel.value = nombre; }
+  else if (nombre) { sel.value = '__otro__'; document.getElementById('al_empleado_otro').value = nombre; }
+  else sel.value = '';
+  alOnEmpleado();
+  if (nombre && !existe) document.getElementById('al_empleado_otro').value = nombre;
+}
+
+function alPrefillDesdeRegistro(id) {
+  if (!id) return;
+  const c = conductaData.find(x => x.__ID__ == id);
+  if (!c) return;
+  document.getElementById('al_tipo').value = c.tipo === 'Incidente' ? 'Incidente' : 'Accidente';
+  if (c.fecha) document.getElementById('al_fecha').value = String(c.fecha).split('T')[0];
+  alSetEmpleado(c.empleado || '');
+  document.getElementById('al_desc').value = c.descripcion || '';
+}
+
+function openAlertaModal(registroId) {
+  alPopulateSelects();
+  document.getElementById('al_registro').value = '';
+  document.getElementById('al_tipo').value = 'Accidente';
+  document.getElementById('al_fecha').value = new Date().toISOString().split('T')[0];
+  document.getElementById('al_hora').value = '';
+  document.getElementById('al_hora').disabled = false;
+  document.getElementById('al_hora_conf').checked = false;
+  document.getElementById('al_turno').value = new Date().getHours() < 13 ? 'Mañana' : 'Tarde';
+  document.getElementById('al_empleado').value = '';
+  document.getElementById('al_empleado_otro').value = '';
+  document.getElementById('al_empleado_otro').style.display = 'none';
+  ['al_puesto','al_antig','al_supervisor','al_parte','al_equipo','al_forma','al_contexto','al_desc'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('al_relacion').value = 'Relación de dependencia';
+  document.getElementById('al_jornada').value = 'Completa';
+  document.getElementById('al_asistencia').value = 'No requirió';
+  document.getElementById('al_causalidad').value = '';
+  document.getElementById('al_distribuidora').value = 'Juan Jose Formento S.R.L';
+  alFotoQuitar();
+  if (registroId) { document.getElementById('al_registro').value = registroId; alPrefillDesdeRegistro(registroId); }
+  // Si se abre desde la pestaña Registros, mostrar igualmente el modal
+  document.getElementById('alertaModal').classList.add('open');
+}
+function closeAlertaModal() { document.getElementById('alertaModal').classList.remove('open'); }
+
+async function saveAlerta() {
+  let emp = document.getElementById('al_empleado').value;
+  if (emp === '__otro__') emp = document.getElementById('al_empleado_otro').value.trim();
+  const fecha = document.getElementById('al_fecha').value;
+  const causalidad = document.getElementById('al_causalidad').value;
+  if (!emp) { showToast('Indicá el nombre del damnificado', 'error'); return; }
+  if (!fecha) { showToast('Indicá la fecha del suceso', 'error'); return; }
+  if (!causalidad) { showToast('Seleccioná el tipo de causalidad 9c', 'error'); return; }
+  const horaConf = document.getElementById('al_hora_conf').checked;
+  const horaVal = document.getElementById('al_hora').value;
+  const data = {
+    tipo: document.getElementById('al_tipo').value,
+    empleado: emp,
+    puesto: document.getElementById('al_puesto').value.trim(),
+    relacion: document.getElementById('al_relacion').value,
+    hora: (horaConf || !horaVal) ? 'A confirmar' : horaVal,
+    causalidad,
+    forma: document.getElementById('al_forma').value.trim(),
+    parte_cuerpo: document.getElementById('al_parte').value.trim(),
+    asistencia: document.getElementById('al_asistencia').value,
+    supervisor: document.getElementById('al_supervisor').value.trim(),
+    distribuidora: document.getElementById('al_distribuidora').value.trim() || 'Juan Jose Formento S.R.L',
+    fecha,
+    contexto: document.getElementById('al_contexto').value.trim(),
+    antiguedad: document.getElementById('al_antig').value.trim(),
+    jornada: document.getElementById('al_jornada').value,
+    turno: document.getElementById('al_turno').value,
+    equipo: document.getElementById('al_equipo').value.trim(),
+    descripcion: document.getElementById('al_desc').value.trim(),
+    registro_id: document.getElementById('al_registro').value || ''
+  };
+  const btn = document.getElementById('alSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = alFotoData ? '⏳ Subiendo foto...' : '⏳ Guardando...'; }
+  const fotoLocal = alFotoData ? alFotoData.dataUrl : '';
+  try {
+    if (API_URL) {
+      const payload = { ...data };
+      if (fotoLocal) payload.foto_base64 = fotoLocal.split(',')[1];
+      const res = await apiCall('addAlerta', { data: payload });
+      if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+      if (res?.id) data.__ID__ = res.id;
+      if (res?.foto_url) data.foto_url = res.foto_url;
+    } else {
+      data.__ID__ = Date.now().toString();
+      if (fotoLocal) data.foto_url = fotoLocal;
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar y generar imagen'; }
+  }
+  if (fotoLocal) alFotoCache[data.__ID__] = fotoLocal;
+  alertasData.push(data);
+  if (!API_URL) { try { localStorage.setItem('rrhh_alertas', JSON.stringify(alertasData)); } catch (e) { showToast('Alerta guardada, pero la foto es muy pesada para el almacenamiento local', 'error'); } }
+  closeAlertaModal();
+  renderAlertas();
+  showToast('Alerta guardada ✓', 'success');
+  alAbrirPreview(data, fotoLocal);
+}
+
+function renderAlertas() {
+  const grid = document.getElementById('alertasGrid');
+  if (!grid) return;
+  const q = (document.getElementById('alertasSearch')?.value || '').toLowerCase();
+  const t = document.getElementById('alertasTipoFilter')?.value || '';
+  const data = alertasData.filter(a => {
+    if (t && a.tipo !== t) return false;
+    if (!q) return true;
+    return [a.empleado, a.puesto, a.causalidad, a.equipo, a.descripcion, a.forma, a.supervisor].join(' ').toLowerCase().includes(q);
+  }).slice().sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  if (!data.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🚨</div><p>No hay alertas creadas</p></div>';
+    return;
+  }
+  grid.innerHTML = data.map(a => {
+    const acc = a.tipo === 'Accidente';
+    return `<div class="conduct-card" style="border-left:4px solid ${acc ? '#B91C1C' : '#D97706'}">
+      <h4>${a.empleado === 'Depósito' ? '🏭 Depósito' : alEsc(a.empleado)}</h4>
+      <div class="conduct-meta">
+        <span><span class="badge ${acc ? 'badge-red' : 'badge-yellow'}">${alEsc(a.tipo)}</span></span>
+        <span>📅 ${alEsc(alFecha(a.fecha))}</span>
+        <span>🕒 ${alEsc(a.hora || 'A confirmar')}</span>
+      </div>
+      <div class="conduct-body"><strong>${alEsc(a.causalidad)}</strong>${a.equipo ? '<br>🔧 ' + alEsc(a.equipo) : ''}${a.forma ? '<br>' + alEsc(a.forma) : ''}</div>
+      <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary btn-sm" onclick="verAlerta('${alEsc(a.__ID__)}')">🖼️ Ver / Compartir</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteAlerta('${alEsc(a.__ID__)}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function deleteAlerta(id) {
+  if (!confirm('¿Eliminar esta alerta?')) return;
+  if (API_URL) {
+    const res = await apiCall('deleteAlerta', { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  alertasData = alertasData.filter(a => a.__ID__ != id);
+  delete alFotoCache[id];
+  if (!API_URL) localStorage.setItem('rrhh_alertas', JSON.stringify(alertasData));
+  renderAlertas();
+  showToast('Eliminada ✓', 'success');
+}
+
+async function verAlerta(id) {
+  const a = alertasData.find(x => x.__ID__ == id);
+  if (!a) return;
+  let foto = alFotoCache[id] || '';
+  document.getElementById('alertaPreviewModal').classList.add('open');
+  document.getElementById('alPrevImg').style.display = 'none';
+  document.getElementById('alPrevLoading').style.display = 'block';
+  if (!foto && a.foto_url) {
+    if (String(a.foto_url).startsWith('data:')) foto = a.foto_url;
+    else if (API_URL) {
+      const res = await apiCall('getAlertaFoto', { data: { id } });
+      if (res?.dataUrl) { foto = res.dataUrl; alFotoCache[id] = foto; }
+      else showToast('No se pudo recuperar la foto: ' + (res?.error || 'sin datos'), 'error');
+    }
+  }
+  alAbrirPreview(a, foto);
+}
+
+// ─── Generación de la imagen (canvas, sin librerías externas) ───
+const AL_FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+function alRR(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+function alWrap(ctx, text, maxW) {
+  const out = [];
+  String(text || '').split('\n').forEach(par => {
+    const words = par.split(/\s+/).filter(Boolean);
+    if (!words.length) { out.push(''); return; }
+    let line = '';
+    words.forEach(w => {
+      const t = line ? line + ' ' + w : w;
+      if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t;
+    });
+    out.push(line);
+  });
+  return out;
+}
+
+function alRender(ctx, a, img) {
+  const W = 1080, P = 48, CW = W - 2 * P, GAP = 20;
+  const acc = a.tipo === 'Accidente';
+  const c1 = acc ? '#B91C1C' : '#D97706';
+  const c2 = acc ? '#7F1D1D' : '#92400E';
+  const hora = a.hora || 'A confirmar';
+  ctx.textBaseline = 'alphabetic';
+
+  // fondo
+  ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, 6000);
+
+  // encabezado
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, c2); g.addColorStop(1, c1);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 200);
+  // ícono de advertencia
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(P + 56, 100, 56, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c1; ctx.beginPath();
+  ctx.moveTo(P + 56, 62); ctx.lineTo(P + 94, 126); ctx.lineTo(P + 18, 126); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#FFFFFF'; ctx.font = '800 40px ' + AL_FONT; ctx.textAlign = 'center';
+  ctx.fillText('!', P + 56, 118);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '600 22px ' + AL_FONT;
+  ctx.fillText('AVISO INTERNO DE SEGURIDAD E HIGIENE', P + 140, 78);
+  ctx.fillStyle = '#FFFFFF'; ctx.font = '800 60px ' + AL_FONT;
+  ctx.fillText('ALERTA DE ' + (acc ? 'ACCIDENTE' : 'INCIDENTE'), P + 140, 142);
+
+  // franja empresa
+  ctx.fillStyle = '#111827'; ctx.fillRect(0, 200, W, 64);
+  ctx.fillStyle = '#FFFFFF'; ctx.font = '700 26px ' + AL_FONT;
+  ctx.fillText((a.distribuidora || 'Juan Jose Formento S.R.L').toUpperCase(), P, 242);
+  ctx.textAlign = 'right'; ctx.font = '600 24px ' + AL_FONT; ctx.fillStyle = '#E5E7EB';
+  ctx.fillText(alFecha(a.fecha) + '  ·  ' + hora + (hora !== 'A confirmar' ? ' hs' : ''), W - P, 242);
+  ctx.textAlign = 'left';
+
+  let y = 264 + 40;
+
+  const secTitle = (txt) => {
+    ctx.fillStyle = c1; alRR(ctx, P, y, 8, 30, 4); ctx.fill();
+    ctx.fillStyle = c2; ctx.font = '800 25px ' + AL_FONT;
+    ctx.fillText(txt, P + 24, y + 25);
+    y += 50;
+  };
+
+  const LH = 34;
+  const row = (items) => {
+    const colW = (CW - GAP) / 2;
+    const cells = items.map((it, i) => {
+      const span2 = it[2] === 2;
+      const w = span2 ? CW : colW;
+      const x = span2 ? P : P + i * (colW + GAP);
+      ctx.font = '600 ' + (it[3] || 27) + 'px ' + AL_FONT;
+      const lines = alWrap(ctx, it[1] || '—', w - 40);
+      return { x, w, label: it[0], lines, fs: it[3] || 27 };
+    });
+    const h = Math.max(...cells.map(c => 18 + 20 + 10 + c.lines.length * LH + 14));
+    cells.forEach(c => {
+      ctx.fillStyle = '#F9FAFB'; alRR(ctx, c.x, y, c.w, h, 14); ctx.fill();
+      ctx.strokeStyle = '#E5E7EB'; ctx.lineWidth = 2; alRR(ctx, c.x, y, c.w, h, 14); ctx.stroke();
+      ctx.fillStyle = '#6B7280'; ctx.font = '700 17px ' + AL_FONT;
+      ctx.fillText(c.label.toUpperCase(), c.x + 20, y + 18 + 14);
+      ctx.fillStyle = '#111827'; ctx.font = '600 ' + c.fs + 'px ' + AL_FONT;
+      c.lines.forEach((ln, i) => ctx.fillText(ln, c.x + 20, y + 18 + 20 + 10 + 24 + i * LH - 4));
+    });
+    y += h + GAP;
+  };
+
+  secTitle('DATOS DEL DAMNIFICADO');
+  row([['Nombre del damnificado', a.empleado, 2, 32]]);
+  row([['Puesto de trabajo', a.puesto], ['Relación laboral', a.relacion]]);
+  row([['Antigüedad laboral', a.antiguedad], ['Jornada laboral', a.jornada]]);
+
+  y += 10;
+  secTitle('DATOS DEL SUCESO');
+  row([['Fecha del suceso', alFecha(a.fecha)], ['Hora del suceso', hora + (hora !== 'A confirmar' ? ' hs' : '')]]);
+  row([['Turno de trabajo', a.turno], ['Supervisor a cargo', a.supervisor]]);
+  row([['Tipo de causalidad (9c)', a.causalidad, 2]]);
+  row([['Parte del cuerpo afectada', a.parte_cuerpo], ['Asistencia médica', a.asistencia]]);
+  row([['Equipo asociado', a.equipo, 2]]);
+  if (a.forma) row([['Forma de ocurrencia', a.forma, 2, 26]]);
+  if (a.contexto) row([['Contexto', a.contexto, 2, 26]]);
+  if (a.descripcion) row([['Descripción del ' + (acc ? 'accidente' : 'incidente'), a.descripcion, 2, 26]]);
+
+  if (img) {
+    y += 10;
+    secTitle('FOTOGRAFÍA DE LOS DAÑOS');
+    const maxH = 640;
+    const k = Math.min(CW / img.width, maxH / img.height);
+    const dw = Math.round(img.width * k), dh = Math.round(img.height * k);
+    const fh = dh + 24;
+    ctx.fillStyle = '#F3F4F6'; alRR(ctx, P, y, CW, fh, 16); ctx.fill();
+    ctx.save(); alRR(ctx, P + (CW - dw) / 2, y + 12, dw, dh, 10); ctx.clip();
+    ctx.drawImage(img, P + (CW - dw) / 2, y + 12, dw, dh);
+    ctx.restore();
+    y += fh + GAP;
+  }
+
+  // pie
+  y += 10;
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const stamp = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + now.getFullYear() + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+  ctx.fillStyle = '#111827'; ctx.fillRect(0, y, W, 104);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.font = '700 22px ' + AL_FONT;
+  ctx.fillText('Informe preliminar sujeto a investigación', W / 2, y + 42);
+  ctx.fillStyle = '#9CA3AF'; ctx.font = '500 19px ' + AL_FONT;
+  ctx.fillText('Comunicar novedades al área de RRHH · Generada el ' + stamp, W / 2, y + 76);
+  ctx.textAlign = 'left';
+  return y + 104;
+}
+
+function alCargarImagen(src) {
+  return new Promise(res => {
+    if (!src) return res(null);
+    const im = new Image();
+    im.onload = () => res(im);
+    im.onerror = () => res(null);
+    im.src = src;
+  });
+}
+
+async function alGenerarCanvas(a, fotoDataUrl) {
+  const img = await alCargarImagen(fotoDataUrl);
+  const tmp = document.createElement('canvas'); tmp.width = 1080; tmp.height = 6000;
+  const H = alRender(tmp.getContext('2d'), a, img);
+  const cv = document.createElement('canvas'); cv.width = 1080; cv.height = Math.ceil(H);
+  alRender(cv.getContext('2d'), a, img);
+  return cv;
+}
+
+async function alAbrirPreview(a, fotoDataUrl) {
+  const modal = document.getElementById('alertaPreviewModal');
+  modal.classList.add('open');
+  document.getElementById('alPrevImg').style.display = 'none';
+  document.getElementById('alPrevLoading').style.display = 'block';
+  try {
+    const cv = await alGenerarCanvas(a, fotoDataUrl);
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    alUltimoBlob = blob;
+    const safe = String(a.empleado || 'alerta').replace(/[^A-Za-z0-9]+/g, '_').slice(0, 30);
+    alUltimoNombre = 'alerta_' + (a.tipo || '').toLowerCase() + '_' + safe + '_' + String(a.fecha || '').split('T')[0] + '.png';
+    const img = document.getElementById('alPrevImg');
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    img.dataset.url = URL.createObjectURL(blob);
+    img.src = img.dataset.url;
+    img.style.display = 'inline-block';
+    document.getElementById('alPrevLoading').style.display = 'none';
+    let canShare = false;
+    try { canShare = !!(navigator.canShare && navigator.canShare({ files: [new File([blob], alUltimoNombre, { type: 'image/png' })] })); } catch (e) {}
+    document.getElementById('alShareBtn').style.display = canShare ? '' : 'none';
+  } catch (err) {
+    document.getElementById('alPrevLoading').textContent = 'No se pudo generar la imagen';
+  }
+}
+function closeAlertaPreview() { document.getElementById('alertaPreviewModal').classList.remove('open'); }
+
+async function alCopiar() {
+  if (!alUltimoBlob) return;
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': alUltimoBlob })]);
+    showToast('Imagen copiada ✓ Pegala en WhatsApp', 'success');
+  } catch (e) {
+    showToast('Tu navegador no permite copiar imágenes: usá Descargar o Compartir', 'error');
+  }
+}
+function alDescargar() {
+  if (!alUltimoBlob) return;
+  const u = URL.createObjectURL(alUltimoBlob);
+  const l = document.createElement('a'); l.href = u; l.download = alUltimoNombre;
+  document.body.appendChild(l); l.click(); l.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 2000);
+}
+async function alCompartir() {
+  if (!alUltimoBlob) return;
+  try {
+    await navigator.share({ files: [new File([alUltimoBlob], alUltimoNombre, { type: 'image/png' })], title: 'Alerta de seguridad' });
+  } catch (e) { /* cancelado */ }
+}
+
+// Pestaña: carga de ropa/otros ya existentes siguen igual
 
 // DESEMPEÑO DEPÓSITO MODAL
 function openDepositoModal() {
@@ -10963,7 +11704,7 @@ var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuesta
 var TAB_RENDER = {
   nomina:        function () { renderNomina(); renderStats(); renderFilters(); },
   analisis:      function () { renderAnalysis(); },
-  conducta:      function () { renderConducta(); },
+  conducta:      function () { renderConducta(); if (document.getElementById('dpanel-conducta-alertas').classList.contains('active')) renderAlertas(); },
   deposito:      function () { renderDeposito(); },
   distribucion:  function () { renderDistribucion(); },
   vacaciones:    function () { renderVacResumen(); renderVacRegistros(); renderVacStats(); },
