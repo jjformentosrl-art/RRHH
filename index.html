@@ -87,7 +87,7 @@
     padding: 8px 16px; border-radius: 8px 8px 0 0;
     font-size: 13px; font-weight: 500; cursor: pointer;
     color: var(--text3); border: none; background: transparent;
-    transition: all 0.15s; white-space: nowrap;
+    transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, opacity 0.15s; white-space: nowrap;
     border-bottom: 2px solid transparent;
   }
   .tab:hover { color: var(--text2); background: var(--surface2); }
@@ -120,7 +120,7 @@
   .btn {
     height: 36px; padding: 0 14px; border-radius: var(--radius);
     border: none; cursor: pointer; font-family: inherit;
-    font-size: 13px; font-weight: 500; transition: all 0.15s;
+    font-size: 13px; font-weight: 500; transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, opacity 0.15s;
     display: flex; align-items: center; gap: 6px; white-space: nowrap;
   }
   .btn-primary { background: var(--accent); color: #fff; }
@@ -177,7 +177,7 @@
   .icon-btn {
     width: 28px; height: 28px; border-radius: 6px; border: none;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
-    font-size: 13px; transition: all 0.15s; background: transparent;
+    font-size: 13px; transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, opacity 0.15s; background: transparent;
   }
   .icon-btn:hover { background: var(--border); }
   .icon-btn.edit:hover { color: var(--accent); }
@@ -187,10 +187,10 @@
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.7);
     display: flex; align-items: center; justify-content: center;
-    z-index: 100; backdrop-filter: blur(4px);
-    opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    z-index: 100;
+    opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.2s, visibility 0.2s;
   }
-  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal-overlay.open { opacity: 1; visibility: visible; pointer-events: all; }
   .modal {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 14px; width: 600px; max-width: 95vw;
@@ -310,7 +310,7 @@
   .dtab {
     padding:6px 16px; border-radius:8px; font-size:13px; font-weight:500;
     cursor:pointer; color:var(--text3); border:1px solid transparent;
-    background:transparent; transition:all 0.15s;
+    background:transparent; transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, opacity 0.15s;
   }
   .dtab:hover { color:var(--text2); background:var(--surface2); }
   .dtab.active { color:var(--accent2); background:rgba(99,102,241,0.1); border-color:rgba(99,102,241,0.3); }
@@ -844,7 +844,7 @@
       <div class="toolbar">
         <div class="search-box">
           <span>🔍</span>
-          <input type="text" placeholder="Buscar por nombre, DNI, sector..." id="searchInput" oninput="filterTable()">
+          <input type="text" placeholder="Buscar por nombre, DNI, sector..." id="searchInput" oninput="dbn(filterTable)">
         </div>
         <select class="filter-select" id="sectorFilter" onchange="filterTable()">
           <option value="">Todos los sectores</option>
@@ -898,7 +898,7 @@
       <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
         <div class="search-box" style="flex:1;min-width:180px">
           <span>🔍</span>
-          <input type="text" placeholder="Buscar registros de conducta..." id="conductaSearch" oninput="filterConducta()">
+          <input type="text" placeholder="Buscar registros de conducta..." id="conductaSearch" oninput="dbn(filterConducta)">
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
           <span style="font-size:13px;color:var(--text-muted,#6b7280)">🏷️ Tipo:</span>
@@ -950,7 +950,7 @@
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
-            <input type="text" placeholder="Buscar por nombre, mes..." id="depositoSearch" oninput="filterDeposito()">
+            <input type="text" placeholder="Buscar por nombre, mes..." id="depositoSearch" oninput="dbn(filterDeposito)">
           </div>
           <select class="filter-select" id="mesFilter" onchange="filterDeposito()">
             <option value="">Todos los meses</option>
@@ -1024,7 +1024,7 @@
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
-            <input type="text" placeholder="Buscar por nombre, mes..." id="distSearch" oninput="filterDistribucion()">
+            <input type="text" placeholder="Buscar por nombre, mes..." id="distSearch" oninput="dbn(filterDistribucion)">
           </div>
           <select class="filter-select" id="distMesFilter" onchange="filterDistribucion()">
             <option value="">Todos los meses</option>
@@ -1099,7 +1099,7 @@
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
-            <input type="text" id="vacSearch" placeholder="Buscar empleado..." oninput="renderVacResumen()">
+            <input type="text" id="vacSearch" placeholder="Buscar empleado..." oninput="dbn(renderVacResumen)">
           </div>
           <select class="filter-select" id="vacSectorFilter" onchange="renderVacResumen()">
             <option value="">Todos los sectores</option>
@@ -1125,7 +1125,7 @@
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
-            <input type="text" id="vacRegSearch" placeholder="Buscar..." oninput="renderVacRegistros()">
+            <input type="text" id="vacRegSearch" placeholder="Buscar..." oninput="dbn(renderVacRegistros)">
           </div>
           <select class="filter-select" id="vacRegEmpFilter" onchange="renderVacRegistros()">
             <option value="">Todos los empleados</option>
@@ -1166,7 +1166,7 @@
       <div class="toolbar">
         <div class="search-box" style="flex:1">
           <span>🔍</span>
-          <input type="text" id="licSearch" placeholder="Buscar por empleado o motivo..." oninput="renderLicencias()">
+          <input type="text" id="licSearch" placeholder="Buscar por empleado o motivo..." oninput="dbn(renderLicencias)">
         </div>
         <select class="filter-select" id="licEmpFilter" onchange="renderLicencias()">
           <option value="">Todos los empleados</option>
@@ -1208,7 +1208,7 @@
         <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
           <div class="search-box" style="flex:1;min-width:180px">
             <span>🔍</span>
-            <input type="text" placeholder="Buscar por empleado, motivo, observaciones..." id="reclamosSearch" oninput="filterReclamos()">
+            <input type="text" placeholder="Buscar por empleado, motivo, observaciones..." id="reclamosSearch" oninput="dbn(filterReclamos)">
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             <span style="font-size:13px;color:var(--text3)">📅 Mes:</span>
@@ -1264,7 +1264,7 @@
         <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
           <div class="search-box" style="flex:1;min-width:180px">
             <span>🔍</span>
-            <input type="text" placeholder="Buscar por observaciones..." id="encuestasSearch" oninput="filterEncuestas()">
+            <input type="text" placeholder="Buscar por observaciones..." id="encuestasSearch" oninput="dbn(filterEncuestas)">
           </div>
           <button class="btn btn-primary" onclick="openEncuestaModal()">+ Nueva Encuesta</button>
           <button class="btn btn-secondary btn-sm" onclick="exportEncuestasCSV()">⬇ CSV</button>
@@ -1487,7 +1487,7 @@
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
-            <input type="text" id="ropaStockSearch" placeholder="Buscar prenda o talle..." oninput="renderRopaStock()">
+            <input type="text" id="ropaStockSearch" placeholder="Buscar prenda o talle..." oninput="dbn(renderRopaStock)">
           </div>
           <select class="filter-select" id="ropaStockPrendaFilter" onchange="renderRopaStock()">
             <option value="">Todas las prendas</option>
@@ -1518,7 +1518,7 @@
           <div id="ropaIngHistBox" style="display:none;flex-direction:column;gap:12px;padding:0 12px 12px">
             <div class="search-box" style="flex:1">
               <span>🔍</span>
-              <input type="text" id="ropaIngSearch" placeholder="Buscar prenda o talle..." oninput="renderRopaIngresos()">
+              <input type="text" id="ropaIngSearch" placeholder="Buscar prenda o talle..." oninput="dbn(renderRopaIngresos)">
             </div>
             <div class="table-wrap" style="max-height:320px">
               <table>
@@ -1544,7 +1544,7 @@
         <div class="toolbar">
           <div class="search-box" style="flex:1;min-width:200px">
             <span>🔍</span>
-            <input type="text" id="ropaEntSearch" placeholder="Buscar empleado, prenda o talle..." oninput="renderRopaEntregas()">
+            <input type="text" id="ropaEntSearch" placeholder="Buscar empleado, prenda o talle..." oninput="dbn(renderRopaEntregas)">
           </div>
           <select class="filter-select" id="ropaEntAnioFilter" onchange="renderRopaEntregas()">
             <option value="">Todos los años</option>
@@ -1606,7 +1606,7 @@
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
-            <input type="text" id="capSearch" placeholder="Buscar capacitación..." oninput="renderCapacitaciones()">
+            <input type="text" id="capSearch" placeholder="Buscar capacitación..." oninput="dbn(renderCapacitaciones)">
           </div>
           <select class="filter-select" id="capEstadoF" onchange="renderCapacitaciones()">
             <option value="">Todos los estados</option>
@@ -1636,7 +1636,7 @@
         <div class="toolbar">
           <div class="search-box" style="flex:1">
             <span>🔍</span>
-            <input type="text" id="capEmpSearch" placeholder="Buscar empleado..." oninput="renderCapPorEmpleado()">
+            <input type="text" id="capEmpSearch" placeholder="Buscar empleado..." oninput="dbn(renderCapPorEmpleado)">
           </div>
           <select class="filter-select" id="capEmpPuesto" onchange="renderCapPorEmpleado()"></select>
           <select class="filter-select" id="capEmpFiltro" onchange="renderCapPorEmpleado()">
@@ -1760,7 +1760,7 @@
           <select class="filter-select" id="audFZona" onchange="renderAudRegistros()"></select>
           <div class="search-box" style="flex:1;min-width:160px">
             <span>🔍</span>
-            <input type="text" id="audFBuscar" placeholder="Buscar auditor u observación..." oninput="renderAudRegistros()">
+            <input type="text" id="audFBuscar" placeholder="Buscar auditor u observación..." oninput="dbn(renderAudRegistros)">
           </div>
           <input type="date" class="filter-select" id="audFDesde" onchange="renderAudRegistros()" title="Desde" style="max-width:150px">
           <input type="date" class="filter-select" id="audFHasta" onchange="renderAudRegistros()" title="Hasta" style="max-width:150px">
@@ -2020,7 +2020,7 @@
     <div class="gantt-toolbar">
       <div class="gantt-search">
         <span>🔍</span>
-        <input type="text" id="vacGanttSearch" placeholder="Buscar empleados..." oninput="renderVacGanttView()">
+        <input type="text" id="vacGanttSearch" placeholder="Buscar empleados..." oninput="dbn(renderVacGanttView)">
       </div>
       <select id="vacPubSector" onchange="renderVacGanttView()">
         <option value="">Todos los puestos</option>
@@ -2622,7 +2622,7 @@
         </div>
         <div class="form-group full">
           <label>Personal que debe asistir — por nombre</label>
-          <input type="text" id="capEmpBuscar" placeholder="Buscar empleado..." oninput="capRenderEmps()">
+          <input type="text" id="capEmpBuscar" placeholder="Buscar empleado..." oninput="dbn(capRenderEmps)">
           <div class="cap-emps" id="capEmps"></div>
         </div>
         <div class="form-group full" style="font-size:13px;font-weight:700;color:var(--accent)" id="capConvCount"></div>
@@ -4449,34 +4449,17 @@ async function loadAllData() {
 // ─── RENDER ────────────────────────────────────────
 function renderAll() {
   filteredEmployees = [...employees];
-  renderNomina();
-  renderStats();
-  renderFilters();
-  renderAnalysis();
-  renderConducta();
-  renderDeposito();
-  renderDistribucion();
+  // Selectores de formularios: livianos, se mantienen siempre al día
   populateEmployeeSelects();
-  renderVacResumen();
-  renderVacRegistros();
-  renderVacStats();
   populateVacEmpleadoSelect();
   populateLicEmpleadoSelect();
-  renderLicencias();
-  renderReclamos();
-  renderEncuestas();
-  renderPlanAccion();
-  renderFichadasRegistros();
-  renderFichadasConfig();
   populateFichEmpleadoFilter();
-  renderRopaStock();
-  renderRopaEntregas();
-  renderRopaIngresos();
   populateRopaEmpleadoSelect();
-  renderLimpieza();
-  renderAuditorias();
   if (!orgData) orgLoad();
-  renderOrganigrama();
+  // Las pestañas pesadas se dibujan solo cuando se abren (o ahora, si es la visible)
+  _tabsDirty = new Set(TAB_NAMES);
+  const act = document.querySelector('.panel.active');
+  renderTab(act ? act.id.replace('panel-', '') : 'nomina');
 }
 
 function renderStats() {
@@ -4703,7 +4686,7 @@ function renderConducta() {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">📝</div><p>No hay registros de conducta</p></div>`;
     return;
   }
-  grid.innerHTML = data.map(c => `
+  grid.innerHTML = listSlice('cond', data).map(c => `
     <div class="conduct-card">
       <h4>${c.empleado === 'Depósito' ? '🏭 Depósito' : (c.empleado || '🏢 Sin empleado (condición de la empresa)')}</h4>
       <div class="conduct-meta">
@@ -4715,7 +4698,7 @@ function renderConducta() {
         <button class="btn btn-danger btn-sm" onclick="deleteConducta('${c.__ID__}')">🗑️ Eliminar</button>
       </div>
     </div>
-  `).join('');
+  `).join('') + listMore('cond', data, 0);
 }
 
 function tipoConductaBadge(tipo) {
@@ -5336,13 +5319,13 @@ function calcScore(d, allData) {
   const reclamos     = Math.max(0, parseFloat(d.reclamos) || 0);
 
   // ── Rangos de referencia (del dataset real, con mínimos sensatos) ─
-  const ref = (key, fallbackMax) => {
+  const ref = (key, fallbackMax) => scoreRefMemo(allData, 'r:' + key + ':' + fallbackMax, () => {
     const vals = allData.map(r => parseFloat(r[key])||0).filter(v => v > 0);
     return {
       min: vals.length ? Math.min(...vals) : 0,
       max: vals.length ? Math.max(...vals) : fallbackMax
     };
-  };
+  });
 
   // Normaliza un valor: positivo (más=mejor) o negativo (menos=mejor)
   // Devuelve 0..1
@@ -5415,7 +5398,7 @@ function renderDeposito() {
     return;
   }
 
-  tbody.innerHTML = data.map(d => {
+  tbody.innerHTML = listSlice('dep', data).map(d => {
     const score = calcScore(d, depositoData);
     const scoreCls = score >= 70 ? 'badge-green' : score >= 45 ? 'badge-yellow' : 'badge-red';
     const totalLect = (parseFloat(d.lect_ok)||0) + (parseFloat(d.lect_fail)||0);
@@ -5439,7 +5422,7 @@ function renderDeposito() {
         </div>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') + listMore('dep', data, 13);
 }
 
 function formatMes(m) {
@@ -5945,10 +5928,11 @@ function calcDistScore(d, allData) {
     min: vals.length ? Math.min(...vals) : 0,
     max: vals.length ? Math.max(...vals) : fallbackMax
   });
-  const refRaw = (key, fallbackMax) => {
+  const refRaw = (key, fallbackMax) => scoreRefMemo(allData, 'raw:' + key + ':' + fallbackMax, () => {
     const vals = allData.map(r => parseFloat(r[key])||0).filter(v => v > 0);
     return ref(vals, fallbackMax);
-  };
+  });
+  const refRatio = (key, fallbackMax) => scoreRefMemo(allData, 'ratio:' + key + ':' + fallbackMax, () => ref(ratioVals(key), fallbackMax));
   const norm = (val, min, max, dir) => {
     if (max === min) return 0.5;
     let n = (val - min) / (max - min);
@@ -5961,10 +5945,10 @@ function calcDistScore(d, allData) {
   const rErrCaja  = refRaw('errores_caja',     20);
   const rNC       = refRaw('nc_no_realizadas', 15);
   const rViajes   = refRaw('cant_viajes',      100);
-  const rKgXV       = ref(ratioVals('kg_transportados'), 500);
-  const rKmXV       = ref(ratioVals('km_recorridos'),    200);
-  const rClientesXV = ref(ratioVals('clientes'),         20);
-  const rBultosXV   = ref(ratioVals('bultos'),            80);
+  const rKgXV       = refRatio('kg_transportados', 500);
+  const rKmXV       = refRatio('km_recorridos', 200);
+  const rClientesXV = refRatio('clientes', 20);
+  const rBultosXV   = refRatio('bultos', 80);
 
   // Pesos: suman 100
   // Conducta/seguridad ahora pesa 60 (antes 50): checklist 26, excesos 18, errores 9, NC 7
@@ -6079,7 +6063,7 @@ function renderDistribucion() {
     return;
   }
 
-  tbody.innerHTML = data.map(d => {
+  tbody.innerHTML = listSlice('dist', data).map(d => {
     const score = calcDistScore(d, distribucionData);
     const scoreCls = score >= 70 ? 'badge-green' : score >= 45 ? 'badge-yellow' : 'badge-red';
     return `<tr>
@@ -6101,7 +6085,7 @@ function renderDistribucion() {
         </div>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') + listMore('dist', data, 13);
 }
 
 function filterDistribucion() { renderDistribucion(); }
@@ -6544,7 +6528,7 @@ function renderVacRegistros() {
     return;
   }
 
-  tbody.innerHTML = data.map(v => `<tr>
+  tbody.innerHTML = listSlice('vacreg', data).map(v => `<tr>
     <td><strong>${v.empleado||''}</strong></td>
     <td>${fmtDate(v.fecha_desde)}</td>
     <td>${fmtDate(v.fecha_hasta)}</td>
@@ -6553,7 +6537,7 @@ function renderVacRegistros() {
     <td class="actions-cell">
       <button class="icon-btn del" onclick="deleteVacacion('${v.__ID__}')" title="Eliminar">🗑️</button>
     </td>
-  </tr>`).join('');
+  </tr>`).join('') + listMore('vacreg', data, 6);
 }
 
 function renderVacFiltroMes() {
@@ -6894,7 +6878,7 @@ function renderLicencias() {
     return;
   }
 
-  tbody.innerHTML = data.map(l => {
+  tbody.innerHTML = listSlice('lic', data).map(l => {
     const est = licEstado(l, hoy);
     const estBadge = est === 'completada' ? ' <span class="badge badge-green">Completada</span>'
                    : est === 'curso'      ? ' <span class="badge badge-orange">En curso</span>'
@@ -6913,7 +6897,7 @@ function renderLicencias() {
         <button class="icon-btn del" onclick="deleteLicencia('${licEsc(l.__ID__)}')" title="Eliminar">🗑️</button>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') + listMore('lic', data, 7);
 }
 
 function openLicModal() {
@@ -7274,7 +7258,7 @@ function renderRopaEntregas() {
     tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin entregas registradas</td></tr>';
     return;
   }
-  tbody.innerHTML = rows.map(r => {
+  tbody.innerHTML = listSlice('ropaent', rows).map(r => {
     const [y, m] = (r.fecha || '').split('-');
     const mesTxt = m ? (MESES[parseInt(m, 10) - 1] || '—') : '—';
     return `
@@ -7292,7 +7276,7 @@ function renderRopaEntregas() {
       </td>
     </tr>
   `;
-  }).join('');
+  }).join('') + listMore('ropaent', rows, 8);
 }
 
 function exportRopaEntregasCSV() {
@@ -7591,17 +7575,7 @@ function showTab(tab) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   event.target.classList.add('active');
   document.getElementById('panel-' + tab).classList.add('active');
-  if (tab === 'analisis') renderAnalysis();
-  if (tab === 'licencias') renderLicencias();
-  if (tab === 'distribucion') renderDistribucion();
-  if (tab === 'reclamos') renderReclamos();
-  if (tab === 'encuestas') renderEncuestas();
-  if (tab === 'fichadas') { renderFichadasRegistros(); populateFichEmpleadoFilter(); }
-  if (tab === 'limpieza') renderLimpieza();
-  if (tab === 'capacitaciones') renderCapacitaciones();
-  if (tab === 'auditorias') renderAuditorias();
-  if (tab === 'organigrama') renderOrganigrama();
-  if (tab === 'ropa') { renderRopaConsulta(); renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); }
+  renderTab(tab);
 }
 
 function exportCSV() {
@@ -7710,7 +7684,7 @@ function renderFichadasRegistros() {
     box.innerHTML = `<div class="empty-state"><div class="icon">📍</div><p>No hay fichadas registradas todavía.</p></div>`;
     return;
   }
-  box.innerHTML = data.map(f => `
+  box.innerHTML = listSlice('fich', data).map(f => `
     <div class="fichada-row">
       <span>${f.empleado || ''}</span>
       <span>${fmtDate(f.fecha)}</span>
@@ -7724,7 +7698,7 @@ function renderFichadasRegistros() {
         <button class="btn btn-danger btn-sm" style="padding:4px 8px" onclick="deleteFichada('${f.__ID__}')">🗑️</button>
       </span>
     </div>
-  `).join('');
+  `).join('') + listMore('fich', data, 0);
 }
 
 // ── Corrección manual de una fichada ya registrada (ej: se marcó tardanza por error) ──
@@ -10391,7 +10365,7 @@ function renderAudRegistros() {
     tb.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="icon">🔍</div><p>No hay auditorías registradas</p></div></td></tr>';
     return;
   }
-  tb.innerHTML = rows.map(a => {
+  tb.innerHTML = listSlice('aud', rows).map(a => {
     const t = audTotal(a);
     return `<tr>
       <td>${fmtDate(a.fecha)}</td>
@@ -10405,7 +10379,7 @@ function renderAudRegistros() {
         <button class="btn btn-danger btn-sm" onclick="deleteAud('${a.__ID__}')">🗑️</button>
       </td>
     </tr>`;
-  }).join('');
+  }).join('') + listMore('aud', rows, 11);
 }
 
 function audVer(id) {
@@ -10780,6 +10754,72 @@ function audPubOtra() {
   $a('audPubDone').style.display = 'none';
   $a('audPubForm').style.display = 'block';
   try { window.scrollTo(0, 0); } catch (e) {}
+}
+
+// ═══════════════════════════════════════════════════
+// RENDIMIENTO: render por pestaña, listas limitadas, buscadores con espera
+// ═══════════════════════════════════════════════════
+var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','organigrama'];
+var _tabsDirty = new Set();
+// Pestañas que se vuelven a dibujar cada vez que se abren (igual que antes)
+var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, organigrama:1, ropa:1 };
+var TAB_RENDER = {
+  nomina:        function () { renderNomina(); renderStats(); renderFilters(); },
+  analisis:      function () { renderAnalysis(); },
+  conducta:      function () { renderConducta(); },
+  deposito:      function () { renderDeposito(); },
+  distribucion:  function () { renderDistribucion(); },
+  vacaciones:    function () { renderVacResumen(); renderVacRegistros(); renderVacStats(); },
+  licencias:     function () { renderLicencias(); },
+  reclamos:      function () { renderReclamos(); },
+  encuestas:     function () { renderEncuestas(); renderPlanAccion(); },
+  fichadas:      function (dirty) { renderFichadasRegistros(); populateFichEmpleadoFilter(); if (dirty) renderFichadasConfig(); },
+  ropa:          function () { renderRopaConsulta(); renderRopaStock(); renderRopaEntregas(); renderRopaIngresos(); populateRopaEmpleadoSelect(); },
+  limpieza:      function () { renderLimpieza(); },
+  capacitaciones:function () { renderCapacitaciones(); },
+  auditorias:    function () { renderAuditorias(); },
+  organigrama:   function () { renderOrganigrama(); }
+};
+function renderTab(tab) {
+  const fn = TAB_RENDER[tab];
+  if (!fn) return;
+  const dirty = _tabsDirty.has(tab);
+  if (dirty || TAB_ALWAYS[tab]) { _tabsDirty.delete(tab); fn(dirty); }
+}
+
+// Puntajes: los rangos de referencia se calculan una sola vez por conjunto de datos (antes se recalculaban en cada fila)
+var _scoreRefCache = new WeakMap();
+function scoreRefMemo(allData, key, compute) {
+  let m = _scoreRefCache.get(allData);
+  if (!m || m.n !== allData.length) { m = { n: allData.length, v: {} }; _scoreRefCache.set(allData, m); }
+  return m.v[key] || (m.v[key] = compute());
+}
+
+// Listas largas: se muestran de a 100 filas con botón "Mostrar más"
+var LIST_STEP = 100;
+var listLim = {};
+function listSlice(key, arr) {
+  const lim = listLim[key] || LIST_STEP;
+  return arr.length > lim ? arr.slice(0, lim) : arr;
+}
+function listMore(key, arr, cols) {
+  const lim = listLim[key] || LIST_STEP;
+  if (arr.length <= lim) return '';
+  const btn = '<button class="btn btn-secondary" onclick="listMas(\'' + key + '\')">Mostrar ' + Math.min(LIST_STEP, arr.length - lim) + ' más (viendo ' + lim + ' de ' + arr.length + ')</button>';
+  return cols > 0
+    ? '<tr><td colspan="' + cols + '" style="text-align:center;padding:14px">' + btn + '</td></tr>'
+    : '<div style="grid-column:1/-1;text-align:center;padding:12px">' + btn + '</div>';
+}
+function listMas(key) {
+  listLim[key] = (listLim[key] || LIST_STEP) + LIST_STEP;
+  const fn = { dep: renderDeposito, dist: renderDistribucion, vacreg: renderVacRegistros, lic: renderLicencias, ropaent: renderRopaEntregas, fich: renderFichadasRegistros, cond: renderConducta, aud: renderAudRegistros }[key];
+  if (fn) fn();
+}
+
+// Buscadores: esperan a que se deje de escribir un instante antes de filtrar
+function dbn(fn, ms) {
+  clearTimeout(fn._t);
+  fn._t = setTimeout(function () { for (const k in listLim) delete listLim[k]; fn(); }, ms || 220);
 }
 </script>
 </body>
