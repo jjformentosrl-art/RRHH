@@ -1232,6 +1232,11 @@
             <option value="Producto en Mal Estado">Producto en Mal Estado</option>
             <option value="Mal Trato">Mal Trato</option>
           </select>
+          <select class="filter-select" id="reclamosEstadoFilter" onchange="filterReclamos()">
+            <option value="">Todos los estados</option>
+            <option value="Pendiente">⏳ Pendientes</option>
+            <option value="Solucionado">✅ Solucionados</option>
+          </select>
           <button class="btn btn-primary" onclick="openReclamoModal()">+ Nuevo Reclamo</button>
           <button class="btn btn-secondary btn-sm" onclick="exportReclamosCSV()">⬇ CSV</button>
         </div>
@@ -1243,6 +1248,16 @@
         <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
           <span style="font-size:13px;color:var(--text3)">📅 Año a analizar:</span>
           <select id="reclamosAnalisisAnio" onchange="renderReclamosAnalisis()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--surface);color:var(--text)"></select>
+          <span style="font-size:13px;color:var(--text3);margin-left:8px">📅 Mes:</span>
+          <select id="reclamosAnalisisMes" onchange="renderReclamosAnalisis()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;background:var(--surface);color:var(--text)">
+            <option value="">Todo el año</option>
+            <option value="1">Enero</option><option value="2">Febrero</option>
+            <option value="3">Marzo</option><option value="4">Abril</option>
+            <option value="5">Mayo</option><option value="6">Junio</option>
+            <option value="7">Julio</option><option value="8">Agosto</option>
+            <option value="9">Septiembre</option><option value="10">Octubre</option>
+            <option value="11">Noviembre</option><option value="12">Diciembre</option>
+          </select>
         </div>
         <div class="stats" id="reclamosResumenCards"></div>
         <div class="chart-grid" id="reclamosChartGrid"></div>
@@ -2894,6 +2909,27 @@
   <option value="Único"></option>
 </datalist>
 
+<!-- RECLAMO: MARCAR COMO SOLUCIONADO -->
+<div class="modal-overlay" id="reclamoSolModal">
+  <div class="modal" style="width:460px">
+    <div class="modal-header">
+      <span class="modal-title">✅ Marcar reclamo como solucionado</span>
+      <button class="modal-close" onclick="closeReclamoSolModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="reclamoSolInfo" style="font-size:13px;color:var(--text2);margin-bottom:12px"></div>
+      <div class="form-group">
+        <label>Fecha de solución *</label>
+        <input type="date" id="rs_fecha">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeReclamoSolModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmReclamoSolucion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- RECLAMO MODAL -->
 <div class="modal-overlay" id="reclamoModal">
   <div class="modal">
@@ -2923,6 +2959,17 @@
         <div class="form-group full">
           <label>Observaciones</label>
           <textarea id="r_obs" rows="3" style="resize:vertical" placeholder="Breve resumen de lo sucedido en el reclamo..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="r_estado" onchange="reclamoEstadoToggle()">
+            <option value="Pendiente">⏳ Pendiente</option>
+            <option value="Solucionado">✅ Solucionado</option>
+          </select>
+        </div>
+        <div class="form-group" id="r_sol_group" style="display:none">
+          <label>Fecha de solución</label>
+          <input type="date" id="r_fecha_sol">
         </div>
       </div>
     </div>
@@ -3158,7 +3205,7 @@ const WRITE_ACTIONS = [
   'addConducta','deleteConducta',
   'addDeposito','deleteDeposito',
   'addDistribucion','deleteDistribucion',
-  'addReclamo','deleteReclamo',
+  'addReclamo','updateReclamo','deleteReclamo',
   'addEncuesta','updateEncuesta','deleteEncuesta',
   'addPlanAccion','updatePlanAccion','deletePlanAccion',
   'addFichadaManual','deleteFichada','updateFichada',
@@ -3334,7 +3381,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -3352,6 +3399,7 @@ function handleRequest(e) {
     else if (action === 'addDistribucion')     result = addDistribucion(body.data);
     else if (action === 'deleteDistribucion')  result = deleteRow('DISTRIBUCION', body.id);
     else if (action === 'addReclamo')          result = addRow('RECLAMOS', body.data);
+    else if (action === 'updateReclamo')       result = updateRow('RECLAMOS', body.id, body.data);
     else if (action === 'deleteReclamo')       result = deleteRow('RECLAMOS', body.id);
     else if (action === 'addEncuesta')         result = addRow('ENCUESTAS', body.data);
     else if (action === 'updateEncuesta')      result = updateRow('ENCUESTAS', body.id, body.data);
@@ -3412,7 +3460,7 @@ function getAllData() {
   var conductaHeaders = ['empleado','fecha','tipo','descripcion'];
   var desempenoHeaders = ['empleado','fecha','pedidos','lect_ok','lect_fail','tpedido','consolidados','tpickeo','errores','items','reclamos'];
   var distribHeaders  = ['empleado','fecha','excesos_vel','checklist_pct','errores_caja','nc_no_realizadas','kg_transportados','km_recorridos','cant_viajes','clientes','bultos'];
-  var reclamosHeaders = ['empleado','fecha','motivo','observaciones'];
+  var reclamosHeaders = ['empleado','fecha','motivo','observaciones','estado','fecha_solucion'];
   var encuestasHeaders = ['fecha','encuestados','score_calidad','score_entrega','score_atencion','score_precio','score_vendedor','score_repartidor','score_recomendacion','promedio','observaciones'];
   var planHeaders = ['fecha','aspecto','accion','responsable','fecha_limite','estado','notas'];
   var fichadasHeaders = ['empleado','fecha','hora','tipo','turno','lat','lng','distancia_m','dentro_geocerca','tardanza','minutos_tarde'];
@@ -3428,6 +3476,7 @@ function getAllData() {
   ensureColumns(dSheet, ['reclamos']); // migración: agrega la columna a la hoja ya existente
   var rSheet = getOrCreateSheet('DISTRIBUCION', distribHeaders);
   var rcSheet = getOrCreateSheet('RECLAMOS',    reclamosHeaders);
+  ensureColumns(rcSheet, ['estado','fecha_solucion']); // migración: agrega las columnas a la hoja ya existente
   var eSheet = getOrCreateSheet('ENCUESTAS',    encuestasHeaders);
   var pSheet = getOrCreateSheet('PLANACCION',   planHeaders);
   var fSheet = getOrCreateSheet('FICHADAS',     fichadasHeaders);
@@ -4747,7 +4796,9 @@ function getReclamosFiltered() {
   const mes    = document.getElementById('reclamosMes')?.value||'';
   const anio   = document.getElementById('reclamosAnio')?.value||'';
   const motivo = document.getElementById('reclamosMotivoFilter')?.value||'';
+  const estadoF = document.getElementById('reclamosEstadoFilter')?.value||'';
   return reclamosData.filter(r => {
+    if (estadoF && reclamoEstado(r) !== estadoF) return false;
     if (q && ![r.empleado,r.motivo,r.observaciones].some(v=>(v||'').toLowerCase().includes(q))) return false;
     if (motivo && r.motivo !== motivo) return false;
     if (mes || anio) {
@@ -4763,6 +4814,7 @@ function getReclamosFiltered() {
 function renderReclamosQuickStats(data) {
   const box = document.getElementById('reclamosQuickStats');
   if (!box) return;
+  const resol = reclamosResolucion(data);
   const total = data.length;
   const counts = {};
   data.forEach(r => { const m = r.motivo||'Otro'; counts[m]=(counts[m]||0)+1; });
@@ -4794,6 +4846,7 @@ function renderReclamosQuickStats(data) {
         <span style="font-size:13px;color:var(--text3)">${total} reclamo${total!==1?'s':''}</span>
       </div>
       ${total ? `<div style="display:flex;flex-wrap:wrap;gap:8px;">${cards}</div>` : `<div style="color:var(--text3);font-size:13px;">Sin reclamos para el período seleccionado.</div>`}
+      ${total ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;">${reclamosResolCards(resol)}</div>` : ''}
     </div>`;
 }
 
@@ -4807,27 +4860,47 @@ function renderReclamos() {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">📢</div><p>No hay reclamos registrados</p></div>`;
     return;
   }
-  const sorted = [...data].sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
-  grid.innerHTML = sorted.map(r => `
-    <div class="conduct-card">
+  // Pendientes primero; dentro de cada grupo, los más recientes arriba
+  const sorted = [...data].sort((a,b) => {
+    const pa = reclamoEstado(a) === 'Pendiente' ? 0 : 1, pb = reclamoEstado(b) === 'Pendiente' ? 0 : 1;
+    return pa - pb || new Date(b.fecha) - new Date(a.fecha);
+  });
+  grid.innerHTML = sorted.map(r => {
+    const sol = reclamoEstado(r) === 'Solucionado';
+    const dias = sol ? diasEntre(r.fecha, r.fecha_solucion) : diasEntre(r.fecha, licHoyISO());
+    const estadoBadge = sol ? '<span class="badge badge-green">✅ Solucionado</span>' : '<span class="badge badge-yellow">⏳ Pendiente</span>';
+    const estadoTxt = sol
+      ? (r.fecha_solucion ? `✅ Solucionado el ${fmtDate(r.fecha_solucion)}${dias !== null ? ' · ' + fmtDias(dias) : ''}` : '✅ Solucionado (sin fecha)')
+      : (dias !== null ? `⏳ Abierto hace ${fmtDias(dias)}` : '⏳ Pendiente');
+    return `
+    <div class="conduct-card" style="border-left:4px solid ${sol ? 'var(--success)' : 'var(--warning)'}">
       <h4>${r.empleado || 'Sin asignar'}</h4>
-      <div class="conduct-meta">
+      <div class="conduct-meta" style="flex-wrap:wrap">
         <span>${motivoBadge(r.motivo)}</span>
+        <span>${estadoBadge}</span>
         <span>📅 ${fmtDate(r.fecha)}</span>
       </div>
+      <div style="font-size:12px;color:var(--text2);margin-top:6px">${estadoTxt}</div>
       <div class="conduct-body">${r.observaciones || 'Sin observaciones'}</div>
-      <div style="margin-top:10px;display:flex;justify-content:flex-end">
+      <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap">
+        ${sol
+          ? `<button class="btn btn-secondary btn-sm" onclick="reabrirReclamo('${r.__ID__}')">↩ Reabrir</button>`
+          : `<button class="btn btn-primary btn-sm" onclick="openReclamoSolModal('${r.__ID__}')">✅ Marcar solucionado</button>`}
         <button class="btn btn-danger btn-sm" onclick="deleteReclamo('${r.__ID__}')">🗑️ Eliminar</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 function filterReclamos() { renderReclamos(); }
 
 function exportReclamosCSV() {
-  const headers = ['Empleado','Fecha','Motivo','Observaciones'];
-  const rows = getReclamosFiltered().map(r => [r.empleado, r.fecha, r.motivo, r.observaciones]);
+  const headers = ['Empleado','Fecha','Motivo','Observaciones','Estado','Fecha de solución','Días de resolución'];
+  const rows = getReclamosFiltered().map(r => {
+    const sol = reclamoEstado(r) === 'Solucionado';
+    const d = sol ? diasEntre(r.fecha, r.fecha_solucion) : null;
+    return [r.empleado, r.fecha, r.motivo, r.observaciones, reclamoEstado(r), sol ? (r.fecha_solucion || '') : '', d === null ? '' : d];
+  });
   const csv = [headers, ...rows].map(row => row.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
@@ -4836,23 +4909,82 @@ function exportReclamosCSV() {
   showToast('CSV exportado ✓', 'success');
 }
 
+// ── Estado / resolución ──
+function reclamoEstado(r) {
+  if (r.estado === 'Solucionado') return 'Solucionado';
+  if (!r.estado && r.fecha_solucion) return 'Solucionado';
+  return 'Pendiente';
+}
+function diasEntre(a, b) {
+  if (!a || !b) return null;
+  const da = new Date(a), db = new Date(b);
+  if (isNaN(da) || isNaN(db)) return null;
+  return Math.max(0, Math.round((db - da) / 86400000));
+}
+function fmtDias(n) {
+  const v = Math.round(n * 10) / 10;
+  return String(v).replace('.', ',') + (v === 1 ? ' día' : ' días');
+}
+// Cantidad de pendientes/solucionados y tiempo promedio de resolución (en días) de una lista de reclamos
+function reclamosResolucion(list) {
+  let pend = 0, sol = 0, suma = 0, n = 0;
+  list.forEach(r => {
+    if (reclamoEstado(r) === 'Solucionado') {
+      sol++;
+      const d = diasEntre(r.fecha, r.fecha_solucion);
+      if (d !== null) { suma += d; n++; }
+    } else pend++;
+  });
+  return { total: list.length, pend, sol, conFecha: n, prom: n ? suma / n : null };
+}
+function reclamosResolCards(res) {
+  const card = (ico, val, lab, sub) => `
+    <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;min-width:160px;flex:1;">
+      <span style="font-size:22px">${ico}</span>
+      <div>
+        <div style="font-size:22px;font-weight:700;line-height:1;color:var(--text)">${val}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${lab}</div>
+        ${sub ? `<div style="font-size:11px;color:var(--text3)">${sub}</div>` : ''}
+      </div>
+    </div>`;
+  return card('⏱️', res.prom === null ? '—' : fmtDias(res.prom), 'Tiempo promedio de resolución', res.prom === null ? 'Sin reclamos solucionados con fecha' : 'sobre ' + res.conFecha + ' solucionado' + (res.conFecha !== 1 ? 's' : '')) +
+         card('⏳', res.pend, 'Pendientes', '') +
+         card('✅', res.sol, 'Solucionados', '');
+}
+
 // MODAL
+function reclamoEstadoToggle() {
+  const sol = document.getElementById('r_estado').value === 'Solucionado';
+  document.getElementById('r_sol_group').style.display = sol ? '' : 'none';
+  const f = document.getElementById('r_fecha_sol');
+  if (sol && !f.value) f.value = licHoyISO();
+}
 function openReclamoModal() {
   const f = document.getElementById('r_fecha');
   if (f && !f.value) f.value = new Date().toISOString().split('T')[0];
+  document.getElementById('r_estado').value = 'Pendiente';
+  document.getElementById('r_fecha_sol').value = '';
+  reclamoEstadoToggle();
   document.getElementById('reclamoModal').classList.add('open');
 }
 function closeReclamoModal() { document.getElementById('reclamoModal').classList.remove('open'); }
 
 async function saveReclamo() {
+  const estado = document.getElementById('r_estado').value;
   const data = {
     empleado: document.getElementById('r_empleado').value,
     fecha: document.getElementById('r_fecha').value,
     motivo: document.getElementById('r_motivo').value,
-    observaciones: document.getElementById('r_obs').value
+    observaciones: document.getElementById('r_obs').value,
+    estado: estado,
+    fecha_solucion: estado === 'Solucionado' ? document.getElementById('r_fecha_sol').value : ''
   };
   if (!data.empleado) { showToast('Seleccione un empleado', 'error'); return; }
   if (!data.fecha)    { showToast('Ingrese la fecha del reclamo', 'error'); return; }
+  if (estado === 'Solucionado') {
+    if (!data.fecha_solucion) { showToast('Ingrese la fecha de solución', 'error'); return; }
+    if (data.fecha_solucion < data.fecha) { showToast('La fecha de solución no puede ser anterior a la del reclamo', 'error'); return; }
+  }
   if (API_URL) {
     const res = await apiCall('addReclamo', { data });
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
@@ -4866,6 +4998,45 @@ async function saveReclamo() {
   closeReclamoModal();
   renderReclamos();
   showToast('Reclamo registrado ✓', 'success');
+}
+
+// Marcar como solucionado / reabrir
+let reclamoSolId = null;
+function openReclamoSolModal(id) {
+  const r = reclamosData.find(x => String(x.__ID__) === String(id)); if (!r) return;
+  reclamoSolId = id;
+  document.getElementById('reclamoSolInfo').textContent = (r.empleado || 'Sin asignar') + ' · ' + (r.motivo || '') + ' · reclamo del ' + fmtDate(r.fecha);
+  const f = document.getElementById('rs_fecha');
+  f.min = r.fecha || '';
+  f.value = licHoyISO();
+  document.getElementById('reclamoSolModal').classList.add('open');
+}
+function closeReclamoSolModal() { document.getElementById('reclamoSolModal').classList.remove('open'); }
+
+async function reclamoActualizarEstado(r, cambios, msg) {
+  const nuevo = { ...r, ...cambios };
+  if (API_URL) {
+    const res = await apiCall('updateReclamo', { id: r.__ID__, data: nuevo });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return false; }
+  }
+  Object.assign(r, cambios);
+  if (!API_URL) localStorage.setItem('rrhh_reclamos', JSON.stringify(reclamosData));
+  renderReclamos();
+  renderReclamosAnalisis();
+  showToast(msg, 'success');
+  return true;
+}
+async function confirmReclamoSolucion() {
+  const r = reclamosData.find(x => String(x.__ID__) === String(reclamoSolId)); if (!r) return;
+  const f = document.getElementById('rs_fecha').value;
+  if (!f) { showToast('Ingrese la fecha de solución', 'error'); return; }
+  if (r.fecha && f < r.fecha) { showToast('La fecha de solución no puede ser anterior a la del reclamo', 'error'); return; }
+  if (await reclamoActualizarEstado(r, { estado: 'Solucionado', fecha_solucion: f }, 'Reclamo marcado como solucionado ✓')) closeReclamoSolModal();
+}
+async function reabrirReclamo(id) {
+  const r = reclamosData.find(x => String(x.__ID__) === String(id)); if (!r) return;
+  if (!confirm('¿Volver a marcar este reclamo como pendiente?')) return;
+  await reclamoActualizarEstado(r, { estado: 'Pendiente', fecha_solucion: '' }, 'Reclamo vuelto a pendiente ✓');
 }
 
 async function deleteReclamo(id) {
@@ -4939,12 +5110,13 @@ function populateReclamosAnalisisAnios() {
 function renderReclamosAnalisis() {
   populateReclamosAnalisisAnios();
   const year = parseInt(document.getElementById('reclamosAnalisisAnio')?.value) || new Date().getFullYear();
+  const mesSel = document.getElementById('reclamosAnalisisMes')?.value || '';
 
   const MESES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const MESES_LARGO=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const monthCounts = Array(12).fill(0);
   let totalYear = 0, totalPrevYear = 0;
-  const empleadoCounts = {};
-  const motivoCounts = {};
+  const periodo = []; // reclamos del período elegido (año completo o un mes del año)
 
   reclamosData.forEach(r => {
     const d = new Date(r.fecha);
@@ -4953,18 +5125,25 @@ function renderReclamosAnalisis() {
     if (y === year) {
       totalYear++;
       monthCounts[d.getMonth()]++;
-      const emp = r.empleado || 'Sin asignar';
-      empleadoCounts[emp] = (empleadoCounts[emp]||0)+1;
-      const mot = r.motivo || 'Otro';
-      motivoCounts[mot] = (motivoCounts[mot]||0)+1;
+      if (!mesSel || String(d.getMonth()+1) === mesSel) periodo.push(r);
     } else if (y === year - 1) {
       totalPrevYear++;
     }
   });
+  const periodoLabel = mesSel ? `${MESES_LARGO[+mesSel-1]} ${year}` : `Año ${year}`;
+  const empleadoCounts = {}, motivoCounts = {}, porEmp = {}, porMotivo = {};
+  periodo.forEach(r => {
+    const emp = r.empleado || 'Sin asignar';
+    empleadoCounts[emp] = (empleadoCounts[emp]||0)+1;
+    (porEmp[emp] = porEmp[emp] || []).push(r);
+    const mot = r.motivo || 'Otro';
+    motivoCounts[mot] = (motivoCounts[mot]||0)+1;
+    (porMotivo[mot] = porMotivo[mot] || []).push(r);
+  });
 
-  // Mes de referencia: mes actual si el año seleccionado es el corriente, sino diciembre
+  // Mes de referencia: el elegido en el filtro; si no, el mes actual (año corriente) o diciembre
   const now = new Date();
-  const curMonthIdx = (year === now.getFullYear()) ? now.getMonth() : 11;
+  const curMonthIdx = mesSel ? (+mesSel - 1) : ((year === now.getFullYear()) ? now.getMonth() : 11);
   const curMonthCount = monthCounts[curMonthIdx];
   let prevMonthCount;
   if (curMonthIdx === 0) {
@@ -4976,9 +5155,12 @@ function renderReclamosAnalisis() {
     prevMonthCount = monthCounts[curMonthIdx - 1];
   }
 
+  const resol = reclamosResolucion(periodo);
   document.getElementById('reclamosResumenCards').innerHTML = `
     ${trendCard('📅', `Reclamos ${MESES[curMonthIdx]} ${year}`, curMonthCount, prevMonthCount)}
     ${trendCard('🗓️', `Reclamos Año ${year}`, totalYear, totalPrevYear)}
+    <div style="flex-basis:100%;font-size:13px;font-weight:600;color:var(--text2);margin-top:4px">Resolución — ${periodoLabel}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;flex-basis:100%">${reclamosResolCards(resol)}</div>
   `;
 
   const monthEntries = MESES.map((m,i) => [m, monthCounts[i]]);
@@ -4986,10 +5168,25 @@ function renderReclamosAnalisis() {
   const motivoEntries = motivoOrder.map(m => [m, motivoCounts[m]||0]);
   const hasEmpleados = Object.keys(empleadoCounts).length > 0;
 
+  // Tabla por empleado: cantidad, pendientes, solucionados y promedio de resolución
+  const filas = Object.entries(porEmp).sort((a,b) => b[1].length - a[1].length).map(([emp, list]) => {
+    const rs = reclamosResolucion(list);
+    return `<tr><td style="text-align:left">${licEsc(emp)}</td><td><b>${list.length}</b></td><td>${rs.pend}</td><td>${rs.sol}</td><td>${rs.prom === null ? '—' : fmtDias(rs.prom)}</td></tr>`;
+  }).join('');
+  const tablaEmp = hasEmpleados
+    ? `<div class="chart-card"><h3>Reclamos por Empleado — ${periodoLabel}</h3>
+        <div style="overflow:auto"><table class="aud-tbl"><thead><tr><th>Empleado</th><th>Reclamos</th><th>Pendientes</th><th>Solucionados</th><th>Prom. resolución</th></tr></thead><tbody>${filas}</tbody></table></div></div>`
+    : `<div class="chart-card"><h3>Reclamos por Empleado — ${periodoLabel}</h3><div style="color:var(--text3);font-size:13px;">Sin reclamos en este período.</div></div>`;
+
+  // Tiempo promedio de resolución por motivo (días)
+  const resolMotivo = motivoOrder.map(m => { const rs = reclamosResolucion(porMotivo[m] || []); return [m, rs.prom === null ? 0 : Math.round(rs.prom * 10) / 10]; });
+
   document.getElementById('reclamosChartGrid').innerHTML = `
     ${orderedBarChart(`Reclamos Mensuales — ${year}`, monthEntries)}
-    ${hasEmpleados ? barChart('Reclamos por Empleado', empleadoCounts) : `<div class="chart-card"><h3>Reclamos por Empleado</h3><div style="color:var(--text3);font-size:13px;">Sin datos para ${year}.</div></div>`}
-    ${orderedBarChart('Reclamos por Motivo', motivoEntries)}
+    ${tablaEmp}
+    ${hasEmpleados ? barChart(`Reclamos por Empleado — ${periodoLabel}`, empleadoCounts) : ''}
+    ${orderedBarChart(`Reclamos por Motivo — ${periodoLabel}`, motivoEntries)}
+    ${orderedBarChart(`Tiempo promedio de resolución por motivo (días) — ${periodoLabel}`, resolMotivo)}
   `;
 }
 
