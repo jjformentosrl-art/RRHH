@@ -2294,11 +2294,15 @@
         </div>
         <div class="form-group full" id="c_baja_group" style="display:none">
           <label>¿El accidente generó baja laboral? * <span style="font-weight:400;color:var(--text3)">(se usa para el índice de frecuencia)</span></label>
-          <select id="c_baja">
+          <select id="c_baja" onchange="updateConductaEmpleadoRequired()">
             <option value="">Seleccionar...</option>
             <option value="Sí">Sí — con baja laboral (días perdidos)</option>
             <option value="No">No — sin baja laboral</option>
           </select>
+        </div>
+        <div class="form-group full" id="c_dias_baja_group" style="display:none">
+          <label>Días de baja médica * <span style="font-weight:400;color:var(--text3)">(días corridos que estuvo de baja por este accidente)</span></label>
+          <input type="number" id="c_dias_baja" min="1" step="1" placeholder="Ej: 15">
         </div>
         <div class="form-group full">
           <label>Descripción</label>
@@ -3698,7 +3702,7 @@ function handleRequest(e) {
 
 function getAllData() {
   var nominaHeaders   = ['nombre','genero','cuil','dni','tel','localidad','nacimiento','edad','art','alta','antiguedad','sector'];
-  var conductaHeaders = ['empleado','fecha','tipo','descripcion','con_baja'];
+  var conductaHeaders = ['empleado','fecha','tipo','descripcion','con_baja','dias_baja'];
   var desempenoHeaders = ['empleado','fecha','pedidos','lect_ok','lect_fail','tpedido','consolidados','tpickeo','errores','items','reclamos'];
   var distribHeaders  = ['empleado','fecha','excesos_vel','checklist_pct','errores_caja','nc_no_realizadas','kg_transportados','km_recorridos','cant_viajes','clientes','bultos'];
   var reclamosHeaders = ['empleado','fecha','motivo','observaciones','estado','fecha_solucion'];
@@ -3713,7 +3717,7 @@ function getAllData() {
   var ropaIngresosHeaders = ['fecha','prenda','talle','cantidad','observaciones'];
   var nSheet = getOrCreateSheet('NOMINA',       nominaHeaders);
   var cSheet = getOrCreateSheet('CONDUCTA',     conductaHeaders);
-  ensureColumns(cSheet, ['con_baja']); // migración: agrega la columna a la hoja ya existente
+  ensureColumns(cSheet, ['con_baja','dias_baja']); // migración: agrega la columna a la hoja ya existente
   var alertasSheet = getOrCreateSheet('ALERTAS', ALERTAS_HEADERS);
   var dSheet = getOrCreateSheet('DESEMPENO',    desempenoHeaders);
   ensureColumns(dSheet, ['reclamos']); // migración: agrega la columna a la hoja ya existente
@@ -5047,7 +5051,7 @@ function renderConducta() {
       <div class="conduct-meta">
         <span>${tipoConductaBadge(c.tipo)}</span>
         <span>📅 ${fmtDate(c.fecha)}</span>
-        ${c.tipo === 'Accidente' ? (c.con_baja === 'Sí' ? '<span class="badge badge-red">Con baja</span>' : c.con_baja === 'No' ? '<span class="badge badge-green">Sin baja</span>' : '<span class="badge badge-gray">Baja sin definir</span>') : ''}
+        ${c.tipo === 'Accidente' ? (c.con_baja === 'Sí' ? '<span class="badge badge-red">Con baja' + (parseInt(c.dias_baja) > 0 ? ' · ' + parseInt(c.dias_baja) + (parseInt(c.dias_baja) === 1 ? ' día' : ' días') : '') + '</span>' : c.con_baja === 'No' ? '<span class="badge badge-green">Sin baja</span>' : '<span class="badge badge-gray">Baja sin definir</span>') : ''}
       </div>
       <div class="conduct-body">${c.descripcion||'Sin descripción'}</div>
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
@@ -6276,6 +6280,8 @@ function updateConductaEmpleadoRequired() {
   if (sel && sel.options.length) sel.options[0].textContent = esCond ? 'Sin empleado (condición de la empresa)' : 'Seleccionar empleado...';
   const bg = document.getElementById('c_baja_group');
   if (bg) bg.style.display = tipo === 'Accidente' ? '' : 'none';
+  const dg = document.getElementById('c_dias_baja_group');
+  if (dg) dg.style.display = (tipo === 'Accidente' && document.getElementById('c_baja').value === 'Sí') ? '' : 'none';
 }
 let conductaEditId = null;
 function openConductaModal() {
@@ -6284,6 +6290,7 @@ function openConductaModal() {
   const f = document.getElementById('c_fecha');
   if (f && !f.value) f.value = new Date().toISOString().split('T')[0];
   document.getElementById('c_baja').value = '';
+  document.getElementById('c_dias_baja').value = '';
   updateConductaEmpleadoRequired();
   document.getElementById('conductaModal').classList.add('open');
 }
@@ -6297,6 +6304,7 @@ function openConductaEdit(id) {
   document.getElementById('c_tipo').value = c.tipo || 'Otro';
   document.getElementById('c_desc').value = c.descripcion || '';
   document.getElementById('c_baja').value = c.con_baja || '';
+  document.getElementById('c_dias_baja').value = c.dias_baja || '';
   updateConductaEmpleadoRequired();
   document.getElementById('conductaModal').classList.add('open');
 }
@@ -6309,8 +6317,14 @@ async function saveConducta() {
     fecha: document.getElementById('c_fecha').value,
     tipo,
     descripcion: document.getElementById('c_desc').value,
-    con_baja: tipo === 'Accidente' ? document.getElementById('c_baja').value : ''
+    con_baja: tipo === 'Accidente' ? document.getElementById('c_baja').value : '',
+    dias_baja: ''
   };
+  if (tipo === 'Accidente' && data.con_baja === 'Sí') {
+    const d = parseInt(document.getElementById('c_dias_baja').value);
+    if (!d || d < 1) { showToast('Indicá cuántos días estuvo de baja médica', 'error'); return; }
+    data.dias_baja = d;
+  }
   if (!data.empleado && tipo !== 'Condición Insegura') { showToast('Seleccione un empleado', 'error'); return; }
   if (tipo === 'Accidente' && !data.con_baja) { showToast('Indicá si el accidente generó baja laboral', 'error'); return; }
   if (conductaEditId) {
@@ -6406,6 +6420,9 @@ function renderConductaIndices() {
   const acc = enPeriodo.filter(c => c.tipo === 'Accidente');
   const accBaja = acc.filter(c => c.con_baja === 'Sí').length;
   const accSinDato = acc.filter(c => !c.con_baja).length;
+  const conBaja = acc.filter(c => c.con_baja === 'Sí');
+  const diasBaja = conBaja.reduce((t, c) => t + (parseInt(c.dias_baja) || 0), 0);
+  const bajaSinDias = conBaja.filter(c => !(parseInt(c.dias_baja) > 0)).length;
   const inc = enPeriodo.filter(c => c.tipo === 'Incidente').length;
   // Horas-hombre: solo de los meses del período en los que hubo accidentes o incidentes registrados.
   // Si se filtró un mes puntual (mes + año), se respeta ese mes aunque no tenga sucesos.
@@ -6440,12 +6457,14 @@ function renderConductaIndices() {
         ${card('🚨', fmt(accBaja), 'IF Accidentes con baja', accBaja + ' accidente' + (accBaja !== 1 ? 's' : '') + ' con baja')}
         ${card('🩹', fmt(acc.length), 'IF Accidentes (con y sin baja)', acc.length + ' accidente' + (acc.length !== 1 ? 's' : '') + ' en total')}
         ${card('🔶', fmt(inc), 'IF Incidentes', inc + ' incidente' + (inc !== 1 ? 's' : ''))}
+        ${card('🏥', diasBaja.toLocaleString('es-AR'), 'Días de baja médica por accidentes', accBaja + ' accidente' + (accBaja !== 1 ? 's' : '') + ' con baja')}
       </div>
       <div style="font-size:12px;color:var(--text-muted,#6b7280);margin-top:10px;line-height:1.5">
         Horas-hombre trabajadas del período: <strong>${Math.round(hht).toLocaleString('es-AR')} hs</strong>${estimados ? ` <span class="badge badge-yellow">${estimados === mesesCalc.length ? 'estimadas' : estimados + ' de ' + mesesCalc.length + ' meses estimados'}</span>` : ' <span class="badge badge-green">cargadas</span>'}
         <br>Solo se cuentan los meses con accidentes o incidentes registrados (${mesesCalc.length} ${mesesCalc.length === 1 ? 'mes' : 'meses'}).
         · Fórmula: IF = (cantidad × 1.000.000) ÷ horas-hombre trabajadas.
         ${accSinDato ? `<br><span style="color:#B45309">⚠️ ${accSinDato} accidente${accSinDato !== 1 ? 's' : ''} sin dato de baja laboral: editalo${accSinDato !== 1 ? 's' : ''} con ✏️ para que cuente${accSinDato !== 1 ? 'n' : ''} en el índice.</span>` : ''}
+        ${bajaSinDias ? `<br><span style="color:#B45309">⚠️ ${bajaSinDias} accidente${bajaSinDias !== 1 ? 's' : ''} con baja sin días cargados: editalo${bajaSinDias !== 1 ? 's' : ''} con ✏️ para que sumen en los días de baja.</span>` : ''}
         ${(hht <= 0 && (acc.length || inc)) ? '<br><span style="color:#B45309">⚠️ No hay horas trabajadas para calcular el índice.</span>' : ''}
       </div>
     </div>`;
