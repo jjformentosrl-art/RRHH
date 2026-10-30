@@ -899,6 +899,7 @@
       <div class="dpanel active" id="dpanel-conducta-registros">
       <!-- ANÁLISIS RÁPIDO POR TIPO -->
       <div id="conductaAnalysis" style="margin-bottom:18px;flex-shrink:0"></div>
+      <div id="conductaIndices" style="margin-bottom:18px;flex-shrink:0"></div>
 
       <!-- FILTROS -->
       <div class="toolbar" style="flex-wrap:wrap;gap:8px;">
@@ -2264,7 +2265,7 @@
 <div class="modal-overlay" id="conductaModal">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title">Nuevo Registro de Conducta</span>
+      <span class="modal-title" id="conductaModalTitle">Nuevo Registro de Conducta</span>
       <button class="modal-close" onclick="closeConductaModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -2291,6 +2292,14 @@
             <option value="Otro">Otro</option>
           </select>
         </div>
+        <div class="form-group full" id="c_baja_group" style="display:none">
+          <label>¿El accidente generó baja laboral? * <span style="font-weight:400;color:var(--text3)">(se usa para el índice de frecuencia)</span></label>
+          <select id="c_baja">
+            <option value="">Seleccionar...</option>
+            <option value="Sí">Sí — con baja laboral (días perdidos)</option>
+            <option value="No">No — sin baja laboral</option>
+          </select>
+        </div>
         <div class="form-group full">
           <label>Descripción</label>
           <textarea id="c_desc" rows="3" style="resize:vertical"></textarea>
@@ -2304,11 +2313,33 @@
   </div>
 </div>
 
+<!-- HORAS-HOMBRE TRABAJADAS (para índices de frecuencia) -->
+<div class="modal-overlay" id="hhtModal">
+  <div class="modal" style="width:620px">
+    <div class="modal-header">
+      <span class="modal-title">⏱️ Horas-hombre trabajadas</span>
+      <button class="modal-close" onclick="closeHhtModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint" style="margin-bottom:12px">Total de horas efectivamente trabajadas por todo el personal en el mes. Si dejás un mes vacío, el sistema usa una <strong>estimación</strong> (empleados de la nómina × 8 hs × días hábiles transcurridos). Cargá el dato real para que el índice sea exacto.</p>
+      <div class="form-group" style="max-width:180px;margin-bottom:12px">
+        <label>Año</label>
+        <select id="hht_anio" onchange="hhtRenderYear()"></select>
+      </div>
+      <div id="hhtGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeHhtModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveHht()">💾 Guardar horas</button>
+    </div>
+  </div>
+</div>
+
 <!-- ALERTA INCIDENTE / ACCIDENTE: FORMULARIO -->
 <div class="modal-overlay" id="alertaModal">
   <div class="modal" style="width:760px">
     <div class="modal-header">
-      <span class="modal-title">🚨 Nueva Alerta de Incidente / Accidente</span>
+      <span class="modal-title" id="alModalTitle">🚨 Nueva Alerta de Incidente / Accidente</span>
       <button class="modal-close" onclick="closeAlertaModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -3406,8 +3437,8 @@ let authUser = sessionStorage.getItem('rrhh_auth_user') || null;
 // Acciones que modifican datos: exigen usuario y contraseña (validado también en el backend)
 const WRITE_ACTIONS = [
   'addEmployee','updateEmployee','deleteEmployee',
-  'addConducta','deleteConducta',
-  'addAlerta','deleteAlerta','getAlertaFoto',
+  'addConducta','updateConducta','deleteConducta',
+  'addAlerta','updateAlerta','deleteAlerta','getAlertaFoto',
   'addDeposito','deleteDeposito',
   'addDistribucion','deleteDistribucion',
   'addReclamo','updateReclamo','deleteReclamo',
@@ -3586,7 +3617,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','deleteConducta','addAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -3598,8 +3629,10 @@ function handleRequest(e) {
     else if (action === 'updateEmployee')      result = updateEmployee(body.id, body.data);
     else if (action === 'deleteEmployee')      result = deleteRow('NOMINA', body.id);
     else if (action === 'addConducta')         result = addRow('CONDUCTA', body.data);
+    else if (action === 'updateConducta')      result = updateRow('CONDUCTA', body.id, body.data);
     else if (action === 'deleteConducta')      result = deleteRow('CONDUCTA', body.id);
     else if (action === 'addAlerta')           result = addAlerta(body.data);
+    else if (action === 'updateAlerta')        result = updateAlerta(body.data);
     else if (action === 'deleteAlerta')        result = deleteRow('ALERTAS', body.id);
     else if (action === 'getAlertaFoto')       result = getAlertaFoto(body.data);
     else if (action === 'addDeposito')         result = addDesempeno(body.data);
@@ -3665,7 +3698,7 @@ function handleRequest(e) {
 
 function getAllData() {
   var nominaHeaders   = ['nombre','genero','cuil','dni','tel','localidad','nacimiento','edad','art','alta','antiguedad','sector'];
-  var conductaHeaders = ['empleado','fecha','tipo','descripcion'];
+  var conductaHeaders = ['empleado','fecha','tipo','descripcion','con_baja'];
   var desempenoHeaders = ['empleado','fecha','pedidos','lect_ok','lect_fail','tpedido','consolidados','tpickeo','errores','items','reclamos'];
   var distribHeaders  = ['empleado','fecha','excesos_vel','checklist_pct','errores_caja','nc_no_realizadas','kg_transportados','km_recorridos','cant_viajes','clientes','bultos'];
   var reclamosHeaders = ['empleado','fecha','motivo','observaciones','estado','fecha_solucion'];
@@ -3680,6 +3713,7 @@ function getAllData() {
   var ropaIngresosHeaders = ['fecha','prenda','talle','cantidad','observaciones'];
   var nSheet = getOrCreateSheet('NOMINA',       nominaHeaders);
   var cSheet = getOrCreateSheet('CONDUCTA',     conductaHeaders);
+  ensureColumns(cSheet, ['con_baja']); // migración: agrega la columna a la hoja ya existente
   var alertasSheet = getOrCreateSheet('ALERTAS', ALERTAS_HEADERS);
   var dSheet = getOrCreateSheet('DESEMPENO',    desempenoHeaders);
   ensureColumns(dSheet, ['reclamos']); // migración: agrega la columna a la hoja ya existente
@@ -3913,6 +3947,25 @@ function addAlerta(data) {
     delete data.foto_base64;
   }
   var res = addRow('ALERTAS', data);
+  if (res && res.success && data.foto_url) res.foto_url = data.foto_url;
+  return res;
+}
+function updateAlerta(data) {
+  if (!data || !data.id) return { error: 'Sin id' };
+  var id = data.id;
+  delete data.id;
+  if (data.foto_base64) {
+    try {
+      var bytes = Utilities.base64Decode(data.foto_base64);
+      var safe = String(data.empleado || '').replace(/[^A-Za-z0-9 ]/g, '').trim().replace(/ +/g, '_');
+      var blob = Utilities.newBlob(bytes, 'image/jpeg', 'alerta_' + safe + '_' + data.fecha + '.jpg');
+      data.foto_url = getAlertasFolder().createFile(blob).getUrl();
+    } catch (err) {
+      return { error: 'No se pudo guardar la foto en Drive: ' + err.message };
+    }
+    delete data.foto_base64;
+  }
+  var res = updateRow('ALERTAS', id, data);
   if (res && res.success && data.foto_url) res.foto_url = data.foto_url;
   return res;
 }
@@ -4982,6 +5035,7 @@ function renderConducta() {
   populateConductaAnios();
   const data = getConductaFiltered();
   renderConductaAnalysis(data);
+  renderConductaIndices();
   const grid = document.getElementById('conductaGrid');
   if (!data.length) {
     grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">📝</div><p>No hay registros de conducta</p></div>`;
@@ -4993,9 +5047,11 @@ function renderConducta() {
       <div class="conduct-meta">
         <span>${tipoConductaBadge(c.tipo)}</span>
         <span>📅 ${fmtDate(c.fecha)}</span>
+        ${c.tipo === 'Accidente' ? (c.con_baja === 'Sí' ? '<span class="badge badge-red">Con baja</span>' : c.con_baja === 'No' ? '<span class="badge badge-green">Sin baja</span>' : '<span class="badge badge-gray">Baja sin definir</span>') : ''}
       </div>
       <div class="conduct-body">${c.descripcion||'Sin descripción'}</div>
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="openConductaEdit('${c.__ID__}')">✏️ Editar</button>
         ${(c.tipo === 'Incidente' || c.tipo === 'Accidente') ? `<button class="btn btn-secondary btn-sm" onclick="openAlertaModal('${c.__ID__}')">🚨 Crear alerta</button>` : ''}
         <button class="btn btn-danger btn-sm" onclick="deleteConducta('${c.__ID__}')">🗑️ Eliminar</button>
       </div>
@@ -5127,7 +5183,7 @@ function renderReclamos() {
       : (dias !== null ? `⏳ Abierto hace ${fmtDias(dias)}` : '⏳ Pendiente');
     return `
     <div class="conduct-card" style="border-left:4px solid ${sol ? 'var(--success)' : 'var(--warning)'}">
-      <h4>${r.empleado || 'Sin asignar'}</h4>
+      <h4>${r.empleado === 'Administración' ? '🗂️ Administración' : (r.empleado || 'Sin asignar')}</h4>
       <div class="conduct-meta" style="flex-wrap:wrap">
         <span>${motivoBadge(r.motivo)}</span>
         <span>${estadoBadge}</span>
@@ -6110,6 +6166,9 @@ function populateEmployeeSelects() {
   // Gestión de Conducta: permitir asignar el registro al "Depósito" (instalaciones, equipos, portón, etc.)
   const cEmp = document.getElementById('c_empleado');
   if (cEmp) cEmp.insertAdjacentHTML('beforeend', '<option value="Depósito">🏭 Depósito (instalaciones / equipos)</option>');
+  // Reclamos de Clientes: permitir asignar el reclamo al área de "Administración" (no es una persona sola)
+  const rEmp = document.getElementById('r_empleado');
+  if (rEmp) rEmp.insertAdjacentHTML('beforeend', '<option value="Administración">🗂️ Administración (área)</option>');
   populateDesempenoEmpleados();
   if (typeof updateConductaEmpleadoRequired === 'function') updateConductaEmpleadoRequired();
 }
@@ -6209,28 +6268,65 @@ async function deleteEmployee(id) {
 
 // CONDUCTA
 function updateConductaEmpleadoRequired() {
-  const esCond = document.getElementById('c_tipo').value === 'Condición Insegura';
+  const tipo = document.getElementById('c_tipo').value;
+  const esCond = tipo === 'Condición Insegura';
   const lbl = document.getElementById('c_empleado_label');
   const sel = document.getElementById('c_empleado');
   if (lbl) lbl.textContent = esCond ? 'Empleado (opcional)' : 'Empleado *';
   if (sel && sel.options.length) sel.options[0].textContent = esCond ? 'Sin empleado (condición de la empresa)' : 'Seleccionar empleado...';
+  const bg = document.getElementById('c_baja_group');
+  if (bg) bg.style.display = tipo === 'Accidente' ? '' : 'none';
 }
+let conductaEditId = null;
 function openConductaModal() {
+  conductaEditId = null;
+  document.getElementById('conductaModalTitle').textContent = 'Nuevo Registro de Conducta';
   const f = document.getElementById('c_fecha');
   if (f && !f.value) f.value = new Date().toISOString().split('T')[0];
+  document.getElementById('c_baja').value = '';
   updateConductaEmpleadoRequired();
   document.getElementById('conductaModal').classList.add('open');
 }
-function closeConductaModal() { document.getElementById('conductaModal').classList.remove('open'); }
+function openConductaEdit(id) {
+  const c = conductaData.find(x => x.__ID__ == id);
+  if (!c) return;
+  conductaEditId = c.__ID__;
+  document.getElementById('conductaModalTitle').textContent = 'Modificar Registro de Conducta';
+  document.getElementById('c_empleado').value = c.empleado || '';
+  document.getElementById('c_fecha').value = c.fecha ? String(c.fecha).split('T')[0] : '';
+  document.getElementById('c_tipo').value = c.tipo || 'Otro';
+  document.getElementById('c_desc').value = c.descripcion || '';
+  document.getElementById('c_baja').value = c.con_baja || '';
+  updateConductaEmpleadoRequired();
+  document.getElementById('conductaModal').classList.add('open');
+}
+function closeConductaModal() { document.getElementById('conductaModal').classList.remove('open'); conductaEditId = null; }
 
 async function saveConducta() {
+  const tipo = document.getElementById('c_tipo').value;
   const data = {
     empleado: document.getElementById('c_empleado').value,
     fecha: document.getElementById('c_fecha').value,
-    tipo: document.getElementById('c_tipo').value,
-    descripcion: document.getElementById('c_desc').value
+    tipo,
+    descripcion: document.getElementById('c_desc').value,
+    con_baja: tipo === 'Accidente' ? document.getElementById('c_baja').value : ''
   };
-  if (!data.empleado && data.tipo !== 'Condición Insegura') { showToast('Seleccione un empleado', 'error'); return; }
+  if (!data.empleado && tipo !== 'Condición Insegura') { showToast('Seleccione un empleado', 'error'); return; }
+  if (tipo === 'Accidente' && !data.con_baja) { showToast('Indicá si el accidente generó baja laboral', 'error'); return; }
+  if (conductaEditId) {
+    const idx = conductaData.findIndex(x => x.__ID__ == conductaEditId);
+    if (idx < 0) { closeConductaModal(); return; }
+    if (API_URL) {
+      const res = await apiCall('updateConducta', { id: conductaEditId, data });
+      if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+    }
+    conductaData[idx] = { ...conductaData[idx], ...data };
+    if (!API_URL) localStorage.setItem('rrhh_conducta', JSON.stringify(conductaData));
+    closeConductaModal();
+    renderConducta();
+    showToast('Registro modificado ✓', 'success');
+    return;
+  }
   if (API_URL) {
     const res = await apiCall('addConducta', { data });
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
@@ -6257,9 +6353,145 @@ async function deleteConducta(id) {
 
 
 // ═══════════════════════════════════════════════════
+// ÍNDICES DE FRECUENCIA (incidentes y accidentes)
+//   IF = (cantidad de sucesos × 1.000.000) ÷ horas-hombre trabajadas
+// ═══════════════════════════════════════════════════
+function hhtKey(y, m) { return 'hht_' + y + '_' + String(m).padStart(2, '0'); }
+
+// Estimación: empleados de la nómina (con alta hasta fin de mes) × 8 hs × días hábiles (lun-vie) transcurridos
+function hhtEstimado(y, m) {
+  const hoy = new Date();
+  const ultimo = new Date(y, m, 0).getDate();
+  const limite = (hoy.getFullYear() === y && hoy.getMonth() + 1 === m) ? Math.min(ultimo, hoy.getDate()) : ultimo;
+  let dias = 0;
+  for (let d = 1; d <= limite; d++) { const w = new Date(y, m - 1, d).getDay(); if (w !== 0 && w !== 6) dias++; }
+  const finMes = y + '-' + String(m).padStart(2, '0') + '-' + String(ultimo).padStart(2, '0');
+  const cant = employees.filter(e => !e.alta || String(e.alta).split('T')[0] <= finMes).length;
+  return cant * 8 * dias;
+}
+function hhtMes(y, m) {
+  const v = parseFloat(String(configData[hhtKey(y, m)] ?? '').replace(',', '.'));
+  if (!isNaN(v) && v > 0) return { horas: v, real: true };
+  return { horas: hhtEstimado(y, m), real: false };
+}
+
+function conductaPeriodoMeses() {
+  const mes = document.getElementById('conductaMes')?.value || '';
+  const anio = document.getElementById('conductaAnio')?.value || '';
+  const hoy = new Date(); const yA = hoy.getFullYear(), mA = hoy.getMonth() + 1;
+  const ym = [];
+  const yearsData = [...new Set(conductaData.map(c => parseInt(String(c.fecha || '').slice(0, 4))).filter(Boolean))];
+  let years;
+  if (anio) years = [parseInt(anio)];
+  else years = yearsData.length ? Array.from({ length: yA - Math.min(...yearsData) + 1 }, (_, i) => Math.min(...yearsData) + i) : [yA];
+  years.forEach(y => {
+    for (let m = 1; m <= 12; m++) {
+      if (mes && parseInt(mes) !== m) continue;
+      if (y > yA || (y === yA && m > mA)) continue;
+      ym.push([y, m]);
+    }
+  });
+  return ym;
+}
+
+function renderConductaIndices() {
+  const box = document.getElementById('conductaIndices');
+  if (!box) return;
+  const meses = conductaPeriodoMeses();
+  const set = new Set(meses.map(([y, m]) => y + '-' + m));
+  const enPeriodo = conductaData.filter(c => {
+    const f = String(c.fecha || '');
+    return set.has(parseInt(f.slice(0, 4)) + '-' + parseInt(f.slice(5, 7)));
+  });
+  const acc = enPeriodo.filter(c => c.tipo === 'Accidente');
+  const accBaja = acc.filter(c => c.con_baja === 'Sí').length;
+  const accSinDato = acc.filter(c => !c.con_baja).length;
+  const inc = enPeriodo.filter(c => c.tipo === 'Incidente').length;
+  let hht = 0, estimados = 0;
+  meses.forEach(([y, m]) => { const r = hhtMes(y, m); hht += r.horas; if (!r.real) estimados++; });
+  const MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const mes = document.getElementById('conductaMes')?.value || '';
+  const anio = document.getElementById('conductaAnio')?.value || '';
+  let per = 'Total general';
+  if (mes && anio) per = MESES[+mes] + ' ' + anio; else if (mes) per = MESES[+mes]; else if (anio) per = 'Año ' + anio;
+  const fmt = n => hht > 0 ? (n * 1000000 / hht).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const card = (icon, val, lbl, sub) => `
+    <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:12px 14px;min-width:200px;flex:1;">
+      <div style="display:flex;align-items:center;gap:8px"><span style="font-size:22px">${icon}</span>
+        <div style="font-size:26px;font-weight:700;line-height:1;color:var(--text,#111)">${val}</div></div>
+      <div style="font-size:12px;font-weight:600;margin-top:6px">${lbl}</div>
+      <div style="font-size:11px;color:var(--text-muted,#6b7280);margin-top:2px">${sub}</div>
+    </div>`;
+  box.innerHTML = `
+    <div style="background:var(--surface,#f9fafb);border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:14px 16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+        <span style="font-weight:600;font-size:14px;">📈 Índices de Frecuencia — <span style="color:var(--primary,#3b82f6)">${per}</span></span>
+        <button class="btn btn-secondary btn-sm" onclick="openHhtModal()">⏱️ Horas trabajadas</button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${card('🚨', fmt(accBaja), 'IF Accidentes con baja', accBaja + ' accidente' + (accBaja !== 1 ? 's' : '') + ' con baja')}
+        ${card('🩹', fmt(acc.length), 'IF Accidentes (con y sin baja)', acc.length + ' accidente' + (acc.length !== 1 ? 's' : '') + ' en total')}
+        ${card('🔶', fmt(inc), 'IF Incidentes', inc + ' incidente' + (inc !== 1 ? 's' : ''))}
+      </div>
+      <div style="font-size:12px;color:var(--text-muted,#6b7280);margin-top:10px;line-height:1.5">
+        Horas-hombre trabajadas del período: <strong>${Math.round(hht).toLocaleString('es-AR')} hs</strong>${estimados ? ` <span class="badge badge-yellow">${estimados === meses.length ? 'estimadas' : estimados + ' de ' + meses.length + ' meses estimados'}</span>` : ' <span class="badge badge-green">cargadas</span>'}
+        · Fórmula: IF = (cantidad × 1.000.000) ÷ horas-hombre trabajadas.
+        ${accSinDato ? `<br><span style="color:#B45309">⚠️ ${accSinDato} accidente${accSinDato !== 1 ? 's' : ''} sin dato de baja laboral: editalo${accSinDato !== 1 ? 's' : ''} con ✏️ para que cuente${accSinDato !== 1 ? 'n' : ''} en el índice.</span>` : ''}
+        ${hht <= 0 ? '<br><span style="color:#B45309">⚠️ No hay horas trabajadas para calcular el índice.</span>' : ''}
+      </div>
+    </div>`;
+}
+
+function openHhtModal() {
+  const hoy = new Date().getFullYear();
+  const yearsData = conductaData.map(c => parseInt(String(c.fecha || '').slice(0, 4))).filter(Boolean);
+  const desde = Math.min(hoy, ...yearsData);
+  const sel = document.getElementById('hht_anio');
+  sel.innerHTML = '';
+  for (let y = hoy; y >= desde; y--) sel.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
+  const f = document.getElementById('conductaAnio')?.value;
+  if (f && Array.from(sel.options).some(o => o.value === f)) sel.value = f;
+  hhtRenderYear();
+  document.getElementById('hhtModal').classList.add('open');
+}
+function closeHhtModal() { document.getElementById('hhtModal').classList.remove('open'); }
+function hhtRenderYear() {
+  const y = parseInt(document.getElementById('hht_anio').value);
+  const MES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const hoy = new Date();
+  document.getElementById('hhtGrid').innerHTML = MES.map((n, i) => {
+    const m = i + 1;
+    const futuro = y > hoy.getFullYear() || (y === hoy.getFullYear() && m > hoy.getMonth() + 1);
+    const v = configData[hhtKey(y, m)] || '';
+    return `<div class="form-group"><label>${n}</label>
+      <input type="number" min="0" step="1" id="hht_m${m}" value="${alEsc(v)}" placeholder="${futuro ? '—' : 'Est. ' + hhtEstimado(y, m)}" ${futuro ? 'disabled' : ''}></div>`;
+  }).join('');
+}
+async function saveHht() {
+  const y = parseInt(document.getElementById('hht_anio').value);
+  const data = {};
+  for (let m = 1; m <= 12; m++) {
+    const el = document.getElementById('hht_m' + m);
+    if (!el || el.disabled) continue;
+    data[hhtKey(y, m)] = el.value.trim();
+  }
+  if (API_URL) {
+    const res = await apiCall('saveConfig', { data });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  configData = { ...configData, ...data };
+  if (!API_URL) localStorage.setItem('rrhh_config', JSON.stringify(configData));
+  closeHhtModal();
+  renderConductaIndices();
+  showToast('Horas guardadas ✓', 'success');
+}
+
+// ═══════════════════════════════════════════════════
 // ALERTAS DE INCIDENTE / ACCIDENTE (imagen para WhatsApp)
 // ═══════════════════════════════════════════════════
 let alFotoData = null;          // { dataUrl }
+let alFotoQuitada = false;      // true si en edición se quitó la foto existente
+let alEditId = null;            // id de la alerta que se está editando
 let alFotoCache = {};           // id -> dataUrl (foto completa en memoria)
 let alUltimoBlob = null;        // PNG de la vista previa actual
 let alUltimoNombre = 'alerta.png';
@@ -6327,12 +6559,13 @@ function alOnEmpleado() {
 
 function alFotoQuitar() {
   alFotoData = null;
+  alFotoQuitada = true;
   const inp = document.getElementById('al_foto'); if (inp) inp.value = '';
   const pv = document.getElementById('alFotoPreview'); if (pv) pv.style.display = 'none';
 }
 function alFotoChange(input) {
   const file = input.files && input.files[0];
-  if (!file) { alFotoQuitar(); return; }
+  if (!file) return;
   if (!file.type.startsWith('image/')) { showToast('Elegí un archivo de imagen', 'error'); alFotoQuitar(); return; }
   const reader = new FileReader();
   reader.onload = () => {
@@ -6346,6 +6579,7 @@ function alFotoChange(input) {
       ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
       ctx.drawImage(img, 0, 0, c.width, c.height);
       alFotoData = { dataUrl: c.toDataURL('image/jpeg', 0.8) };
+      alFotoQuitada = false;
       document.getElementById('alFotoImg').src = alFotoData.dataUrl;
       document.getElementById('alFotoPreview').style.display = 'flex';
     };
@@ -6407,11 +6641,64 @@ function openAlertaModal(registroId) {
   document.getElementById('al_causalidad').value = '';
   document.getElementById('al_distribuidora').value = 'Juan Jose Formento S.R.L';
   alFotoQuitar();
+  alFotoQuitada = false;
+  alEditId = null;
+  document.getElementById('alModalTitle').textContent = '🚨 Nueva Alerta de Incidente / Accidente';
+  document.getElementById('alSaveBtn').textContent = '💾 Guardar y generar imagen';
   if (registroId) { document.getElementById('al_registro').value = registroId; alPrefillDesdeRegistro(registroId); }
   // Si se abre desde la pestaña Registros, mostrar igualmente el modal
   document.getElementById('alertaModal').classList.add('open');
 }
-function closeAlertaModal() { document.getElementById('alertaModal').classList.remove('open'); }
+function closeAlertaModal() { document.getElementById('alertaModal').classList.remove('open'); alEditId = null; }
+
+
+async function openAlertaEdit(id) {
+  const a = alertasData.find(x => x.__ID__ == id);
+  if (!a) return;
+  alPopulateSelects();
+  alEditId = a.__ID__;
+  alFotoData = null; alFotoQuitada = false;
+  document.getElementById('al_foto').value = '';
+  document.getElementById('alFotoPreview').style.display = 'none';
+  document.getElementById('alModalTitle').textContent = '✏️ Modificar Alerta de Incidente / Accidente';
+  document.getElementById('alSaveBtn').textContent = '💾 Guardar cambios y generar imagen';
+  document.getElementById('al_registro').value = a.registro_id || '';
+  document.getElementById('al_tipo').value = a.tipo || 'Accidente';
+  document.getElementById('al_fecha').value = a.fecha ? String(a.fecha).split('T')[0] : '';
+  const conf = !a.hora || a.hora === 'A confirmar';
+  document.getElementById('al_hora_conf').checked = conf;
+  document.getElementById('al_hora').disabled = conf;
+  document.getElementById('al_hora').value = conf ? '' : a.hora;
+  document.getElementById('al_turno').value = a.turno || 'Mañana';
+  alSetEmpleado(a.empleado || '');
+  // alSetEmpleado recalcula puesto/relación/antigüedad: se restauran los valores guardados
+  document.getElementById('al_puesto').value = a.puesto || '';
+  document.getElementById('al_relacion').value = a.relacion || 'Relación de dependencia';
+  document.getElementById('al_antig').value = a.antiguedad || '';
+  document.getElementById('al_jornada').value = a.jornada || 'Completa';
+  document.getElementById('al_supervisor').value = a.supervisor || '';
+  document.getElementById('al_distribuidora').value = a.distribuidora || 'Juan Jose Formento S.R.L';
+  document.getElementById('al_causalidad').value = a.causalidad || '';
+  document.getElementById('al_parte').value = a.parte_cuerpo || '';
+  document.getElementById('al_asistencia').value = a.asistencia || 'No requirió';
+  document.getElementById('al_equipo').value = a.equipo || '';
+  document.getElementById('al_forma').value = a.forma || '';
+  document.getElementById('al_contexto').value = a.contexto || '';
+  document.getElementById('al_desc').value = a.descripcion || '';
+  document.getElementById('alertaModal').classList.add('open');
+  // foto actual (si tiene): se muestra para poder conservarla o quitarla
+  if (a.foto_url) {
+    let foto = alFotoCache[a.__ID__] || (String(a.foto_url).startsWith('data:') ? a.foto_url : '');
+    if (!foto && API_URL) {
+      const res = await apiCall('getAlertaFoto', { data: { id: a.__ID__ } });
+      if (res?.dataUrl) { foto = res.dataUrl; alFotoCache[a.__ID__] = foto; }
+    }
+    if (foto && alEditId == a.__ID__ && !alFotoData) {
+      document.getElementById('alFotoImg').src = foto;
+      document.getElementById('alFotoPreview').style.display = 'flex';
+    }
+  }
+}
 
 async function saveAlerta() {
   let emp = document.getElementById('al_empleado').value;
@@ -6445,30 +6732,48 @@ async function saveAlerta() {
     registro_id: document.getElementById('al_registro').value || ''
   };
   const btn = document.getElementById('alSaveBtn');
+  const etiqueta = alEditId ? '💾 Guardar cambios y generar imagen' : '💾 Guardar y generar imagen';
   if (btn) { btn.disabled = true; btn.textContent = alFotoData ? '⏳ Subiendo foto...' : '⏳ Guardando...'; }
   const fotoLocal = alFotoData ? alFotoData.dataUrl : '';
+  const editando = !!alEditId;
+  const previo = editando ? alertasData.find(x => x.__ID__ == alEditId) : null;
+  if (editando && !previo) { if (btn) { btn.disabled = false; btn.textContent = etiqueta; } closeAlertaModal(); return; }
   try {
     if (API_URL) {
       const payload = { ...data };
+      if (editando) payload.id = alEditId;
       if (fotoLocal) payload.foto_base64 = fotoLocal.split(',')[1];
-      const res = await apiCall('addAlerta', { data: payload });
+      else if (editando && alFotoQuitada) payload.foto_url = '';
+      const res = await apiCall(editando ? 'updateAlerta' : 'addAlerta', { data: payload });
       if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
-      if (res?.id) data.__ID__ = res.id;
+      if (!editando && res?.id) data.__ID__ = res.id;
       if (res?.foto_url) data.foto_url = res.foto_url;
+      else if (editando && alFotoQuitada) data.foto_url = '';
     } else {
-      data.__ID__ = Date.now().toString();
+      if (!editando) data.__ID__ = Date.now().toString();
       if (fotoLocal) data.foto_url = fotoLocal;
+      else if (editando && alFotoQuitada) data.foto_url = '';
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar y generar imagen'; }
+    if (btn) { btn.disabled = false; btn.textContent = etiqueta; }
   }
-  if (fotoLocal) alFotoCache[data.__ID__] = fotoLocal;
-  alertasData.push(data);
+  let alerta;
+  if (editando) {
+    const idx = alertasData.findIndex(x => x.__ID__ == alEditId);
+    alerta = { ...alertasData[idx], ...data };
+    alertasData[idx] = alerta;
+    if (fotoLocal) alFotoCache[alerta.__ID__] = fotoLocal;
+    else if (alFotoQuitada) delete alFotoCache[alerta.__ID__];
+  } else {
+    alerta = data;
+    if (fotoLocal) alFotoCache[alerta.__ID__] = fotoLocal;
+    alertasData.push(alerta);
+  }
   if (!API_URL) { try { localStorage.setItem('rrhh_alertas', JSON.stringify(alertasData)); } catch (e) { showToast('Alerta guardada, pero la foto es muy pesada para el almacenamiento local', 'error'); } }
   closeAlertaModal();
   renderAlertas();
-  showToast('Alerta guardada ✓', 'success');
-  alAbrirPreview(data, fotoLocal);
+  showToast(editando ? 'Alerta modificada ✓' : 'Alerta guardada ✓', 'success');
+  alAbrirPreview(alerta, alFotoCache[alerta.__ID__] || '');
 }
 
 function renderAlertas() {
@@ -6496,6 +6801,7 @@ function renderAlertas() {
       </div>
       <div class="conduct-body"><strong>${alEsc(a.causalidad)}</strong>${a.equipo ? '<br>🔧 ' + alEsc(a.equipo) : ''}${a.forma ? '<br>' + alEsc(a.forma) : ''}</div>
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary btn-sm" onclick="openAlertaEdit('${alEsc(a.__ID__)}')">✏️ Editar</button>
         <button class="btn btn-primary btn-sm" onclick="verAlerta('${alEsc(a.__ID__)}')">🖼️ Ver / Compartir</button>
         <button class="btn btn-danger btn-sm" onclick="deleteAlerta('${alEsc(a.__ID__)}')">🗑️</button>
       </div>
