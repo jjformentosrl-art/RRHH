@@ -6407,14 +6407,22 @@ function renderConductaIndices() {
   const accBaja = acc.filter(c => c.con_baja === 'Sí').length;
   const accSinDato = acc.filter(c => !c.con_baja).length;
   const inc = enPeriodo.filter(c => c.tipo === 'Incidente').length;
+  // Horas-hombre: solo de los meses del período en los que hubo accidentes o incidentes registrados.
+  // Si se filtró un mes puntual (mes + año), se respeta ese mes aunque no tenga sucesos.
+  const mesFiltro = document.getElementById('conductaMes')?.value || '';
+  const anioFiltro = document.getElementById('conductaAnio')?.value || '';
+  const mesesConSucesos = new Set(enPeriodo
+    .filter(c => c.tipo === 'Accidente' || c.tipo === 'Incidente')
+    .map(c => parseInt(String(c.fecha || '').slice(0, 4)) + '-' + parseInt(String(c.fecha || '').slice(5, 7))));
+  const mesesCalc = (mesFiltro && anioFiltro) ? meses : meses.filter(([y, m]) => mesesConSucesos.has(y + '-' + m));
   let hht = 0, estimados = 0;
-  meses.forEach(([y, m]) => { const r = hhtMes(y, m); hht += r.horas; if (!r.real) estimados++; });
+  mesesCalc.forEach(([y, m]) => { const r = hhtMes(y, m); hht += r.horas; if (!r.real) estimados++; });
   const MESES = ['', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
   const mes = document.getElementById('conductaMes')?.value || '';
   const anio = document.getElementById('conductaAnio')?.value || '';
   let per = 'Total general';
   if (mes && anio) per = MESES[+mes] + ' ' + anio; else if (mes) per = MESES[+mes]; else if (anio) per = 'Año ' + anio;
-  const fmt = n => hht > 0 ? (n * 1000000 / hht).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  const fmt = n => hht > 0 ? (n * 1000000 / hht).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : (n === 0 ? '0,00' : '—');
   const card = (icon, val, lbl, sub) => `
     <div style="background:var(--card-bg,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:12px 14px;min-width:200px;flex:1;">
       <div style="display:flex;align-items:center;gap:8px"><span style="font-size:22px">${icon}</span>
@@ -6434,10 +6442,11 @@ function renderConductaIndices() {
         ${card('🔶', fmt(inc), 'IF Incidentes', inc + ' incidente' + (inc !== 1 ? 's' : ''))}
       </div>
       <div style="font-size:12px;color:var(--text-muted,#6b7280);margin-top:10px;line-height:1.5">
-        Horas-hombre trabajadas del período: <strong>${Math.round(hht).toLocaleString('es-AR')} hs</strong>${estimados ? ` <span class="badge badge-yellow">${estimados === meses.length ? 'estimadas' : estimados + ' de ' + meses.length + ' meses estimados'}</span>` : ' <span class="badge badge-green">cargadas</span>'}
+        Horas-hombre trabajadas del período: <strong>${Math.round(hht).toLocaleString('es-AR')} hs</strong>${estimados ? ` <span class="badge badge-yellow">${estimados === mesesCalc.length ? 'estimadas' : estimados + ' de ' + mesesCalc.length + ' meses estimados'}</span>` : ' <span class="badge badge-green">cargadas</span>'}
+        <br>Solo se cuentan los meses con accidentes o incidentes registrados (${mesesCalc.length} ${mesesCalc.length === 1 ? 'mes' : 'meses'}).
         · Fórmula: IF = (cantidad × 1.000.000) ÷ horas-hombre trabajadas.
         ${accSinDato ? `<br><span style="color:#B45309">⚠️ ${accSinDato} accidente${accSinDato !== 1 ? 's' : ''} sin dato de baja laboral: editalo${accSinDato !== 1 ? 's' : ''} con ✏️ para que cuente${accSinDato !== 1 ? 'n' : ''} en el índice.</span>` : ''}
-        ${hht <= 0 ? '<br><span style="color:#B45309">⚠️ No hay horas trabajadas para calcular el índice.</span>' : ''}
+        ${(hht <= 0 && (acc.length || inc)) ? '<br><span style="color:#B45309">⚠️ No hay horas trabajadas para calcular el índice.</span>' : ''}
       </div>
     </div>`;
 }
