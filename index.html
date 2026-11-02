@@ -8269,8 +8269,9 @@ async function saveLicencia() {
       if (res?.error) {
         const permisoDrive = /permiso|permission|DriveApp|auth\/drive/i.test(res.error);
         showToast(permisoDrive
-          ? 'Falta autorizar Drive en Apps Script: ejecutá autorizarDrive() una vez y volvé a implementar. Podés guardar la licencia sin foto mientras tanto.'
+          ? 'Drive rechazó el permiso. Detalle real: ' + res.error + ' — Podés guardar la licencia sin foto mientras tanto.'
           : 'Error: ' + res.error, 'error');
+        console.error('addLicencia error:', res.error);
         return;
       }
       if (res?.id) data.__ID__ = res.id;
