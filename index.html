@@ -3921,6 +3921,13 @@ function getCertFolder() {
   var it = DriveApp.getFoldersByName(CERT_FOLDER_NAME);
   return it.hasNext() ? it.next() : DriveApp.createFolder(CERT_FOLDER_NAME);
 }
+// EJECUTAR UNA SOLA VEZ a mano desde el editor de Apps Script (botón ▶ Ejecutar) para
+// que Google pida el permiso de Drive. Después hay que volver a implementar (Nueva versión).
+function autorizarDrive() {
+  var f = getCertFolder();
+  var g = getAlertasFolder();
+  Logger.log('Drive autorizado. Carpetas: ' + f.getName() + ' / ' + g.getName());
+}
 // Guarda la foto del certificado en una carpeta PRIVADA de Drive y devuelve su URL
 function guardarCertificado(base64, mime, empleado, desde) {
   var bytes = Utilities.base64Decode(base64);
@@ -8259,7 +8266,13 @@ async function saveLicencia() {
         payload.foto_mime = licFotoData.mime;
       }
       const res = await apiCall('addLicencia', { data: payload });
-      if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+      if (res?.error) {
+        const permisoDrive = /permiso|permission|DriveApp|auth\/drive/i.test(res.error);
+        showToast(permisoDrive
+          ? 'Falta autorizar Drive en Apps Script: ejecutá autorizarDrive() una vez y volvé a implementar. Podés guardar la licencia sin foto mientras tanto.'
+          : 'Error: ' + res.error, 'error');
+        return;
+      }
       if (res?.id) data.__ID__ = res.id;
       if (res?.foto_url) data.foto_url = res.foto_url;
     } else {
