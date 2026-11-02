@@ -1384,6 +1384,7 @@
           </select>
           <input type="date" class="filter-select" id="tardDiaFilter" onchange="renderTardanzas()" style="max-width:150px" title="Filtrar por un día específico">
           <button class="btn btn-secondary btn-sm" onclick="limpiarFiltrosTard()">✕ Limpiar</button>
+          <button class="btn btn-primary btn-sm" onclick="exportTardanzasExcel()" title="Descarga un Excel con el detalle de llegadas tarde según los filtros elegidos">⬇ Exportar Excel</button>
         </div>
         <div class="stats" id="tardanzasStats"></div>
         <div class="table-wrap">
@@ -9217,6 +9218,253 @@ function renderTardanzas() {
         <span class="tard-chev">▸</span>
       </div>${detalle}`;
   }).join('');
+}
+
+// ── EXPORTAR LLEGADAS TARDE A EXCEL ──
+// Genera un .xlsx real (sin librerías externas) con 2 hojas:
+//  1) "Detalle por empleado": empleado, cantidad de llegadas tarde, cada día y el tiempo de cada atraso.
+//  2) "Resumen y patrones": ranking + cuántas veces llegó tarde cada día de la semana y por turno.
+// Respeta los filtros activos de la pestaña (mes / día / empleado).
+const XLSX_CRC_TABLE = (function () {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+
+function xlsxCrc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = XLSX_CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+// ZIP sin compresión (suficiente para un .xlsx)
+function xlsxZip(files) {
+  const enc = new TextEncoder();
+  const u16 = n => [n & 255, (n >>> 8) & 255];
+  const u32 = n => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+  const chunks = [], central = [];
+  let offset = 0;
+  files.forEach(f => {
+    const nameB = enc.encode(f.name), data = enc.encode(f.data), crc = xlsxCrc32(data);
+    const local = new Uint8Array([0x50, 0x4b, 3, 4, ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21),
+      ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nameB.length), ...u16(0)]);
+    chunks.push(local, nameB, data);
+    central.push(new Uint8Array([0x50, 0x4b, 1, 2, ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(0x21),
+      ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(nameB.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+      ...u32(0), ...u32(offset)]), nameB);
+    offset += local.length + nameB.length + data.length;
+  });
+  let cdSize = 0;
+  central.forEach(c => { chunks.push(c); cdSize += c.length; });
+  chunks.push(new Uint8Array([0x50, 0x4b, 5, 6, ...u16(0), ...u16(0), ...u16(files.length), ...u16(files.length),
+    ...u32(cdSize), ...u32(offset), ...u16(0)]));
+  return new Blob(chunks, { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+function xlsxEsc(s) {
+  return String(s ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function xlsxCol(i) {
+  let s = ''; i++;
+  while (i > 0) { const m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); }
+  return s;
+}
+
+// Estilos: índice = posición en cellXfs
+const XLSX_ST = { DEF: 0, TITLE: 1, SUB: 2, HEAD: 3, TEXT: 4, CENTER: 5, DATE: 6, GNAME: 7, GCOUNT: 8, RED: 9, DEC: 10, TLABEL: 11, TNUM: 12, GRED: 13 };
+
+function xlsxStyles() {
+  const xf = (numFmt, font, fill, border, h, v, wrap) =>
+    `<xf numFmtId="${numFmt}" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">` +
+    `<alignment${h ? ` horizontal="${h}"` : ''}${v ? ` vertical="${v}"` : ''}${wrap ? ' wrapText="1"' : ''}/></xf>`;
+  const xfs = [
+    xf(0, 0, 0, 0),                              // 0 DEF
+    xf(0, 3, 0, 0, 'left', 'center'),            // 1 TITLE
+    xf(0, 5, 0, 0, 'left', 'center'),            // 2 SUB
+    xf(0, 2, 2, 1, 'center', 'center', true),    // 3 HEAD
+    xf(0, 0, 0, 1, 'left', 'center'),            // 4 TEXT
+    xf(0, 0, 0, 1, 'center', 'center'),          // 5 CENTER
+    xf(164, 0, 0, 1, 'center', 'center'),        // 6 DATE
+    xf(0, 1, 3, 1, 'left', 'center', true),      // 7 GNAME
+    xf(0, 1, 3, 1, 'center', 'center'),          // 8 GCOUNT
+    xf(0, 4, 0, 1, 'center', 'center'),          // 9 RED
+    xf(165, 0, 0, 1, 'center', 'center'),        // 10 DEC
+    xf(0, 1, 4, 1, 'left', 'center'),            // 11 TLABEL
+    xf(0, 1, 4, 1, 'center', 'center'),          // 12 TNUM
+    xf(0, 4, 3, 1, 'center', 'center')           // 13 GRED
+  ];
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<numFmts count="2"><numFmt numFmtId="164" formatCode="dd/mm/yyyy"/><numFmt numFmtId="165" formatCode="0.0"/></numFmts>' +
+    '<fonts count="6">' +
+    '<font><sz val="11"/><name val="Calibri"/></font>' +
+    '<font><b/><sz val="11"/><name val="Calibri"/></font>' +
+    '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>' +
+    '<font><b/><sz val="16"/><color rgb="FF1F3864"/><name val="Calibri"/></font>' +
+    '<font><b/><sz val="11"/><color rgb="FFC00000"/><name val="Calibri"/></font>' +
+    '<font><i/><sz val="10"/><color rgb="FF595959"/><name val="Calibri"/></font>' +
+    '</fonts>' +
+    '<fills count="5">' +
+    '<fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FF1F4E78"/><bgColor indexed="64"/></patternFill></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFDDEBF7"/><bgColor indexed="64"/></patternFill></fill>' +
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFF2F2F2"/><bgColor indexed="64"/></patternFill></fill>' +
+    '</fills>' +
+    '<borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' +
+    '<border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right>' +
+    '<top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom><diagonal/></border></borders>' +
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+    `<cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs>` +
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>' +
+    '</styleSheet>';
+}
+
+// rows: array de filas; cada celda = null | { v, s }   (v numérico → número, si no → texto)
+function xlsxSheetXml(o) {
+  let sd = '';
+  o.rows.forEach((row, ri) => {
+    const r = ri + 1;
+    const ht = o.heights && o.heights[ri] ? ` ht="${o.heights[ri]}" customHeight="1"` : '';
+    let cells = '';
+    (row || []).forEach((c, ci) => {
+      if (!c) return;
+      const ref = xlsxCol(ci) + r, s = c.s || 0;
+      if (c.v === '' || c.v === null || c.v === undefined) cells += `<c r="${ref}" s="${s}"/>`;
+      else if (typeof c.v === 'number') cells += `<c r="${ref}" s="${s}"><v>${c.v}</v></c>`;
+      else cells += `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xlsxEsc(c.v)}</t></is></c>`;
+    });
+    sd += `<row r="${r}"${ht}>${cells}</row>`;
+  });
+  const lastCol = xlsxCol(Math.max(...o.rows.map(r => (r || []).length)) - 1);
+  return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">' +
+    '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>' +
+    `<dimension ref="A1:${lastCol}${o.rows.length}"/>` +
+    `<sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="${o.freezeRow}" topLeftCell="A${o.freezeRow + 1}" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>` +
+    '<sheetFormatPr defaultRowHeight="15"/>' +
+    `<cols>${o.cols.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` +
+    `<sheetData>${sd}</sheetData>` +
+    (o.autoFilter ? `<autoFilter ref="${o.autoFilter}"/>` : '') +
+    (o.merges && o.merges.length ? `<mergeCells count="${o.merges.length}">${o.merges.map(m => `<mergeCell ref="${m}"/>`).join('')}</mergeCells>` : '') +
+    (o.heat ? `<conditionalFormatting sqref="${o.heat}"><cfRule type="colorScale" priority="1"><colorScale><cfvo type="num" val="0"/><cfvo type="max"/><color rgb="FFFFFFFF"/><color rgb="FFF8696B"/></colorScale></cfRule></conditionalFormatting>` : '') +
+    '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>' +
+    '<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>' +
+    '</worksheet>';
+}
+
+function xlsxBuild(sheets) {
+  const ns = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+  const files = [
+    { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' +
+      sheets.map((s, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('') + '</Types>' },
+    { name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+    { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${ns}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>` +
+      sheets.map((s, i) => `<sheet name="${xlsxEsc(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('') + '</sheets></workbook>' },
+    { name: 'xl/_rels/workbook.xml.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+      sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('') +
+      `<Relationship Id="rId${sheets.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>` },
+    { name: 'xl/styles.xml', data: xlsxStyles() }
+  ];
+  sheets.forEach((s, i) => files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, data: xlsxSheetXml(s) }));
+  return xlsxZip(files);
+}
+
+function exportTardanzasExcel() {
+  const dia = document.getElementById('tardDiaFilter')?.value || '';
+  const mes = dia ? '' : (document.getElementById('tardMesFilter')?.value || '');
+  const emp = document.getElementById('tardEmpFilter')?.value || '';
+
+  let tardanzas = fichadasData.filter(f => f.tardanza === 'Sí' && (dia ? f.fecha === dia : (!mes || (f.fecha || '').startsWith(mes))));
+  if (emp) tardanzas = tardanzas.filter(f => f.empleado === emp);
+  if (!tardanzas.length) { showToast('No hay llegadas tarde para exportar en este período', 'info'); return; }
+
+  const periodoLabel = (dia ? fmtDate(dia) : (mes ? fmtMesLabel(mes) : 'Todos los meses')) + (emp ? ' · ' + emp : '');
+  const mins = t => Math.round(parseFloat(t.minutos_tarde) || 0);
+  const serial = f => { const [y, m, d] = (f || '').split('-').map(Number); return y ? Math.round(Date.UTC(y, m - 1, d) / 86400000) + 25569 : ''; };
+  const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+  // Agrupar por empleado (mismo orden que la pantalla: más llegadas tarde primero, luego más minutos)
+  const mapa = {};
+  tardanzas.forEach(t => {
+    const g = mapa[t.empleado] || (mapa[t.empleado] = { nombre: t.empleado, cant: 0, min: 0, max: 0, items: [], dias: [0, 0, 0, 0, 0, 0, 0], man: 0, tar: 0 });
+    g.cant++; g.min += mins(t); g.max = Math.max(g.max, mins(t)); g.items.push(t);
+    const di = DIAS.indexOf(diaSemanaTard(t.fecha)); if (di >= 0) g.dias[di]++;
+    if (t.turno === 'Tarde') g.tar++; else g.man++;
+  });
+  const resumen = Object.values(mapa).sort((a, b) => b.cant - a.cant || b.min - a.min || a.nombre.localeCompare(b.nombre));
+  const totCant = tardanzas.length, totMin = resumen.reduce((a, g) => a + g.min, 0);
+  const ahora = new Date(), p2 = n => String(n).padStart(2, '0');
+  const generado = `${p2(ahora.getDate())}/${p2(ahora.getMonth() + 1)}/${ahora.getFullYear()} ${p2(ahora.getHours())}:${p2(ahora.getMinutes())}`;
+  const S = XLSX_ST;
+  const c = (v, s) => ({ v, s });
+  const subtitulo = `Período: ${periodoLabel}  ·  ${totCant} llegadas tarde  ·  ${resumen.length} empleados  ·  ${totMin} min de atraso en total  ·  Generado: ${generado}`;
+
+  // ── Hoja 1: Detalle por empleado ──
+  const rows1 = [], merges1 = [];
+  rows1.push([c('Llegadas tarde — Detalle por empleado', S.TITLE)]);
+  rows1.push([c(subtitulo, S.SUB)]);
+  rows1.push([]);
+  rows1.push(['Empleado', 'Cantidad de llegadas tarde', 'Fecha', 'Día', 'Turno', 'Hora de entrada', 'Demora (min)', 'Total demora del empleado (min)'].map(h => c(h, S.HEAD)));
+  merges1.push('A1:H1', 'A2:H2');
+  resumen.forEach(g => {
+    const items = g.items.slice().sort((a, b) => (a.fecha || '').localeCompare(b.fecha || '') || (a.hora || '').localeCompare(b.hora || ''));
+    const r0 = rows1.length + 1;
+    items.forEach((t, j) => {
+      rows1.push([
+        c(j === 0 ? g.nombre : '', S.GNAME), c(j === 0 ? g.cant : '', S.GCOUNT),
+        c(serial(t.fecha), S.DATE), c(diaSemanaTard(t.fecha), S.CENTER), c(t.turno || '—', S.CENTER),
+        c(t.hora || '', S.CENTER), c(mins(t), S.RED), c(j === 0 ? g.min : '', S.GRED)
+      ]);
+    });
+    if (items.length > 1) { const r1 = r0 + items.length - 1; merges1.push(`A${r0}:A${r1}`, `B${r0}:B${r1}`, `H${r0}:H${r1}`); }
+  });
+  rows1.push([c('TOTAL GENERAL', S.TLABEL), c(totCant, S.TNUM), c('', S.TLABEL), c('', S.TLABEL), c('', S.TLABEL), c('', S.TLABEL), c(totMin, S.TNUM), c('', S.TLABEL)]);
+  const heights1 = []; heights1[0] = 26; heights1[3] = 34;
+
+  // ── Hoja 2: Resumen y patrones ──
+  const hayDom = resumen.some(g => g.dias[6] > 0);
+  const nDias = hayDom ? 7 : 6;
+  const rows2 = [], head2 = ['#', 'Empleado', 'Llegadas tarde', 'Minutos totales', 'Promedio por llegada (min)', 'Mayor demora (min)', 'Turno mañana', 'Turno tarde']
+    .concat(DIAS.slice(0, nDias)).concat(['Día más frecuente']);
+  rows2.push([c('Llegadas tarde — Resumen y patrones', S.TITLE)]);
+  rows2.push([c(subtitulo, S.SUB)]);
+  rows2.push([]);
+  rows2.push(head2.map(h => c(h, S.HEAD)));
+  resumen.forEach((g, i) => {
+    const mx = Math.max(...g.dias.slice(0, nDias));
+    const top = DIAS.slice(0, nDias).filter((d, k) => g.dias[k] === mx);
+    const frec = mx < 2 ? '—' : (top.length > 3 ? 'Sin día fijo' : top.join(' / '));
+    rows2.push([c(i + 1, S.CENTER), c(g.nombre, S.TEXT), c(g.cant, S.CENTER), c(g.min, S.RED), c(Math.round(g.min / g.cant * 10) / 10, S.DEC), c(g.max, S.CENTER),
+      c(g.man, S.CENTER), c(g.tar, S.CENTER)].concat(g.dias.slice(0, nDias).map(n => c(n, S.CENTER))).concat([c(frec, S.CENTER)]));
+  });
+  const tot2 = [c('', S.TLABEL), c('TOTAL', S.TLABEL), c(totCant, S.TNUM), c(totMin, S.TNUM), c(Math.round(totMin / totCant * 10) / 10, S.TNUM),
+    c(Math.max(...resumen.map(g => g.max)), S.TNUM), c(resumen.reduce((a, g) => a + g.man, 0), S.TNUM), c(resumen.reduce((a, g) => a + g.tar, 0), S.TNUM)];
+  for (let k = 0; k < nDias; k++) tot2.push(c(resumen.reduce((a, g) => a + g.dias[k], 0), S.TNUM));
+  tot2.push(c('', S.TLABEL));
+  rows2.push(tot2);
+  const lastCol2 = xlsxCol(head2.length - 1), firstDia = xlsxCol(8), lastDia = xlsxCol(7 + nDias), lastRow2 = 4 + resumen.length;
+  const heights2 = []; heights2[0] = 26; heights2[3] = 44;
+
+  const cols2 = [5, 30, 13, 13, 16, 14, 11, 11].concat(new Array(nDias).fill(7)).concat([20]);
+  const blob = xlsxBuild([
+    { name: 'Detalle por empleado', rows: rows1, merges: merges1, cols: [30, 16, 13, 8, 10, 13, 13, 18], freezeRow: 4, heights: heights1 },
+    { name: 'Resumen y patrones', rows: rows2, merges: ['A1:' + lastCol2 + '1', 'A2:' + lastCol2 + '2'], cols: cols2, freezeRow: 4, heights: heights2,
+      autoFilter: `A4:${lastCol2}${lastRow2}`, heat: `${firstDia}5:${lastDia}${lastRow2}` }
+  ]);
+
+  const nombreArchivo = `llegadas_tarde_${dia || mes || 'todos_los_meses'}${emp ? '_' + emp.replace(/[^\wÁÉÍÓÚáéíóúñÑ]+/g, '_') : ''}.xlsx`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  showToast('Excel exportado ✓', 'success');
 }
 
 // ── AUSENTES / SIN MARCAR ──
