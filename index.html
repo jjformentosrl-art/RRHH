@@ -1089,7 +1089,7 @@
             <option value="">Todos los meses</option>
           </select>
           <div style="margin-left:auto;font-size:12px;color:var(--text3)">
-            Score = ponderación de 9 métricas de distribución (mayor es mejor)
+            Score = ponderación de 9 métricas de distribución (mayor es mejor) · excesos de velocidad, errores de caja y NC no realizadas penalizan más cuantos más haya
           </div>
         </div>
         <div id="distRankingContainer" style="overflow:auto;flex:1"></div>
@@ -7213,6 +7213,20 @@ function calcDistScore(d, allData) {
     return ref(vals, fallbackMax);
   });
   const refRatio = (key, fallbackMax) => scoreRefMemo(allData, 'ratio:' + key + ':' + fallbackMax, () => ref(ratioVals(key), fallbackMax));
+  // Métricas negativas (excesos, errores, NC): el mínimo de referencia es SIEMPRE 0,
+  // así 1 solo error ya resta algo frente a quien no tuvo ninguno.
+  const refNeg = (key, fallbackMax) => scoreRefMemo(allData, 'neg:' + key + ':' + fallbackMax, () => {
+    const vals = allData.map(r => parseFloat(r[key])||0).filter(v => v > 0);
+    return { min: 0, max: vals.length ? Math.max(...vals) : fallbackMax };
+  });
+  // Penalización progresiva: la curva (1-n)^1.5 resta más a medida que aumentan los errores
+  // (n = 0 sin errores, n = 1 el peor del período). Ej.: a la mitad del peor pierde ~65% del puntaje (lineal: 50%).
+  const PEN_EXP = 1.5;
+  const normPen = (val, max) => {
+    if (max <= 0) return 1;
+    const n = Math.max(0, Math.min(1, val / max));
+    return Math.pow(1 - n, PEN_EXP);
+  };
   const norm = (val, min, max, dir) => {
     if (max === min) return 0.5;
     let n = (val - min) / (max - min);
@@ -7220,10 +7234,10 @@ function calcDistScore(d, allData) {
     return dir === +1 ? n : 1 - n;
   };
 
-  const rExcesos  = refRaw('excesos_vel',      30);
+  const rExcesos  = refNeg('excesos_vel',      30);
   const rCheck    = refRaw('checklist_pct',   100);
-  const rErrCaja  = refRaw('errores_caja',     20);
-  const rNC       = refRaw('nc_no_realizadas', 15);
+  const rErrCaja  = refNeg('errores_caja',     20);
+  const rNC       = refNeg('nc_no_realizadas', 15);
   const rViajes   = refRaw('cant_viajes',      100);
   const rKgXV       = refRatio('kg_transportados', 500);
   const rKmXV       = refRatio('km_recorridos', 200);
@@ -7231,18 +7245,19 @@ function calcDistScore(d, allData) {
   const rBultosXV   = refRatio('bultos', 80);
 
   // Pesos: suman 100
-  // Conducta/seguridad ahora pesa 60 (antes 50): checklist 26, excesos 18, errores 9, NC 7
-  // Eficiencia por viaje ahora pesa 40 (antes 50): bultos 10, kg 9, clientes 8, km 6, viajes 7
-  const s_checklist  = norm(checklist_pct,    rCheck.min,    rCheck.max,    +1) * 26;
-  const s_excesos    = norm(excesos_vel,       rExcesos.min,  rExcesos.max,  -1) * 18;
-  const s_errores    = norm(errores_caja,      rErrCaja.min,  rErrCaja.max,  -1) *  9;
-  const s_nc         = norm(nc_no_realizadas,  rNC.min,       rNC.max,       -1) *  7;
-  const s_bultos     = norm(bultos_x_viaje,    rBultosXV.min,   rBultosXV.max,   +1) * 10;
-  const s_kg         = norm(kg_x_viaje,        rKgXV.min,       rKgXV.max,       +1) *  9;
-  const s_clientes   = norm(clientes_x_viaje,  rClientesXV.min, rClientesXV.max, +1) *  8;
-  const s_km         = norm(km_x_viaje,        rKmXV.min,       rKmXV.max,       +1) *  6;
-  const s_viajes     = norm(cant_viajes,       rViajes.min,   rViajes.max,   +1) *  7;
-  // Total: 26+18+9+7 (conducta=60) + 10+9+8+6+7 (eficiencia=40) = 100
+  // Conducta/seguridad pesa 68 (antes 60): checklist 20, excesos 24, errores 14, NC 10
+  // Eficiencia por viaje pesa 32 (antes 40): bultos 8, kg 7, clientes 6, km 5, viajes 6
+  // Excesos, errores y NC usan penalización progresiva (normPen): muchos errores restan más que proporcionalmente.
+  const s_checklist  = norm(checklist_pct,    rCheck.min,    rCheck.max,    +1) * 20;
+  const s_excesos    = normPen(excesos_vel,      rExcesos.max) * 24;
+  const s_errores    = normPen(errores_caja,     rErrCaja.max) * 14;
+  const s_nc         = normPen(nc_no_realizadas, rNC.max)      * 10;
+  const s_bultos     = norm(bultos_x_viaje,    rBultosXV.min,   rBultosXV.max,   +1) *  8;
+  const s_kg         = norm(kg_x_viaje,        rKgXV.min,       rKgXV.max,       +1) *  7;
+  const s_clientes   = norm(clientes_x_viaje,  rClientesXV.min, rClientesXV.max, +1) *  6;
+  const s_km         = norm(km_x_viaje,        rKmXV.min,       rKmXV.max,       +1) *  5;
+  const s_viajes     = norm(cant_viajes,       rViajes.min,   rViajes.max,   +1) *  6;
+  // Total: 20+24+14+10 (conducta=68) + 8+7+6+5+6 (eficiencia=32) = 100
 
   const total = s_checklist + s_excesos + s_bultos + s_kg +
                 s_clientes + s_km + s_viajes + s_errores + s_nc;
