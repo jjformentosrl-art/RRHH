@@ -698,6 +698,11 @@
   .aud-tbl th:first-child, .aud-tbl td:first-child { text-align: left; }
   .aud-tbl th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text3); background: var(--surface2); }
   .aud-box { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: auto; flex-shrink: 0; }
+  .aud-sug-wrap { max-height: 230px; overflow-y: auto; padding-right: 2px; }
+  .aud-sug { display: block; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px dashed var(--border); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; font-family: inherit; }
+  .aud-sug:hover { border-color: var(--accent); background: var(--surface2); }
+  .aud-sug-t { display: block; font-size: 11px; font-weight: 700; margin-bottom: 2px; }
+  .aud-sug-d { display: block; font-size: 12px; color: var(--text2); line-height: 1.35; }
 
   /* ═══ LIMPIEZA ═══ */
   #limpScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
@@ -1792,6 +1797,7 @@
       <div class="desempeño-tabs" id="audTabsTop" style="flex-shrink:0">
         <button class="dtab active" onclick="audTab('registros', this)">📋 Registros</button>
         <button class="dtab" onclick="audTab('analisis', this)">📊 Análisis de Auditorías</button>
+        <button class="dtab" id="audTabBtnResp" onclick="audTab('responsables', this)">👥 Responsables por zona</button>
       </div>
 
       <div class="dpanel aud-p1 active" id="apanel-registros">
@@ -1818,6 +1824,17 @@
               </tr>
             </thead>
             <tbody id="audTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel aud-p1" id="apanel-responsables">
+        <div class="stats" id="audRespStats"></div>
+        <div class="link-box" style="font-family:inherit;margin-bottom:12px">👥 Elegí quién es el responsable de cada zona. Al crear un plan de acción de esa zona, el responsable se completa solo (y lo podés cambiar en cada acción). Los cambios se guardan automáticamente.</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Zona</th><th>Responsable</th><th>Última auditoría</th><th>Acciones abiertas</th></tr></thead>
+            <tbody id="audRespTbody"></tbody>
           </table>
         </div>
       </div>
@@ -2806,19 +2823,21 @@
       <div class="form-grid">
         <div class="form-group">
           <label>Zona *</label>
-          <select id="aplan_zona"></select>
+          <select id="aplan_zona" onchange="audPlanZonaChange()"></select>
         </div>
         <div class="form-group">
           <label>Etapa 5S</label>
-          <select id="aplan_etapa"></select>
+          <select id="aplan_etapa" onchange="audPlanRenderSug()"></select>
         </div>
+        <div class="form-group full" id="aplan_sug_box"></div>
         <div class="form-group full">
           <label>Acción a realizar *</label>
           <textarea id="aplan_accion" rows="3" style="resize:vertical" placeholder="Describí la acción concreta a implementar..."></textarea>
         </div>
         <div class="form-group">
           <label>Responsable *</label>
-          <select id="aplan_resp"></select>
+          <select id="aplan_resp" onchange="aplanRespManual=true;audPlanRespHint()"></select>
+          <div id="aplan_resp_hint" style="font-size:11px;margin-top:4px"></div>
         </div>
         <div class="form-group">
           <label>Fecha límite</label>
@@ -11709,7 +11728,7 @@ const AUD_PALETA = ['#6c47ff', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4
 const AUD_ESTADOS = ['Pendiente', 'En curso', 'Completada'];
 
 const audState = { adm: { r: {}, o: {} }, pub: { r: {}, o: {} } };
-let audPlanEdit = null, audPlanLink = '';
+let audPlanEdit = null, audPlanLink = '', aplanRespManual = false, audSugList = [];
 const $a = id => document.getElementById(id);
 
 // ─── helpers ───
@@ -11861,6 +11880,7 @@ function renderAuditorias() {
   audFillSelect('audPlanFResp', 'Todos los responsables', [...new Set(auditoriasPlanData.map(p => p.responsable).filter(Boolean))].sort());
   renderAudLink();
   renderAudRegistros();
+  renderAudResponsables();
   renderAudEvolucion();
   renderAudPlan();
 }
@@ -11939,7 +11959,8 @@ function audVer(id) {
     <div style="display:flex;justify-content:space-between;flex-wrap:wrap;font-size:13px;margin-bottom:6px">
       <span>👤 <b>${licEsc(a.auditor)}</b> · ${a.origen === 'Enlace' ? 'cargada por enlace' : 'cargada por administración'}</span>
       <span>Resultado total: <b style="color:${audColor(t)};font-size:16px">${audFmt(t)}</b></span>
-    </div>` + AUD_ETAPAS.map(et => {
+    </div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:6px">👥 Responsable de la zona: <b>${licEsc(audRespOf(a.zona) || 'sin asignar')}</b></div>` + AUD_ETAPAS.map(et => {
       const p = audStagePct(a, et.k);
       return `<div class="aud-etapa" style="border-left-color:${et.color}">
         <div class="aud-etapa-h"><span>${et.ico} ${et.nombre}</span><b style="color:${audColor(p)}">${audFmt(p)}</b></div>
@@ -12135,18 +12156,214 @@ function openAudPlanModal(id, pre) {
   $a('aplan_etapa').innerHTML = AUD_ETAPAS.map(e => `<option value="${e.nombre}">${e.nombre}</option>`).join('') + '<option value="General">General</option>';
   const nombres = employees.map(e => e.nombre).filter(Boolean).sort((a, b) => a.localeCompare(b));
   if (p && p.responsable && !nombres.includes(p.responsable)) nombres.push(p.responsable);
+  Object.values(audRespMap()).forEach(n => { if (n && !nombres.includes(n)) nombres.push(n); });
   $a('aplan_resp').innerHTML = '<option value="">Seleccioná el responsable...</option>' + nombres.map(n => `<option value="${licEsc(n)}">${licEsc(n)}</option>`).join('');
   $a('aplan_zona').value = p ? (p.zona || '') : (pre.zona || '');
   $a('aplan_etapa').value = p ? (p.etapa || 'General') : (pre.etapa || 'General');
   $a('aplan_accion').value = p ? (p.accion || '') : '';
-  $a('aplan_resp').value = p ? (p.responsable || '') : '';
+  aplanRespManual = !!p;
+  $a('aplan_resp').value = p ? (p.responsable || '') : (pre.responsable || audRespOf($a('aplan_zona').value) || '');
   $a('aplan_limite').value = p ? (p.fecha_limite || '') : '';
   $a('aplan_estado').value = p ? (p.estado || 'Pendiente') : 'Pendiente';
   $a('aplan_notas').value = p ? (p.notas || '') : '';
   audPlanLink = p ? (p.auditoria_id || '') : (pre.auditoria_id || '');
+  audPlanRespHint();
+  audPlanRenderSug();
   $a('audPlanModal').classList.add('open');
 }
 function closeAudPlanModal() { $a('audPlanModal').classList.remove('open'); }
+
+// ─── RESPONSABLES POR ZONA ───
+// Se guardan como JSON en la hoja CONFIG (clave "aud_responsables") con la acción saveConfig que ya existe.
+function audRespMap() {
+  try { const m = JSON.parse((configData && configData.aud_responsables) || '{}'); return (m && typeof m === 'object') ? m : {}; } catch (e) { return {}; }
+}
+function audRespOf(zona) { return zona ? (audRespMap()[zona] || '') : ''; }
+
+async function audRespSet(zona, nombre) {
+  const m = audRespMap();
+  nombre = String(nombre || '').trim();
+  if (nombre) m[zona] = nombre; else delete m[zona];
+  const json = JSON.stringify(m);
+  if (API_URL) {
+    const res = await apiCall('saveConfig', { data: { aud_responsables: json } });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); renderAudResponsables(); return; }
+  }
+  configData = { ...configData, aud_responsables: json };
+  if (!API_URL) { try { localStorage.setItem('rrhh_config', JSON.stringify(configData)); } catch (e) {} }
+  renderAudResponsables();
+  showToast(nombre ? 'Responsable de ' + zona + ': ' + nombre + ' ✓' : 'Responsable de ' + zona + ' quitado ✓', 'success');
+}
+
+function audRespChange(sel) {
+  if (sel.value === '__otro__') {
+    const inp = sel.parentNode.querySelector('input');
+    if (inp) { inp.style.display = 'block'; inp.focus(); }
+    return;
+  }
+  audRespSet(sel.dataset.z, sel.value);
+}
+function audRespOtroSave(inp) {
+  if (inp.dataset.busy) return;
+  const v = inp.value.trim();
+  if (!v) { renderAudResponsables(); return; }
+  inp.dataset.busy = '1';
+  audRespSet(inp.dataset.z, v);
+}
+
+function renderAudResponsables() {
+  const tb = $a('audRespTbody'); if (!tb) return;
+  const m = audRespMap(), zonas = audZonasAll();
+  const nomina = employees.map(e => e.nombre).filter(Boolean).sort((a, b) => a.localeCompare(b));
+  const asignadas = zonas.filter(z => m[z]).length;
+  const card = (ico, v, l) => `<div class="stat-card"><span class="stat-icon">${ico}</span><div><div class="stat-value">${v}</div><div class="stat-label">${l}</div></div></div>`;
+  $a('audRespStats').innerHTML = card('👥', asignadas + ' / ' + zonas.length, 'Zonas con responsable') + card('⚠️', zonas.length - asignadas, 'Zonas sin responsable');
+  // si hay un campo en edición no pisamos la pantalla
+  if (tb.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  tb.innerHTML = zonas.map(z => {
+    const cur = m[z] || '';
+    const opts = [...nomina]; if (cur && !opts.includes(cur)) opts.push(cur);
+    const ult = audSorted(auditoriasData.filter(a => a.zona === z)).pop();
+    const abiertas = auditoriasPlanData.filter(p => p.zona === z && (p.estado || 'Pendiente') !== 'Completada').length;
+    const zz = licEsc(z);
+    return `<tr>
+      <td><strong>${zz}</strong></td>
+      <td>
+        <select class="filter-select" style="min-width:230px" data-z="${zz}" onchange="audRespChange(this)">
+          <option value="">— Sin asignar —</option>
+          ${opts.map(n => `<option value="${licEsc(n)}" ${n === cur ? 'selected' : ''}>${licEsc(n)}</option>`).join('')}
+          <option value="__otro__">✍️ Otro (escribir nombre)...</option>
+        </select>
+        <input type="text" class="filter-select" data-z="${zz}" placeholder="Escribí el nombre y Enter" style="display:none;margin-top:6px;min-width:230px" onkeydown="if(event.key==='Enter')this.blur()" onblur="audRespOtroSave(this)">
+      </td>
+      <td>${ult ? fmtDate(ult.fecha) + ' · <b style="color:' + audColor(audTotal(ult)) + '">' + audFmt(audTotal(ult)) + '</b>' : '<span style="color:var(--text3)">Sin auditorías</span>'}</td>
+      <td>${abiertas ? '<b>' + abiertas + '</b>' : '<span style="color:var(--text3)">0</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function audIrResponsables() {
+  closeAudPlanModal();
+  const b = $a('audTabBtnResp'); if (b) b.click();
+}
+
+// ─── responsable automático en el plan de acción ───
+function audPlanRespHint() {
+  const h = $a('aplan_resp_hint'); if (!h) return;
+  const zona = $a('aplan_zona').value, auto = audRespOf(zona), cur = $a('aplan_resp').value;
+  if (audPlanEdit || !zona) { h.innerHTML = ''; return; }
+  if (!auto) { h.innerHTML = '<span style="color:var(--warning)">⚠️ Esta zona no tiene responsable configurado. <a href="#" onclick="audIrResponsables();return false">Configurarlo</a></span>'; return; }
+  h.innerHTML = cur === auto
+    ? '<span style="color:var(--success)">✓ Responsable de la zona (automático). Podés cambiarlo.</span>'
+    : '<span style="color:var(--text3)">Responsable de la zona: <b>' + licEsc(auto) + '</b> · <a href="#" onclick="audPlanUsarRespZona();return false">usar este</a></span>';
+}
+function audPlanUsarRespZona() {
+  $a('aplan_resp').value = audRespOf($a('aplan_zona').value) || '';
+  aplanRespManual = false;
+  audPlanRespHint();
+}
+function audPlanZonaChange() {
+  const zona = $a('aplan_zona').value;
+  if (audPlanLink) {
+    const a = auditoriasData.find(x => String(x.__ID__) === String(audPlanLink));
+    if (a && a.zona !== zona) audPlanLink = '';
+  }
+  if (!audPlanEdit && !aplanRespManual) $a('aplan_resp').value = audRespOf(zona) || '';
+  audPlanRespHint();
+  audPlanRenderSug();
+}
+
+// ─── sugerencias de acción según resultados y observaciones ───
+const AUD_SUG_Q = {
+  s1_q1: 'Realizar un operativo de clasificación (tarjeta roja): retirar del sector todo elemento que no se use a diario y definir dónde se guarda o descarta.',
+  s1_q2: 'Rotular todos los materiales y productos del sector con etiquetas visibles (nombre / código / ubicación) y verificar que no quede nada sin identificar.',
+  s1_q3: 'Relevar y retirar los objetos obsoletos o en desuso (cajas, estanterías, equipos rotos) y registrar su destino final.',
+  s2_q1: 'Definir y señalizar un lugar fijo para cada herramienta (tablero con siluetas) y asignar a una persona la verificación de reposición al final del turno.',
+  s2_q2: 'Colocar cartelería y demarcación visual en el sector: rótulos de estanterías, líneas en el piso y colores por categoría.',
+  s2_q3: 'Demarcar pasillos y accesos con cinta de piso, prohibir apoyar mercadería sobre ellos y hacer una verificación diaria de despeje.',
+  s3_q1: 'Establecer un cronograma de limpieza de pisos y superficies del sector, con responsable y registro de cumplimiento (check diario).',
+  s3_q2: 'Incorporar la limpieza de equipos (zorras, autoelevadores, balanzas, equipos de frío) a la rutina de fin de turno, con checklist.',
+  s3_q3: 'Proveer o reubicar contenedores de residuos identificados por tipo y definir la frecuencia de vaciado.',
+  s4_q1: 'Programar una capacitación sobre 5S y buenas prácticas del sector, con registro de asistencia.',
+  s4_q2: 'Definir 2 o 3 indicadores de productividad del sector, medirlos periódicamente y publicarlos en un lugar visible.',
+  s4_q3: 'Fijar una frecuencia de auditorías internas 5S para el sector (ej. mensual) y asegurar que se cumpla a través del enlace de auditoría.',
+  s5_q1: 'Hacer una ronda 5S breve semanal en el sector, corrigiendo los desvíos en el momento para sostener el hábito.',
+  s5_q2: 'Hacer una reunión corta de equipo para asignar un rol 5S a cada persona y recoger propuestas de mejora del propio personal.',
+  s5_q3: 'Reforzar el uso obligatorio de EPP: verificar stock y talles, entregar lo que falte y hacer controles aleatorios.'
+};
+const AUD_SUG_KW = [
+  [/vencid|vencimiento|fefo|fifo/i, 'Revisar fechas de vencimiento, aplicar rotación FEFO/FIFO y retirar y registrar el producto vencido o próximo a vencer.'],
+  [/pallet|palet|tarima/i, 'Ubicar los pallets en posiciones definidas, retirar los rotos o sobrantes y evitar que queden en pasillos.'],
+  [/caja|cartón|carton/i, 'Retirar cajas y cartones vacíos del sector con una frecuencia definida y destinarlos a reciclaje.'],
+  [/sucio|suciedad|polvo|mancha|grasa|derrame|pegajos/i, 'Hacer una limpieza profunda inmediata del sector y definir frecuencia y responsable de limpieza.'],
+  [/residuo|basura|desecho|tacho/i, 'Identificar y reubicar los contenedores de residuos del sector y definir la frecuencia de vaciado.'],
+  [/\bepp\b|casco|guante|chaleco|calzado|botas/i, 'Controlar el uso de EPP en el sector, reponer lo faltante y reforzar la obligatoriedad con el personal.'],
+  [/cartel|señaliz|senaliz|identific|rotul|etiqueta/i, 'Colocar o reponer la señalética, rótulos y etiquetas faltantes en el sector.'],
+  [/pasillo|obstru|bloquead|despej/i, 'Despejar y demarcar los pasillos y accesos del sector, y verificar el despeje todos los días.'],
+  [/herramienta|zorra|autoelevador|apilador/i, 'Definir un lugar fijo para herramientas y equipos de movimiento, y verificar que vuelvan a su sitio al final del turno.'],
+  [/humedad|gotera|filtraci|moho|óxido|oxido/i, 'Reportar y reparar la fuente de humedad o filtración y limpiar el área afectada.'],
+  [/luz|ilumin|luminaria|lámpara|lampara/i, 'Reponer o reparar la iluminación deficiente del sector.'],
+  [/roto|rota|dañad|danad|deteriorad|reparar|arreglo/i, 'Relevar los elementos dañados del sector y generar el pedido de reparación o reposición.']
+];
+
+function audAuditoriaBase(zona) {
+  if (audPlanLink) {
+    const a = auditoriasData.find(x => String(x.__ID__) === String(audPlanLink));
+    if (a) return a;
+  }
+  if (!zona) return null;
+  const l = audSorted(auditoriasData.filter(a => a.zona === zona));
+  return l.length ? l[l.length - 1] : null;
+}
+
+function audGenSugerencias(a, etapa) {
+  const out = [], usados = new Set();
+  const general = !etapa || etapa === 'General';
+  const etapas = AUD_ETAPAS.filter(e => general || e.nombre === etapa);
+  const add = o => { if (!o.texto || usados.has(o.texto)) return false; usados.add(o.texto); out.push(o); return true; };
+  let kw = 0;
+  etapas.forEach(et => {
+    const obs = String(a[et.k + '_obs'] || '').trim();
+    if (!obs) return;
+    add({ et, score: null, titulo: '📝 Observación del auditor (' + et.corto + ')', texto: 'Atender la observación de la auditoría (' + et.nombre + '): «' + obs + '».' });
+    AUD_SUG_KW.forEach(([re, txt]) => { if (kw < 3 && re.test(obs) && add({ et, score: null, titulo: '💡 Según la observación (' + et.corto + ')', texto: txt })) kw++; });
+  });
+  const qs = [];
+  etapas.forEach(et => et.preguntas.forEach((q, i) => {
+    const v = audNum(a[et.k + '_q' + (i + 1)]);
+    if (v < 100) qs.push({ et, q, v, id: et.k + '_q' + (i + 1) });
+  }));
+  qs.sort((x, y) => x.v - y.v);
+  qs.slice(0, general ? 5 : 4).forEach(o => add({ et: o.et, score: o.v, titulo: o.v + '% · ' + o.q, texto: AUD_SUG_Q[o.id] }));
+  if (!qs.length) add({ et: etapas[0], score: 100, titulo: '✅ Sin puntos débiles en esta etapa', texto: 'Sostener el nivel alcanzado: mantener una ronda 5S periódica en el sector y reconocer al equipo por el resultado.' });
+  return out.slice(0, 8);
+}
+
+function audPlanRenderSug() {
+  const box = $a('aplan_sug_box'); if (!box) return;
+  audSugList = [];
+  const note = t => '<div style="font-size:12px;color:var(--text3)">💡 ' + t + '</div>';
+  if (audPlanEdit) { box.innerHTML = ''; return; }
+  const zona = $a('aplan_zona').value, etapa = $a('aplan_etapa').value;
+  if (!zona) { box.innerHTML = note('Elegí una zona para ver sugerencias de acción según los resultados de su última auditoría.'); return; }
+  const a = audAuditoriaBase(zona);
+  if (!a) { box.innerHTML = note('Esta zona todavía no tiene auditorías, así que no hay sugerencias automáticas.'); return; }
+  audSugList = audGenSugerencias(a, etapa);
+  const t = audTotal(a);
+  box.innerHTML = '<label>💡 Sugerencias de acción <span style="font-weight:400;color:var(--text3)">· auditoría del ' + fmtDate(a.fecha) + ' (<b style="color:' + audColor(t) + '">' + audFmt(t) + '</b>) — tocá una para usarla</span></label>' +
+    '<div class="aud-sug-wrap">' + audSugList.map((s, i) =>
+      '<button type="button" class="aud-sug" onclick="audPlanUsarSug(' + i + ')"><span class="aud-sug-t" style="color:' + (s.score == null ? 'var(--text2)' : audColor(s.score)) + '">' + licEsc(s.titulo) + '</span><span class="aud-sug-d">' + licEsc(s.texto) + '</span></button>'
+    ).join('') + '</div>';
+}
+
+function audPlanUsarSug(i) {
+  const s = audSugList[i]; if (!s) return;
+  const ta = $a('aplan_accion');
+  ta.value = ta.value.trim() ? ta.value.trim() + '\n' + s.texto : s.texto;
+  if ($a('aplan_etapa').value === 'General' && s.et) $a('aplan_etapa').value = s.et.nombre;
+  ta.focus();
+  showToast('Sugerencia agregada: podés editarla ✓', 'success');
+}
 
 async function saveAudPlan() {
   const data = {
