@@ -10,7 +10,7 @@
    Se detecta antes de pintar nada: se oculta toda la app de administración,
    no se descargan tipografías externas y se desactivan animaciones/sombras. */
 (function(){
-  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion|auditoria)=1(&|$)/.test(location.search);
+  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion|auditoria|racks|equipos)=1(&|$)/.test(location.search);
   if (lite) { document.documentElement.className += ' lite'; }
   else {
     var l = document.createElement('link');
@@ -673,6 +673,67 @@
   .cap-bar { height: 8px; border-radius: 6px; background: var(--surface2); overflow: hidden; min-width: 60px; }
   .cap-bar > i { display: block; height: 100%; background: var(--success); }
 
+
+  /* ═══ SEGURIDAD E HIGIENE: CONTROL DE RACKS Y EQUIPOS DE MANIPULEO ═══ */
+  #rackScreen, #eqScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
+  #rackScreen.active, #eqScreen.active { display: flex; }
+  html.lite #rackScreen, html.lite #eqScreen { position: static; padding: 16px 12px 32px; overflow: visible; }
+  html.lite #rackScreen.active, html.lite #eqScreen.active { display: block; }
+  .sg-wrap { display: flex; flex-wrap: wrap; margin: -4px; }
+  .sg-wrap > * { margin: 4px; }
+  .sg-pas { flex: 1 1 84px; min-width: 84px; padding: 14px 8px; border: 2px solid var(--border-strong); border-radius: 12px; background: var(--surface); font-weight: 700; font-size: 19px; line-height: 1.1; font-family: inherit; text-align: center; cursor: pointer; color: var(--text); }
+  .sg-pas small { display: block; font-size: 11px; font-weight: 600; color: var(--text3); margin-top: 4px; }
+  .sg-pas.ok small { color: var(--success); }
+  .sg-pas.bad small { color: var(--danger); }
+  .sg-pas.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+  .sg-pas.on small { color: #DCE8FB; }
+  .sg-chip { padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); font-weight: 600; font-size: 13px; line-height: 1.25; font-family: inherit; cursor: pointer; text-align: left; color: var(--text); }
+  .sg-chip.on { background: #FBE6E6; border-color: var(--danger); color: #A12B2B; }
+  .sg-sev { flex: 1 1 90px; padding: 11px 6px; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); font-weight: 700; font-size: 13px; line-height: 1.2; font-family: inherit; cursor: pointer; color: var(--text); text-align: center; }
+  .sg-sev.on.s-leve { background: #FDF1D8; border-color: var(--warning); color: #8A5A00; }
+  .sg-sev.on.s-moderado { background: #FDEBDC; border-color: #E07B18; color: #9A4A0C; }
+  .sg-sev.on.s-critico { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .sg-big { display: block; width: 100%; padding: 17px 10px; border: 0; border-radius: 14px; font-weight: 700; font-size: 16px; line-height: 1.2; font-family: inherit; cursor: pointer; color: #fff; text-align: center; }
+  .sg-big:disabled { opacity: 0.5; cursor: not-allowed; }
+  .sg-big.ok { background: var(--success); }
+  .sg-big.bad { background: var(--danger); }
+  .sg-big.neutral { background: var(--accent); }
+  .sg-big.ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
+  .sg-box { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; }
+  .sg-hall { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--danger); border-radius: 10px; padding: 10px 12px; margin-top: 8px; font-size: 13px; }
+  .sg-hall b { font-size: 15px; }
+  .sg-item { background: var(--surface); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 12px; padding: 10px 12px; margin-top: 10px; }
+  .sg-item.ok { border-left-color: var(--success); }
+  .sg-item.mal { border-color: var(--danger); border-left-color: var(--danger); background: rgba(209,63,63,0.05); }
+  .sg-item.na { border-left-color: var(--text3); }
+  .sg-item.falta { border-color: var(--warning); background: rgba(217,142,4,0.09); }
+  .sg-item-t { font-size: 13.5px; font-weight: 600; margin-bottom: 8px; }
+  .sg-crit { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 10px; background: #FBE6E6; color: #A12B2B; font-size: 10.5px; font-weight: 700; vertical-align: 1px; }
+  .sg-ans { display: flex; }
+  .sg-ans button { flex: 1; margin-left: 6px; padding: 12px 0; border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface); color: var(--text); font-weight: 700; font-size: 14px; line-height: 1; font-family: inherit; cursor: pointer; }
+  .sg-ans button:first-child { margin-left: 0; }
+  .sg-ans button.b-ok.on { background: var(--success); border-color: var(--success); color: #fff; }
+  .sg-ans button.b-mal.on { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .sg-ans button.b-na.on { background: var(--text3); border-color: var(--text3); color: #fff; }
+  .sg-item textarea, .sg-box textarea { width: 100%; margin-top: 8px; padding: 10px; font-size: 14px; border: 1px solid var(--border-strong); border-radius: 10px; font-family: inherit; background: var(--surface); color: var(--text); box-sizing: border-box; resize: vertical; }
+  .sg-lbl { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; color: var(--text2); }
+  .sg-pcard { background: var(--surface); border: 1px solid var(--border); border-top: 4px solid var(--border-strong); border-radius: var(--radius); padding: 14px; }
+  .sg-pcard.verde { border-top-color: var(--success); }
+  .sg-pcard.ambar { border-top-color: var(--warning); }
+  .sg-pcard.rojo { border-top-color: var(--danger); }
+  .sg-pcard h4 { font-size: 16px; margin-bottom: 4px; }
+  .sg-pcard .sub { font-size: 12.5px; color: var(--text3); margin-top: 3px; }
+  .sg-rackchip { display: inline-block; margin: 3px 4px 0 0; padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 700; background: #FDEBDC; color: #9A4A0C; }
+  .sg-rackchip.crit { background: var(--danger); color: #fff; }
+  .sg-rackchip.leve { background: #FDF1D8; color: #8A5A00; }
+  .sg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .sg-fotos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .sg-fotos img { width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; }
+  .sg-fotoin { border: 1px dashed var(--border-strong); border-radius: 10px; padding: 10px; background: var(--surface2); }
+  .sg-fotoin img { max-width: 100%; max-height: 160px; border-radius: 8px; margin-top: 8px; display: none; }
+  .sg-fotoin .st { font-size: 12px; color: var(--text3); margin-top: 6px; }
+  @media (max-width: 560px) { .sg-fotos { grid-template-columns: 1fr; } }
+
   /* ═══ AUDITORÍA CRUZADA 5S ═══ */
   #audScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
   #audScreen.active { display: flex; }
@@ -765,6 +826,8 @@
 #panel-capacitaciones::before{content:"Capacitaciones"}
 #panel-limpieza::before{content:"Plan de limpieza"}
 #panel-auditorias::before{content:"Auditoría cruzada 5S"}
+#panel-racks::before{content:"Control de racks"}
+#panel-equipos::before{content:"Equipos de manipuleo"}
 #panel-organigrama::before{content:"Organigrama"}
 
   .tabs { grid-area: nav; flex-direction: column; gap: 2px; padding: 14px 12px 20px; background: var(--ink); border-bottom: 0; overflow-x: hidden; overflow-y: auto; min-height: 0; }
@@ -950,6 +1013,26 @@
 .org-chart.editing .org-box:hover, .org-chart.editing .org-person:hover, .org-chart.editing .org-gtitle:hover { outline-color: var(--accent); }
 .org-chart.editing .org-person:hover { background: rgba(108,71,255,0.08); }
 </style>
+<style id="scrollGeneralCss">
+/* ═══ SCROLL GENERAL POR PÁGINA ═══
+   Cada página (panel) se desplaza completa, vertical y horizontalmente.
+   Ningún bloque se achica ni se recorta: tablas, tarjetas y gráficos
+   toman su alto real y se llega a todo con la barra de la página. */
+.panel { overflow-y: auto !important; overflow-x: auto !important; min-height: 0; }
+.panel > *, .panel .dpanel > * { flex-shrink: 0 !important; }
+
+/* Sub-pestañas: dejan de recortar y crecen según su contenido */
+.panel .dpanel { overflow: visible !important; flex: 1 0 auto !important; min-height: 0; }
+
+/* Tablas, grillas de tarjetas y gráficos: alto natural (sin scroll interno) */
+.panel .table-wrap:not([style*="max-height"]) { flex: 1 0 auto !important; overflow: visible !important; }
+.panel .chart-grid, .panel .conduct-grid, .panel .vac-grid { flex: 1 0 auto !important; overflow: visible !important; }
+.panel [style*="overflow:auto"][style*="flex:1"] { flex: 1 0 auto !important; overflow: visible !important; }
+
+/* Organigrama: conserva su zoom/scroll propio, pero con alto mínimo usable */
+#panel-organigrama { overflow-y: auto !important; overflow-x: auto !important; }
+.org-scroll { flex: 1 0 auto !important; min-height: 70vh; }
+</style>
 </head>
 <body>
 <div class="app">
@@ -1008,6 +1091,9 @@
     <button class="tab" onclick="showTab('fichadas')">📍 Fichadas / Asistencia</button>
     <button class="tab" onclick="showTab('ropa')">👕 Entrega Ropa</button>
     <button class="tab" onclick="showTab('limpieza')">🧹 Limpieza</button>
+    <div class="tabs-label">Seguridad e Higiene</div>
+    <button class="tab" onclick="showTab('racks')">🏗️ Control de Racks</button>
+    <button class="tab" onclick="showTab('equipos')">🚜 Equipos de Manipuleo</button>
     <div class="tabs-label">Gestión interna</div>
     <button class="tab" onclick="showTab('capacitaciones')">🎓 Capacitaciones</button>
     <button class="tab" onclick="showTab('auditorias')">🔍 Auditoría Cruzada</button>
@@ -2047,6 +2133,155 @@
       </div>
     </div>
 
+    <!-- CONTROL DE RACKS -->
+    <div class="panel" id="panel-racks">
+      <div class="desempeño-tabs" id="rkTabs" style="flex-shrink:0">
+        <button class="dtab active" onclick="sgTab('rk','estado',this)">📊 Estado</button>
+        <button class="dtab" onclick="sgTab('rk','controles',this)">📋 Controles</button>
+        <button class="dtab" onclick="sgTab('rk','hallazgos',this)">⚠️ Hallazgos</button>
+        <button class="dtab" onclick="sgTab('rk','plan',this)">🎯 Plan de Acción</button>
+        <button class="dtab" onclick="sgTab('rk','config',this)">⚙️ Pasillos</button>
+      </div>
+
+      <div class="dpanel rk-p active" id="rkp-estado">
+        <div class="aud-scroll">
+          <div id="rkLinkBox" style="flex-shrink:0"></div>
+          <div class="stats" id="rkStats"></div>
+          <div class="sg-grid" id="rkPasillos"></div>
+        </div>
+      </div>
+
+      <div class="dpanel rk-p" id="rkp-controles">
+        <div class="toolbar">
+          <select class="filter-select" id="rkCFPasillo" onchange="renderRkControles()"></select>
+          <select class="filter-select" id="rkCFRes" onchange="renderRkControles()">
+            <option value="">Todos los resultados</option><option value="OK">OK</option><option value="Con hallazgos">Con hallazgos</option>
+          </select>
+          <input type="date" class="filter-select" id="rkCDesde" onchange="renderRkControles()" title="Desde" style="max-width:150px">
+          <input type="date" class="filter-select" id="rkCHasta" onchange="renderRkControles()" title="Hasta" style="max-width:150px">
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Hora</th><th>Pasillo</th><th>Controló</th><th>Resultado</th><th>Racks con problemas</th><th>Acciones</th></tr></thead>
+            <tbody id="rkCTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel rk-p" id="rkp-hallazgos">
+        <div class="stats" id="rkHStats"></div>
+        <div class="toolbar">
+          <select class="filter-select" id="rkHFPasillo" onchange="renderRkHallazgos()"></select>
+          <select class="filter-select" id="rkHFEstado" onchange="renderRkHallazgos()">
+            <option value="abiertos">Solo abiertos</option><option value="">Todos</option><option value="resueltos">Solo resueltos</option>
+          </select>
+          <select class="filter-select" id="rkHFSev" onchange="renderRkHallazgos()">
+            <option value="">Toda gravedad</option><option value="Crítico">Crítico</option><option value="Moderado">Moderado</option><option value="Leve">Leve</option>
+          </select>
+          <div class="search-box" style="flex:1;min-width:150px"><span>🔍</span><input type="text" id="rkHBuscar" placeholder="Buscar rack (ej. 4-07) o detalle..." oninput="dbn(renderRkHallazgos)"></div>
+          <button class="btn btn-secondary" onclick="exportRkCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Rack</th><th>Nivel</th><th>Qué está mal</th><th>Gravedad</th><th>Reportó</th><th>Plan de acción</th><th>Acciones</th></tr></thead>
+            <tbody id="rkHTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel rk-p" id="rkp-plan">
+        <div class="stats" id="rkPStats"></div>
+        <div class="toolbar">
+          <select class="filter-select" id="rkPFEstado" onchange="renderSgPlan('rk')">
+            <option value="">Todos los estados</option><option value="Pendiente">Pendiente</option><option value="En curso">En curso</option><option value="Completada">Completada</option>
+          </select>
+          <select class="filter-select" id="rkPFSev" onchange="renderSgPlan('rk')">
+            <option value="">Toda gravedad</option><option value="Crítico">Crítico</option><option value="Moderado">Moderado</option><option value="Leve">Leve</option>
+          </select>
+          <div class="search-box" style="flex:1;min-width:150px"><span>🔍</span><input type="text" id="rkPBuscar" placeholder="Buscar rack, acción o responsable..." oninput="dbn(renderRkPlan)"></div>
+          <button class="btn btn-primary" style="margin-left:auto" onclick="openSgPlan('rk')">+ Nueva Acción</button>
+        </div>
+        <div class="conduct-grid" id="rkPGrid" style="flex:1;min-height:0;align-content:start"></div>
+      </div>
+
+      <div class="dpanel rk-p" id="rkp-config">
+        <div class="aud-scroll">
+          <div class="link-box" style="font-family:inherit">⚙️ Cargá los pasillos (filas) del depósito y cuántas posiciones de rack tiene cada uno (ej. el pasillo 4 con 24 posiciones → 4-01 a 4-24). Es lo que ven los empleados en el enlace.</div>
+          <div class="aud-box" style="padding:14px">
+            <div id="rkCfgRows"></div>
+            <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-secondary" onclick="rkCfgAdd()">+ Agregar pasillo</button>
+              <button class="btn btn-primary" onclick="rkCfgGuardar()">💾 Guardar pasillos</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EQUIPOS DE MANIPULEO -->
+    <div class="panel" id="panel-equipos">
+      <div class="desempeño-tabs" id="eqTabs" style="flex-shrink:0">
+        <button class="dtab active" onclick="sgTab('eq','estado',this)">📊 Estado hoy</button>
+        <button class="dtab" onclick="sgTab('eq','controles',this)">📋 Controles</button>
+        <button class="dtab" onclick="sgTab('eq','plan',this)">🎯 Plan de Acción</button>
+        <button class="dtab" onclick="sgTab('eq','lista',this)">🚜 Equipos</button>
+      </div>
+
+      <div class="dpanel eq-p active" id="eqp-estado">
+        <div class="aud-scroll">
+          <div id="eqLinkBox" style="flex-shrink:0"></div>
+          <div class="stats" id="eqStats"></div>
+          <div class="sg-grid" id="eqCards"></div>
+        </div>
+      </div>
+
+      <div class="dpanel eq-p" id="eqp-controles">
+        <div class="toolbar">
+          <select class="filter-select" id="eqCFEquipo" onchange="renderEqControles()"></select>
+          <select class="filter-select" id="eqCFRes" onchange="renderEqControles()">
+            <option value="">Todos los resultados</option><option value="OK">OK</option><option value="Con observaciones">Con observaciones</option><option value="Fuera de servicio">Fuera de servicio</option>
+          </select>
+          <input type="date" class="filter-select" id="eqCDesde" onchange="renderEqControles()" title="Desde" style="max-width:150px">
+          <input type="date" class="filter-select" id="eqCHasta" onchange="renderEqControles()" title="Hasta" style="max-width:150px">
+          <button class="btn btn-secondary" onclick="exportEqCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Hora</th><th>Equipo</th><th>Operario</th><th>Resultado</th><th>Fallas</th><th>Resolución</th><th>Acciones</th></tr></thead>
+            <tbody id="eqCTbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dpanel eq-p" id="eqp-plan">
+        <div class="stats" id="eqPStats"></div>
+        <div class="toolbar">
+          <select class="filter-select" id="eqPFEstado" onchange="renderSgPlan('eq')">
+            <option value="">Todos los estados</option><option value="Pendiente">Pendiente</option><option value="En curso">En curso</option><option value="Completada">Completada</option>
+          </select>
+          <select class="filter-select" id="eqPFSev" onchange="renderSgPlan('eq')">
+            <option value="">Toda gravedad</option><option value="Crítico">Crítico</option><option value="Moderado">Moderado</option><option value="Leve">Leve</option>
+          </select>
+          <div class="search-box" style="flex:1;min-width:150px"><span>🔍</span><input type="text" id="eqPBuscar" placeholder="Buscar equipo, acción o responsable..." oninput="dbn(renderEqPlan)"></div>
+          <button class="btn btn-primary" style="margin-left:auto" onclick="openSgPlan('eq')">+ Nueva Acción</button>
+        </div>
+        <div class="conduct-grid" id="eqPGrid" style="flex:1;min-height:0;align-content:start"></div>
+      </div>
+
+      <div class="dpanel eq-p" id="eqp-lista">
+        <div class="toolbar">
+          <span style="font-size:13px;color:var(--text2)">Cargá acá los equipos que los operarios deben controlar (cada uno tiene su propio QR para pegar en el equipo).</span>
+          <button class="btn btn-primary" style="margin-left:auto" onclick="openEqEquipo()">+ Nuevo equipo</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Equipo</th><th>Tipo</th><th>Estado</th><th>Observaciones</th><th>Acciones</th></tr></thead>
+            <tbody id="eqLTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- ORGANIGRAMA -->
     <div class="panel" id="panel-organigrama">
       <div class="org-toolbar">
@@ -2162,6 +2397,98 @@
       <button class="kiosk-btn entrada" id="audPubBtn" onclick="audPubEnviar()" style="width:100%;margin-top:16px">✅ ENVIAR AUDITORÍA</button>
     </div>
     <div id="audPubDone" style="display:none"></div>
+  </div>
+</div>
+
+<!-- CONTROL DE RACKS: PANTALLA MÓVIL -->
+<div id="rackScreen">
+  <div class="kiosk-card" style="max-width:560px;width:100%">
+    <div class="kiosk-title">
+      <div class="icon">🏗️</div>
+      <h2>Control de Racks</h2>
+      <p id="rkPubFecha"></p>
+    </div>
+    <div id="rkPubForm">
+      <div class="kiosk-field kiosk-combo">
+        <label>Tu nombre</label>
+        <input type="text" id="rkPubNombre" placeholder="Elegí de la lista o escribí tu nombre..." autocomplete="off" oninput="rkPubFiltrar(this.value)" onfocus="rkPubFiltrar(this.value)" onblur="setTimeout(rkPubCerrar, 200)">
+        <div class="kiosk-combo-dropdown" id="rkPubDrop"></div>
+      </div>
+      <div style="margin-top:16px">
+        <label class="sg-lbl" style="margin-top:0">¿Qué pasillo (fila) controlaste?</label>
+        <div class="sg-wrap" id="rkPubPasillos"></div>
+      </div>
+      <div id="rkPubFila" style="display:none;margin-top:16px">
+        <div class="sg-box">
+          <div style="font-size:15px;font-weight:700" id="rkPubFilaTit"></div>
+          <div style="font-size:12.5px;color:var(--text3);margin-top:4px">Revisá todos los racks del pasillo mirando estos puntos:</div>
+          <div id="rkPubCheck" style="margin-top:8px;font-size:13px;line-height:1.5"></div>
+        </div>
+        <div style="margin-top:14px">
+          <button class="sg-big ok" id="rkPubBtnOk" onclick="rkPubTodoOk()">✅ TODO OK EN ESTE PASILLO</button>
+          <button class="sg-big bad" id="rkPubBtnMal" onclick="rkPubAlgoMal()" style="margin-top:10px">⚠️ HAY ALGO MAL</button>
+        </div>
+        <div id="rkPubMalBox" style="display:none;margin-top:14px">
+          <div class="sg-box">
+            <div style="font-size:14px;font-weight:700">Indicá el rack con problema</div>
+            <label class="sg-lbl">Posición del rack (fila-número)</label>
+            <select id="rkPubPos" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text)"></select>
+            <label class="sg-lbl">Nivel / altura (opcional)</label>
+            <select id="rkPubNivel" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text)">
+              <option value="">No sé / todo el rack</option><option value="Piso">Piso</option><option value="Nivel 1">Nivel 1</option><option value="Nivel 2">Nivel 2</option><option value="Nivel 3">Nivel 3</option><option value="Nivel 4">Nivel 4</option><option value="Nivel 5">Nivel 5</option><option value="Nivel 6+">Nivel 6 o más</option>
+            </select>
+            <label class="sg-lbl">¿Qué está mal? (podés marcar varias)</label>
+            <div class="sg-wrap" id="rkPubItems" style="flex-direction:column;margin:0"></div>
+            <label class="sg-lbl">Gravedad</label>
+            <div class="sg-wrap" id="rkPubSev" style="margin:-4px"></div>
+            <div id="rkPubSevHint" style="font-size:12px;margin-top:6px;color:var(--danger);display:none">⛔ Si es crítico, avisá ya al supervisor y no dejes que se use ese rack.</div>
+            <label class="sg-lbl">Detalle (opcional)</label>
+            <textarea id="rkPubNota" rows="2" placeholder="Ej: parante golpeado a 1 metro del piso, abolladura profunda"></textarea>
+            <button class="sg-big neutral" style="margin-top:12px" onclick="rkPubAgregar()">➕ AGREGAR ESTE RACK</button>
+          </div>
+          <div id="rkPubLista"></div>
+          <button class="sg-big bad" id="rkPubBtnEnviar" onclick="rkPubEnviar()" style="margin-top:14px;display:none"></button>
+        </div>
+      </div>
+      <div id="rkPubMsg" class="kiosk-result" style="display:none;margin-top:14px"></div>
+    </div>
+    <div id="rkPubDone" style="display:none"></div>
+  </div>
+</div>
+
+<!-- EQUIPOS DE MANIPULEO: PANTALLA MÓVIL -->
+<div id="eqScreen">
+  <div class="kiosk-card" style="max-width:560px;width:100%">
+    <div class="kiosk-title">
+      <div class="icon">🚜</div>
+      <h2>Control de Equipos de Manipuleo</h2>
+      <p id="eqPubFecha"></p>
+    </div>
+    <div id="eqPubForm">
+      <div class="kiosk-field kiosk-combo">
+        <label>Tu nombre</label>
+        <input type="text" id="eqPubNombre" placeholder="Elegí de la lista o escribí tu nombre..." autocomplete="off" oninput="eqPubFiltrar(this.value)" onfocus="eqPubFiltrar(this.value)" onblur="setTimeout(eqPubCerrar, 200)">
+        <div class="kiosk-combo-dropdown" id="eqPubDrop"></div>
+      </div>
+      <div class="kiosk-field" style="margin-top:16px">
+        <label>Equipo que vas a controlar</label>
+        <select id="eqPubEquipo" onchange="eqPubElegir(this.value)"></select>
+      </div>
+      <div id="eqPubAviso" style="display:none;margin-top:12px"></div>
+      <div id="eqPubCheck" style="display:none">
+        <div id="eqPubHoroBox" style="margin-top:14px;display:none">
+          <label class="sg-lbl" style="margin-top:0">Horómetro (opcional)</label>
+          <input type="number" id="eqPubHoro" inputmode="decimal" placeholder="Horas del equipo" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text);box-sizing:border-box">
+        </div>
+        <button class="sg-big ghost" style="margin-top:14px" onclick="eqPubTodoOk()">✅ Marcar todo como BIEN</button>
+        <div id="eqPubItems"></div>
+        <label class="sg-lbl">Observaciones generales (opcional)</label>
+        <textarea id="eqPubObs" rows="2" style="width:100%;padding:10px;font-size:14px;border:1px solid var(--border-strong);border-radius:10px;font-family:inherit;background:var(--surface);color:var(--text);box-sizing:border-box" placeholder="Algo más que quieras avisar..."></textarea>
+        <div id="eqPubMsg" class="kiosk-result" style="display:none;margin-top:14px"></div>
+        <button class="sg-big ok" id="eqPubBtn" onclick="eqPubEnviar()" style="margin-top:16px">✅ ENVIAR CONTROL</button>
+      </div>
+    </div>
+    <div id="eqPubDone" style="display:none"></div>
   </div>
 </div>
 
@@ -2933,6 +3260,139 @@
   </div>
 </div>
 
+<!-- SEGURIDAD E HIGIENE: MODALES -->
+<datalist id="sgRespList"></datalist>
+<div class="modal-overlay" id="sgPlanModal">
+  <div class="modal" style="width:700px">
+    <div class="modal-header">
+      <span class="modal-title" id="sgPlanTitle">🎯 Nueva Acción</span>
+      <button class="modal-close" onclick="closeSgPlan()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label id="sgp_elem_lbl">Rack *</label>
+          <input type="text" id="sgp_elem" placeholder="Ej: 4-07" autocomplete="off">
+          <select id="sgp_elem_sel" style="display:none"></select>
+        </div>
+        <div class="form-group">
+          <label>Gravedad</label>
+          <select id="sgp_sev"><option>Leve</option><option selected>Moderado</option><option>Crítico</option></select>
+        </div>
+        <div class="form-group full">
+          <label>Qué está mal (hallazgo) *</label>
+          <textarea id="sgp_hall" rows="2" style="resize:vertical" placeholder="Describí lo observado..."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Acción a realizar *</label>
+          <textarea id="sgp_accion" rows="3" style="resize:vertical" placeholder="Qué se va a hacer para corregirlo (reparar, reemplazar, descargar, señalizar...)"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Responsable *</label>
+          <input type="text" id="sgp_resp" list="sgRespList" placeholder="Elegí de la nómina o escribí un nombre" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label>Fecha límite</label>
+          <input type="date" id="sgp_limite">
+        </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="sgp_estado"><option>Pendiente</option><option>En curso</option><option>Completada</option></select>
+        </div>
+        <div class="form-group">
+          <label>Fecha de cierre</label>
+          <input type="date" id="sgp_cierre">
+        </div>
+        <div class="form-group full">
+          <label>Notas</label>
+          <textarea id="sgp_notas" rows="2" style="resize:vertical" placeholder="Opcional..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>📷 Foto de cómo estaba (ANTES)</label>
+          <div class="sg-fotoin">
+            <input type="file" accept="image/*" id="sgp_f_antes" onchange="sgFotoElegida('antes',this)">
+            <img id="sgp_i_antes" alt="">
+            <div class="st" id="sgp_s_antes"></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="sgp_q_antes" style="display:none;margin-top:6px" onclick="sgFotoQuitar('antes')">Quitar foto</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>✅ Foto de cómo quedó (DESPUÉS)</label>
+          <div class="sg-fotoin">
+            <input type="file" accept="image/*" id="sgp_f_despues" onchange="sgFotoElegida('despues',this)">
+            <img id="sgp_i_despues" alt="">
+            <div class="st" id="sgp_s_despues"></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="sgp_q_despues" style="display:none;margin-top:6px" onclick="sgFotoQuitar('despues')">Quitar foto</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeSgPlan()">Cancelar</button>
+      <button class="btn btn-primary" id="sgPlanSaveBtn" onclick="saveSgPlan()">💾 Guardar acción</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="sgFotosModal">
+  <div class="modal" style="width:820px">
+    <div class="modal-header">
+      <span class="modal-title" id="sgFotosTitle">🖼️ Fotos</span>
+      <button class="modal-close" onclick="document.getElementById('sgFotosModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="sg-fotos">
+        <div><div style="font-weight:700;margin-bottom:6px">📷 Antes</div><div id="sgFotoAntes" style="font-size:13px;color:var(--text3)"></div></div>
+        <div><div style="font-weight:700;margin-bottom:6px">✅ Después</div><div id="sgFotoDespues" style="font-size:13px;color:var(--text3)"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="eqDetailModal">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <span class="modal-title" id="eqDetailTitle">🚜 Control</span>
+      <button class="modal-close" onclick="document.getElementById('eqDetailModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="eqDetailBody"></div>
+    <div class="modal-footer" id="eqDetailFoot"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="eqEquipoModal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <span class="modal-title" id="eqEquipoTitle">🚜 Nuevo equipo</span>
+      <button class="modal-close" onclick="document.getElementById('eqEquipoModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Nombre / código del equipo *</label>
+          <input type="text" id="eqe_nombre" placeholder="Ej: Autoelevador 1 / Apilador Nro 2">
+        </div>
+        <div class="form-group">
+          <label>Tipo *</label>
+          <select id="eqe_tipo"></select>
+        </div>
+        <div class="form-group">
+          <label>Estado</label>
+          <select id="eqe_activo"><option value="Sí">Activo (se controla)</option><option value="No">Dado de baja</option></select>
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <input type="text" id="eqe_obs" placeholder="Opcional (marca, modelo, sector...)">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('eqEquipoModal').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEqEquipo()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- AUDITORÍA CRUZADA: MODALES -->
 <div class="modal-overlay" id="audModal">
   <div class="modal" style="width:760px">
@@ -3641,6 +4101,8 @@ const WRITE_ACTIONS = [
   'addLimpiezaManual','deleteLimpieza',
   'addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia',
   'addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan',
+  'deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos',
+  'addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -3805,7 +4267,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -3869,6 +4331,25 @@ function handleRequest(e) {
     else if (action === 'deleteAuditoriaPlan') result = deleteRow('AUDITORIAS_PLAN', body.id);
     else if (action === 'getAuditoriaKiosk')   result = getAuditoriaKiosk();
     else if (action === 'addAuditoriaPublica') result = guardarAuditoria(body.data, 'Enlace');
+    else if (action === 'getRacksKiosk')       result = getRacksKiosk();
+    else if (action === 'addRackControlPublica') result = addRackControl(body.data);
+    else if (action === 'deleteRackControl')   result = deleteRackControl(body.id);
+    else if (action === 'updateRackHallazgo')  result = updateRow('RACKS_HALLAZGOS', body.id, body.data);
+    else if (action === 'addRackPlan')         result = sgPlanGuardar('RACKS_PLAN', null, body.data, 'rack');
+    else if (action === 'updateRackPlan')      result = sgPlanGuardar('RACKS_PLAN', body.id, body.data, 'rack');
+    else if (action === 'deleteRackPlan')      result = deleteRow('RACKS_PLAN', body.id);
+    else if (action === 'getRackPlanFotos')    result = sgPlanFotos('RACKS_PLAN', body.data);
+    else if (action === 'getEquiposKiosk')     result = getEquiposKiosk();
+    else if (action === 'addEquipoControlPublica') result = addEquipoControl(body.data);
+    else if (action === 'addEquipo')           result = sgAddRow('EQUIPOS_LISTA', EQ_LISTA_HEADERS, body.data);
+    else if (action === 'updateEquipo')        result = updateRow('EQUIPOS_LISTA', body.id, body.data);
+    else if (action === 'deleteEquipo')        result = deleteRow('EQUIPOS_LISTA', body.id);
+    else if (action === 'deleteEquipoControl') result = deleteRow('EQUIPOS_CONTROLES', body.id);
+    else if (action === 'updateEquipoControl') result = updateRow('EQUIPOS_CONTROLES', body.id, body.data);
+    else if (action === 'addEquipoPlan')       result = sgPlanGuardar('EQUIPOS_PLAN', null, body.data, 'equipo');
+    else if (action === 'updateEquipoPlan')    result = sgPlanGuardar('EQUIPOS_PLAN', body.id, body.data, 'equipo');
+    else if (action === 'deleteEquipoPlan')    result = deleteRow('EQUIPOS_PLAN', body.id);
+    else if (action === 'getEquipoPlanFotos')  result = sgPlanFotos('EQUIPOS_PLAN', body.data);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -3924,6 +4405,12 @@ function getAllData() {
   var capAsSheet = getOrCreateSheet('CAPACITACIONES_ASIST', CAPASIS_HEADERS);
   var audSheet = getOrCreateSheet('AUDITORIAS', audHeaders());
   var audPlanSheet = getOrCreateSheet('AUDITORIAS_PLAN', AUDPLAN_HEADERS);
+  var rkCtrlSheet = sgSheet('RACKS_CONTROLES', RACK_CTRL_HEADERS);
+  var rkHallSheet = sgSheet('RACKS_HALLAZGOS', RACK_HALL_HEADERS);
+  var rkPlanSheet = sgSheet('RACKS_PLAN', SG_PLAN_HEADERS);
+  var eqListaSheet = sgSheet('EQUIPOS_LISTA', EQ_LISTA_HEADERS);
+  var eqCtrlSheet = sgSheet('EQUIPOS_CONTROLES', EQ_CTRL_HEADERS);
+  var eqPlanSheet = sgSheet('EQUIPOS_PLAN', SG_PLAN_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -3948,6 +4435,12 @@ function getAllData() {
     capAsistencias: sheetToJson(capAsSheet),
     auditorias:   sheetToJson(audSheet),
     auditoriasPlan: sheetToJson(audPlanSheet),
+    racksControles: sheetToJson(rkCtrlSheet),
+    racksHallazgos: sheetToJson(rkHallSheet),
+    racksPlan:    sheetToJson(rkPlanSheet),
+    equiposLista: sheetToJson(eqListaSheet),
+    equiposControles: sheetToJson(eqCtrlSheet),
+    equiposPlan:  sheetToJson(eqPlanSheet),
     config:       getConfig()
   };
 }
@@ -4110,7 +4603,8 @@ function getCertFolder() {
 function autorizarDrive() {
   var f = getCertFolder();
   var g = getAlertasFolder();
-  Logger.log('Drive autorizado. Carpetas: ' + f.getName() + ' / ' + g.getName());
+  var h = sgFolder();
+  Logger.log('Drive autorizado. Carpetas: ' + f.getName() + ' / ' + g.getName() + ' / ' + h.getName());
 }
 // Guarda la foto del certificado en una carpeta PRIVADA de Drive y devuelve su URL
 function guardarCertificado(base64, mime, empleado, desde) {
@@ -4655,6 +5149,234 @@ function updateAuditoriaPlan(id, data) {
   return updateRow('AUDITORIAS_PLAN', id, data);
 }
 
+// ─── CONTROL DE RACKS Y EQUIPOS DE MANIPULEO (Seguridad e Higiene) ───
+var RACK_CTRL_HEADERS = ['fecha','hora','inspector','pasillo','resultado','cant_hallazgos','origen'];
+var RACK_HALL_HEADERS = ['control_id','fecha','pasillo','rack','nivel','items','severidad','nota','inspector','estado'];
+var SG_PLAN_HEADERS = ['fecha','elemento','area','hallazgo','severidad','accion','responsable','fecha_limite','estado','fecha_cierre','notas','ref_id','foto_antes_url','foto_despues_url'];
+var EQ_LISTA_HEADERS = ['nombre','tipo','activo','observaciones'];
+var EQ_CTRL_HEADERS = ['fecha','hora','turno','operario','equipo_id','equipo','tipo','horometro','resultado','cant_fallas','fallas','fallas_json','observaciones','resolucion','origen'];
+var SG_FOLDER_NAME = 'Fotos Racks y Equipos RRHH';
+var SG_TEXT_COLS = {
+  'RACKS_CONTROLES': ['pasillo'],
+  'RACKS_HALLAZGOS': ['pasillo','rack','nivel'],
+  'RACKS_PLAN': ['elemento','area'],
+  'EQUIPOS_PLAN': ['elemento','area']
+};
+
+// Crea la hoja (si no existe) dejando como TEXTO las columnas tipo "4-01", para que Sheets no las convierta en fecha
+function sgSheet(name, headers) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var existia = !!ss.getSheetByName(name);
+  var sheet = getOrCreateSheet(name, headers);
+  if (!existia && SG_TEXT_COLS[name]) {
+    SG_TEXT_COLS[name].forEach(function(c) {
+      var idx = headers.indexOf(c);
+      if (idx > -1) sheet.getRange(2, idx + 2, sheet.getMaxRows() - 1, 1).setNumberFormat('@');
+    });
+  }
+  return sheet;
+}
+function sgHoy() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd'); }
+function sgAhora() { return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'HH:mm'); }
+
+// Pasillos y cantidad de posiciones por pasillo (se edita desde la app; se guarda en CONFIG)
+function sgRacksConfig() {
+  var cfg = getConfig();
+  var out = {};
+  try {
+    var o = JSON.parse(cfg.racks_config || '{}');
+    Object.keys(o).forEach(function(k) { var n = parseInt(o[k], 10); if (n > 0 && n <= 500) out[String(k)] = n; });
+  } catch (err) {}
+  if (!Object.keys(out).length) out = { '1': 20, '2': 20, '3': 20, '4': 20 };
+  return out;
+}
+
+function sgNomina() {
+  return sheetToJson(getOrCreateSheet('NOMINA', CAP_NOMINA_HEADERS)).filter(function(e) { return e.nombre; }).map(function(e) {
+    return { nombre: e.nombre, sector: e.sector };
+  });
+}
+
+// ── Racks: datos para el enlace público ──
+function getRacksKiosk() {
+  var hoy = sgHoy();
+  var hechos = {};
+  sheetToJson(sgSheet('RACKS_CONTROLES', RACK_CTRL_HEADERS)).forEach(function(c) {
+    if (String(c.fecha) === hoy) hechos[String(c.pasillo)] = c.resultado;
+  });
+  return { employees: sgNomina(), pasillos: sgRacksConfig(), hoy: hechos };
+}
+
+// Guarda el control de un pasillo (OK, o con los racks que están mal). Valida todo en el servidor.
+function addRackControl(data) {
+  if (!data) return { error: 'Sin datos' };
+  var inspector = audTexto(data.inspector, 80);
+  var pasillo = audTexto(data.pasillo, 10);
+  if (!inspector) return { error: 'Falta el nombre de quien controla' };
+  var cfg = sgRacksConfig();
+  if (!cfg.hasOwnProperty(pasillo)) return { error: 'Pasillo inválido' };
+  var maxPos = cfg[pasillo];
+  var hall = Object.prototype.toString.call(data.hallazgos) === '[object Array]' ? data.hallazgos : [];
+  if (hall.length > 80) return { error: 'Demasiados racks en un solo envío' };
+  var sevValidas = ['Leve', 'Moderado', 'Crítico'];
+  var filas = [];
+  for (var i = 0; i < hall.length; i++) {
+    var h = hall[i] || {};
+    var rack;
+    if (String(h.pos) === 'GEN') {
+      rack = pasillo + '-GEN';
+    } else {
+      var pos = parseInt(h.pos, 10);
+      if (!(pos >= 1 && pos <= maxPos)) return { error: 'Posición de rack inválida: ' + h.pos };
+      rack = pasillo + '-' + (pos < 10 ? '0' + pos : String(pos));
+    }
+    var items = (Object.prototype.toString.call(h.items) === '[object Array]' ? h.items : []).slice(0, 15).map(function(t) { return audTexto(t, 120); }).filter(function(t) { return t; });
+    var nota = audTexto(h.nota, 400);
+    if (!items.length && !nota) return { error: 'Indicá qué está mal en ' + rack };
+    filas.push({
+      pasillo: pasillo, rack: rack, nivel: audTexto(h.nivel, 20), items: items.join(' | '),
+      severidad: sevValidas.indexOf(h.severidad) !== -1 ? h.severidad : 'Moderado',
+      nota: nota, inspector: inspector, estado: 'Abierto'
+    });
+  }
+  var fecha = sgHoy();
+  sgSheet('RACKS_HALLAZGOS', RACK_HALL_HEADERS);
+  sgSheet('RACKS_CONTROLES', RACK_CTRL_HEADERS);
+  var r = addRow('RACKS_CONTROLES', {
+    fecha: fecha, hora: sgAhora(), inspector: inspector, pasillo: pasillo,
+    resultado: filas.length ? 'Con hallazgos' : 'OK', cant_hallazgos: filas.length, origen: 'Enlace'
+  });
+  if (!r || !r.success) return r;
+  filas.forEach(function(f) { f.control_id = r.id; f.fecha = fecha; addRow('RACKS_HALLAZGOS', f); });
+  return { success: true, id: r.id, resultado: filas.length ? 'Con hallazgos' : 'OK', cant: filas.length };
+}
+
+// Borra un control junto con sus hallazgos
+function deleteRackControl(id) {
+  var sh = sgSheet('RACKS_HALLAZGOS', RACK_HALL_HEADERS);
+  var rows = sh.getDataRange().getValues();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][1]) === String(id)) sh.deleteRow(i + 1);
+  }
+  return deleteRow('RACKS_CONTROLES', id);
+}
+
+// ── Plan de acción (racks y equipos) con foto de cómo estaba / cómo quedó ──
+function sgFolder() {
+  var it = DriveApp.getFoldersByName(SG_FOLDER_NAME);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(SG_FOLDER_NAME);
+}
+function sgGuardarFotos(data, prefijo) {
+  var claves = ['antes', 'despues'];
+  for (var i = 0; i < claves.length; i++) {
+    var k = claves[i];
+    var b = data['foto_' + k + '_base64'];
+    if (b) {
+      var bytes = Utilities.base64Decode(b);
+      var blob = Utilities.newBlob(bytes, 'image/jpeg', prefijo + '_' + k + '_' + Date.now() + '.jpg');
+      data['foto_' + k + '_url'] = sgFolder().createFile(blob).getUrl();
+    }
+    delete data['foto_' + k + '_base64'];
+  }
+}
+function sgPlanGuardar(hoja, id, data, prefijo) {
+  if (!data) return { error: 'Sin datos' };
+  sgSheet(hoja, SG_PLAN_HEADERS);
+  try {
+    sgGuardarFotos(data, prefijo);
+  } catch (err) {
+    return { error: 'No se pudo guardar la foto en Drive: ' + err.message };
+  }
+  var res = id ? updateRow(hoja, id, data) : addRow(hoja, data);
+  if (res && res.success) {
+    res.foto_antes_url = data.foto_antes_url || '';
+    res.foto_despues_url = data.foto_despues_url || '';
+  }
+  return res;
+}
+function sgUrlADataUrl(url) {
+  url = String(url || '');
+  if (url.indexOf('/d/') === -1) return '';
+  try {
+    var fid = url.split('/d/')[1].split('/')[0];
+    var b = DriveApp.getFileById(fid).getBlob();
+    return 'data:' + b.getContentType() + ';base64,' + Utilities.base64Encode(b.getBytes());
+  } catch (err) { return ''; }
+}
+function sgPlanFotos(hoja, data) {
+  if (!data || !data.id) return { error: 'Sin id' };
+  var rows = sheetToJson(sgSheet(hoja, SG_PLAN_HEADERS));
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].__ID__) === String(data.id)) {
+      return { success: true, antes: sgUrlADataUrl(rows[i].foto_antes_url), despues: sgUrlADataUrl(rows[i].foto_despues_url) };
+    }
+  }
+  return { error: 'Acción no encontrada' };
+}
+
+// ── Equipos de manipuleo ──
+function getEquiposKiosk() {
+  var hoy = sgHoy();
+  var controles = sheetToJson(sgSheet('EQUIPOS_CONTROLES', EQ_CTRL_HEADERS));
+  var lista = sheetToJson(sgSheet('EQUIPOS_LISTA', EQ_LISTA_HEADERS)).filter(function(e) { return e.nombre && String(e.activo) !== 'No'; });
+  var equipos = lista.map(function(e) {
+    var id = String(e.__ID__), ult = null, hecho = false;
+    controles.forEach(function(c) {
+      if (String(c.equipo_id) !== id) return;
+      if (c.fecha === hoy) hecho = true;
+      if (!ult || (c.fecha + ' ' + c.hora) >= (ult.fecha + ' ' + ult.hora)) ult = c;
+    });
+    return {
+      id: id, nombre: e.nombre, tipo: e.tipo, hoy: hecho,
+      ultimo: ult ? { fecha: ult.fecha, resultado: ult.resultado, resolucion: ult.resolucion } : null
+    };
+  });
+  return { employees: sgNomina(), equipos: equipos };
+}
+
+// Guarda el control de un equipo. El resultado se calcula en el servidor:
+// alguna falla crítica = "Fuera de servicio"; otras fallas = "Con observaciones"; sin fallas = "OK".
+function addEquipoControl(data) {
+  if (!data) return { error: 'Sin datos' };
+  var operario = audTexto(data.operario, 80);
+  if (!operario) return { error: 'Falta el nombre del operario' };
+  var lista = sheetToJson(sgSheet('EQUIPOS_LISTA', EQ_LISTA_HEADERS));
+  var eq = null;
+  for (var i = 0; i < lista.length; i++) {
+    if (String(lista[i].__ID__) === String(data.equipo_id) && String(lista[i].activo) !== 'No') eq = lista[i];
+  }
+  if (!eq) return { error: 'Equipo no encontrado' };
+  var fallas = Object.prototype.toString.call(data.fallas) === '[object Array]' ? data.fallas : [];
+  if (fallas.length > 40) return { error: 'Demasiadas fallas en un solo envío' };
+  var limpias = [], hayCritica = false;
+  fallas.forEach(function(f) {
+    var item = audTexto(f && f.item, 150);
+    if (!item) return;
+    var crit = !!(f && f.critico);
+    if (crit) hayCritica = true;
+    limpias.push({ item: item, critico: crit, nota: audTexto(f && f.nota, 300) });
+  });
+  var resultado = hayCritica ? 'Fuera de servicio' : (limpias.length ? 'Con observaciones' : 'OK');
+  var hora = sgAhora();
+  var texto = limpias.map(function(f) { return f.item + (f.critico ? ' (CRÍTICO)' : '') + (f.nota ? ': ' + f.nota : ''); }).join(' | ');
+  var hs = String(data.horometro === undefined || data.horometro === null ? '' : data.horometro).replace(',', '.');
+  var r = addRow('EQUIPOS_CONTROLES', {
+    fecha: sgHoy(), hora: hora, turno: parseInt(hora.split(':')[0], 10) < 14 ? 'Mañana' : 'Tarde',
+    operario: operario, equipo_id: String(eq.__ID__), equipo: eq.nombre, tipo: eq.tipo,
+    horometro: isNaN(Number(hs)) ? '' : hs, resultado: resultado, cant_fallas: limpias.length,
+    fallas: texto, fallas_json: JSON.stringify(limpias), observaciones: audTexto(data.observaciones, 500),
+    resolucion: limpias.length ? 'Abierto' : '', origen: 'Enlace'
+  });
+  if (r && r.success) { r.resultado = resultado; r.cant = limpias.length; }
+  return r;
+}
+
+// Alta en una hoja de este módulo, creándola si todavía no existe
+function sgAddRow(hoja, headers, data) {
+  sgSheet(hoja, headers);
+  return addRow(hoja, data);
+}
+
 function getOrCreateSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
@@ -4829,12 +5551,14 @@ document.addEventListener('DOMContentLoaded', () => {
   else if (params.get('limpieza') === '1') initLimpiezaPublic(params.get('api') || API_URL);
   else if (params.get('capacitacion') === '1') initCapPublic(params.get('api') || API_URL, params.get('id') || '');
   else if (params.get('auditoria') === '1') initAudPublic(params.get('api') || API_URL);
+  else if (params.get('racks') === '1') initRackPublic(params.get('api') || API_URL);
+  else if (params.get('equipos') === '1') initEqPublic(params.get('api') || API_URL, params.get('eq') || '');
 });
 
 window.onload = () => {
   const params = new URLSearchParams(location.search);
   // Kiosko y vacaciones ya arrancaron en DOMContentLoaded (modo liviano)
-  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1' || params.get('auditoria') === '1') return;
+  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1' || params.get('auditoria') === '1' || params.get('racks') === '1' || params.get('equipos') === '1') return;
   const today = new Date().toISOString().split('T')[0];
   ['c_fecha','d_fecha','f_alta','f_art','r_fecha','e_fecha','p_fecha'].forEach(id => {
     const el = document.getElementById(id);
@@ -4894,6 +5618,12 @@ function loadLocalData() {
   capAsistData = JSON.parse(localStorage.getItem('rrhh_cap_asist') || '[]');
   auditoriasData = JSON.parse(localStorage.getItem('rrhh_auditorias') || '[]');
   auditoriasPlanData = JSON.parse(localStorage.getItem('rrhh_auditorias_plan') || '[]');
+  rackControlesData = JSON.parse(localStorage.getItem('rrhh_rack_controles') || '[]');
+  rackHallazgosData = JSON.parse(localStorage.getItem('rrhh_rack_hallazgos') || '[]');
+  rackPlanData = JSON.parse(localStorage.getItem('rrhh_rack_plan') || '[]');
+  equiposListaData = JSON.parse(localStorage.getItem('rrhh_equipos_lista') || '[]');
+  equipoControlesData = JSON.parse(localStorage.getItem('rrhh_equipos_controles') || '[]');
+  equipoPlanData = JSON.parse(localStorage.getItem('rrhh_equipos_plan') || '[]');
   const storedLimp = localStorage.getItem('rrhh_limpieza');
   limpiezaData = storedLimp ? JSON.parse(storedLimp) : [];
   const storedCfg = localStorage.getItem('rrhh_config');
@@ -4989,6 +5719,12 @@ async function loadAllData() {
   capAsistData = data.capAsistencias || [];
   auditoriasData = data.auditorias || [];
   auditoriasPlanData = data.auditoriasPlan || [];
+  rackControlesData = data.racksControles || [];
+  rackHallazgosData = data.racksHallazgos || [];
+  rackPlanData = data.racksPlan || [];
+  equiposListaData = data.equiposLista || [];
+  equipoControlesData = data.equiposControles || [];
+  equipoPlanData = data.equiposPlan || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   orgData = null;
   setSyncStatus('ok', 'Conectado a Google Sheets');
@@ -12686,13 +13422,1129 @@ function audPubOtra() {
   try { window.scrollTo(0, 0); } catch (e) {}
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// SEGURIDAD E HIGIENE: CONTROL DE RACKS Y EQUIPOS DE MANIPULEO
+// ═══════════════════════════════════════════════════════════════════
+let rackControlesData = [], rackHallazgosData = [], rackPlanData = [];
+let equiposListaData = [], equipoControlesData = [], equipoPlanData = [];
+
+// Puntos de control de racks (criterios habituales de inspección de estanterías porta-pallets / auditorías H&S)
+const RK_ITEMS = [
+  'Parante / columna golpeado, doblado o deformado',
+  'Protector de columna (guardacantos) dañado o faltante',
+  'Larguero / viga deformado, golpeado o con flecha',
+  'Traba / pasador de seguridad del larguero faltante o flojo',
+  'Placa base o anclaje al piso flojo, roto o faltante',
+  'Arriostramiento (diagonales / travesaños) dañado o faltante',
+  'Sobrecarga o carga mal distribuida',
+  'Pallet roto, dañado o mal apoyado en el larguero',
+  'Carga inestable, mal fajada o sobresaliendo al pasillo',
+  'Cartel de capacidad de carga faltante o ilegible',
+  'Numeración / identificación del rack faltante o ilegible',
+  'Pasillo con obstáculos, derrames o mercadería en el piso',
+  'Defensa o tope de fin de pasillo dañado o faltante',
+  'Malla o protección anticaída faltante o dañada',
+  'Sin distancia libre a rociadores / luminarias',
+  'Otro (detallar abajo)'
+];
+
+// Controles de seguridad por tipo de equipo. c:1 = punto crítico (si está mal, el equipo queda FUERA DE SERVICIO)
+const EQ_TIPOS = {
+  'Autoelevador': { horo: true, items: [
+    { t: 'Frenos de servicio y de estacionamiento funcionan bien', c: 1 },
+    { t: 'Dirección responde bien, sin juego excesivo', c: 1 },
+    { t: 'Bocina / claxon funciona', c: 1 },
+    { t: 'Alarma de retroceso y luz giratoria (baliza) funcionan', c: 1 },
+    { t: 'Luces delanteras y traseras funcionan', c: 0 },
+    { t: 'Cinturón de seguridad en buen estado y se traba', c: 1 },
+    { t: 'Techo protector y respaldo de carga sin daños', c: 1 },
+    { t: 'Horquillas rectas, sin fisuras ni desgaste, con traba', c: 1 },
+    { t: 'Mástil y cadenas: sin ruidos, sin pérdidas, suben y bajan parejo', c: 1 },
+    { t: 'Cilindros y mangueras hidráulicas sin pérdidas de aceite', c: 1 },
+    { t: 'Comandos y pedales funcionan; no se mueve sin operador (hombre muerto)', c: 1 },
+    { t: 'Neumáticos / ruedas en buen estado y bien inflados', c: 0 },
+    { t: 'Combustible / GLP o carga de batería suficiente, sin fugas', c: 0 },
+    { t: 'Batería, cables y ficha de carga en buen estado (eléctricos)', c: 0 },
+    { t: 'Extintor presente y vigente', c: 0 },
+    { t: 'Cartel de capacidad de carga visible', c: 0 },
+    { t: 'Sin golpes ni daños nuevos en la estructura', c: 0 },
+    { t: 'Limpio, sin objetos sueltos en el puesto del operador', c: 0 }
+  ] },
+  'Apilador eléctrico': { horo: true, items: [
+    { t: 'Frenos funcionan bien', c: 1 },
+    { t: 'Parada de emergencia funciona', c: 1 },
+    { t: 'Bocina funciona', c: 1 },
+    { t: 'Dirección / timón firme, sin juego', c: 1 },
+    { t: 'Comando de elevación y descenso funciona y vuelve a neutro', c: 1 },
+    { t: 'Horquillas rectas, sin fisuras ni desgaste', c: 1 },
+    { t: 'Mástil y cadenas: sin ruidos, sin pérdidas, suben y bajan parejo', c: 1 },
+    { t: 'Sin pérdidas de aceite en el sistema hidráulico', c: 1 },
+    { t: 'Ruedas en buen estado', c: 0 },
+    { t: 'Batería, cables y ficha de carga en buen estado, con carga suficiente', c: 0 },
+    { t: 'Luz / baliza y protecciones de pies en su lugar', c: 0 },
+    { t: 'Cartel de capacidad de carga visible', c: 0 },
+    { t: 'Sin golpes ni daños nuevos en la estructura', c: 0 }
+  ] },
+  'Zorra eléctrica': { horo: false, items: [
+    { t: 'Frenos funcionan bien', c: 1 },
+    { t: 'Parada de emergencia funciona', c: 1 },
+    { t: 'Bocina funciona', c: 1 },
+    { t: 'Timón / acelerador responde y vuelve a neutro', c: 1 },
+    { t: 'Horquillas rectas, sin fisuras ni desgaste', c: 1 },
+    { t: 'Sin pérdidas de aceite en el sistema hidráulico', c: 1 },
+    { t: 'Ruedas en buen estado', c: 0 },
+    { t: 'Batería, cables y ficha de carga en buen estado, con carga suficiente', c: 0 },
+    { t: 'Cartel de capacidad de carga visible', c: 0 },
+    { t: 'Sin golpes ni daños nuevos en la estructura', c: 0 }
+  ] },
+  'Zorra hidráulica': { horo: false, items: [
+    { t: 'Horquillas rectas, sin fisuras ni soldaduras rotas', c: 1 },
+    { t: 'La bomba levanta y baja la carga sin pérdidas de aceite', c: 1 },
+    { t: 'La palanca de mando vuelve a neutro y retiene la carga', c: 1 },
+    { t: 'Ruedas (carga y dirección) giran libres, sin trabas ni desgaste', c: 0 },
+    { t: 'Timón / manija firme y sin juego, con protección de manos', c: 0 },
+    { t: 'Chasis sin deformaciones ni golpes', c: 0 },
+    { t: 'Cartel de capacidad de carga visible', c: 0 },
+    { t: 'Limpia y sin objetos sueltos', c: 0 }
+  ] },
+  'Otro': { horo: false, items: [
+    { t: 'Funciona correctamente y los comandos responden', c: 1 },
+    { t: 'Frenos o sistema de detención funcionan', c: 1 },
+    { t: 'Estructura sin daños, fisuras ni deformaciones', c: 1 },
+    { t: 'Sin pérdidas de aceite u otros fluidos', c: 0 },
+    { t: 'Ruedas / neumáticos en buen estado', c: 0 },
+    { t: 'Limpio y ordenado', c: 0 }
+  ] }
+};
+
+// ─── helpers ───
+function sgLocalId() { return String(Date.now()) + Math.floor(Math.random() * 1000); }
+function sgSave() {
+  if (API_URL) return;
+  try {
+    localStorage.setItem('rrhh_rack_controles', JSON.stringify(rackControlesData));
+    localStorage.setItem('rrhh_rack_hallazgos', JSON.stringify(rackHallazgosData));
+    localStorage.setItem('rrhh_rack_plan', JSON.stringify(rackPlanData));
+    localStorage.setItem('rrhh_equipos_lista', JSON.stringify(equiposListaData));
+    localStorage.setItem('rrhh_equipos_controles', JSON.stringify(equipoControlesData));
+    localStorage.setItem('rrhh_equipos_plan', JSON.stringify(equipoPlanData));
+  } catch (e) {}
+}
+function sgDias(iso) {
+  if (!iso) return null;
+  const a = new Date(licDia(iso) + 'T00:00:00'), b = new Date(licHoyISO() + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+function sgOrdenFecha(list) {
+  return [...list].sort((a, b) => (String(b.fecha) + ' ' + String(b.hora || '')).localeCompare(String(a.fecha) + ' ' + String(a.hora || '')));
+}
+function sgCard(ico, val, lab, color) {
+  return `<div class="stat-card"><span class="stat-icon">${ico}</span><div><div class="stat-value" style="${color ? 'color:' + color : ''}">${val}</div><div class="stat-label">${lab}</div></div></div>`;
+}
+function sgSevBadge(s) {
+  const c = s === 'Crítico' ? 'badge-red' : s === 'Leve' ? 'badge-yellow' : 'badge-orange';
+  return `<span class="badge ${c}">${licEsc(s || 'Moderado')}</span>`;
+}
+function sgSevRank(s) { return s === 'Crítico' ? 3 : s === 'Moderado' ? 2 : 1; }
+function sgCSV(nombre, heads, rows) {
+  const csv = [heads, ...rows].map(r => r.map(v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,\uFEFF' + encodeURIComponent(csv);
+  a.download = nombre; a.click();
+  showToast('CSV exportado ✓', 'success');
+}
+function sgTab(m, tab, el) {
+  document.querySelectorAll('#' + m + 'Tabs .dtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.' + m + '-p').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  $a(m + 'p-' + tab).classList.add('active');
+  if (m === 'rk') renderRacks(); else renderEquipos();
+}
+function sgBase() { return location.origin + location.pathname; }
+function rkLink() { return sgBase() + '?racks=1&api=' + encodeURIComponent(API_URL); }
+function eqLink(id) { return sgBase() + '?equipos=1' + (id ? '&eq=' + encodeURIComponent(id) : '') + '&api=' + encodeURIComponent(API_URL); }
+
+function sgLinkBox(boxId, titulo, url, ayuda, waTexto, printTitulo) {
+  const box = $a(boxId); if (!box) return;
+  if (!API_URL) {
+    box.innerHTML = '<div class="link-box" style="font-family:inherit">🔗 Para generar el enlace y el QR primero conectá el sistema con Google Sheets.</div>';
+    return;
+  }
+  const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(url);
+  box.innerHTML = `<div class="link-box" style="font-family:inherit;align-items:flex-start;flex-wrap:wrap">
+    <img src="${qr}" alt="QR" width="110" height="110" style="border-radius:10px;border:1px solid var(--border);background:#fff">
+    <span style="flex:1;min-width:220px">
+      <b style="display:block;font-size:13px;margin-bottom:3px">🔗 ${licEsc(titulo)}</b>
+      <span style="font-size:12px;color:var(--text2);display:block;margin-bottom:6px">${licEsc(ayuda)}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);word-break:break-all">${licEsc(url)}</span>
+      <span style="display:block;margin-top:8px">
+        <button class="btn btn-secondary btn-sm" data-u="${licEsc(url)}" onclick="navigator.clipboard.writeText(this.dataset.u).then(()=>showToast('Enlace copiado ✓','success'))">📋 Copiar</button>
+        <a class="btn btn-secondary btn-sm" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center" href="https://wa.me/?text=${encodeURIComponent(waTexto + ' ' + url)}">📲 WhatsApp</a>
+        <button class="btn btn-secondary btn-sm" data-u="${licEsc(url)}" data-t="${licEsc(printTitulo)}" onclick="sgImprimirQR(this.dataset.t, '', this.dataset.u)">🖨️ Imprimir QR</button>
+      </span>
+    </span>
+  </div>`;
+}
+
+function sgImprimirQR(titulo, sub, url) {
+  const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=420x420&margin=10&data=' + encodeURIComponent(url);
+  const w = window.open('', '_blank');
+  if (!w) { showToast('El navegador bloqueó la ventana. Permití las ventanas emergentes e intentá de nuevo.', 'error'); return; }
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + licEsc(titulo) + '</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:30px}h1{font-size:34px;margin:0 0 6px}h2{font-size:20px;color:#444;margin:0 0 20px;font-weight:normal}img{width:420px;height:420px}p{font-size:18px;margin-top:14px}</style></head><body><h1>' + licEsc(titulo) + '</h1><h2>' + licEsc(sub) + '</h2><img src="' + qr + '" onload="setTimeout(function(){window.print()},300)"><p>📱 Escaneá con la cámara del celular</p></body></html>');
+  w.document.close();
+}
+
+// ═══════════════════════ CONTROL DE RACKS (administración) ═══════════════════════
+function rkConfig() {
+  let o = {};
+  try { o = JSON.parse((configData && configData.racks_config) || '{}') || {}; } catch (e) { o = {}; }
+  const out = {};
+  Object.keys(o).forEach(k => { const n = parseInt(o[k], 10); if (n > 0) out[String(k)] = n; });
+  return Object.keys(out).length ? out : { '1': 20, '2': 20, '3': 20, '4': 20 };
+}
+function rkPasillosOrden(cfg) { return Object.keys(cfg).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); }
+function rkAbiertos() { return rackHallazgosData.filter(h => h.estado !== 'Resuelto'); }
+function rkPlanDe(h) { return rackPlanData.find(p => String(p.ref_id) === String(h.__ID__)); }
+
+function renderRacks() {
+  if (!$a('panel-racks')) return;
+  const cfg = rkConfig(), pas = rkPasillosOrden(cfg);
+  audFillSelect('rkCFPasillo', 'Todos los pasillos', pas);
+  audFillSelect('rkHFPasillo', 'Todos los pasillos', pas);
+  renderRkEstado(cfg, pas);
+  renderRkControles();
+  renderRkHallazgos();
+  renderSgPlan('rk');
+  renderRkConfig(cfg);
+}
+
+function renderRkEstado(cfg, pas) {
+  sgLinkBox('rkLinkBox', 'Enlace para que los empleados hagan el control de racks',
+    rkLink(), 'Guardalo en el celular de los empleados o imprimí el QR y pegalo en el depósito.',
+    'Control de racks: completá el chequeo de seguridad de tu pasillo desde este enlace:', 'Control de Racks');
+  const hoy = licHoyISO(), abiertos = rkAbiertos();
+  const hechos = pas.filter(p => rackControlesData.some(c => String(c.pasillo) === p && licDia(c.fecha) === hoy)).length;
+  const crit = abiertos.filter(h => h.severidad === 'Crítico').length;
+  const sinPlan = abiertos.filter(h => !rkPlanDe(h)).length;
+  $a('rkStats').innerHTML =
+    sgCard('📅', hechos + ' / ' + pas.length, 'Pasillos controlados hoy') +
+    sgCard('⚠️', abiertos.length, 'Hallazgos abiertos', abiertos.length ? 'var(--warning)' : '') +
+    sgCard('⛔', crit, 'Críticos abiertos', crit ? 'var(--danger)' : '') +
+    sgCard('🎯', sinPlan, 'Abiertos sin plan de acción', sinPlan ? 'var(--warning)' : '');
+  $a('rkPasillos').innerHTML = pas.map(p => {
+    const ult = sgOrdenFecha(rackControlesData.filter(c => String(c.pasillo) === p))[0];
+    const dias = ult ? sgDias(ult.fecha) : null;
+    const abP = abiertos.filter(h => String(h.pasillo) === p);
+    const porRack = {};
+    abP.forEach(h => { if (!porRack[h.rack] || sgSevRank(h.severidad) > sgSevRank(porRack[h.rack])) porRack[h.rack] = h.severidad; });
+    const hayCrit = abP.some(h => h.severidad === 'Crítico');
+    let cls = '';
+    if (ult) cls = (hayCrit || dias > 14) ? 'rojo' : (dias > 7 || abP.length) ? 'ambar' : 'verde';
+    const chips = Object.keys(porRack).sort().map(r => `<span class="sg-rackchip ${porRack[r] === 'Crítico' ? 'crit' : porRack[r] === 'Leve' ? 'leve' : ''}">${licEsc(r)}</span>`).join('');
+    return `<div class="sg-pcard ${cls}">
+      <h4>Pasillo ${licEsc(p)} <span style="font-weight:500;color:var(--text3);font-size:12px">· ${cfg[p]} posiciones</span></h4>
+      <div class="sub">${ult ? '🗓️ Último control: ' + fmtDate(ult.fecha) + (ult.hora ? ' ' + licEsc(ult.hora) : '') + (dias === 0 ? ' (hoy)' : ' (hace ' + dias + ' días)') + '<br>👤 ' + licEsc(ult.inspector) : 'Sin controles registrados'}</div>
+      <div style="margin-top:8px">${chips ? '<div style="font-size:12px;color:var(--text2);font-weight:600">Racks con hallazgos abiertos:</div>' + chips : (ult ? '<span style="color:var(--success);font-size:12.5px;font-weight:600">✅ Sin hallazgos abiertos</span>' : '')}</div>
+    </div>`;
+  }).join('') + '<div style="grid-column:1/-1;font-size:11.5px;color:var(--text3)">🟢 controlado en los últimos 7 días · 🟠 más de 7 días o con hallazgos abiertos · 🔴 más de 14 días o con hallazgo crítico abierto</div>';
+}
+
+function renderRkControles() {
+  const tb = $a('rkCTbody'); if (!tb) return;
+  const fp = $a('rkCFPasillo').value, fr = $a('rkCFRes').value, d1 = $a('rkCDesde').value, d2 = $a('rkCHasta').value;
+  const rows = sgOrdenFecha(rackControlesData.filter(c =>
+    (!fp || String(c.pasillo) === fp) && (!fr || c.resultado === fr) && (!d1 || licDia(c.fecha) >= d1) && (!d2 || licDia(c.fecha) <= d2)));
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="icon">🏗️</div><p>No hay controles registrados</p></div></td></tr>'; return; }
+  tb.innerHTML = listSlice('rkc', rows).map(c => {
+    const hs = rackHallazgosData.filter(h => String(h.control_id) === String(c.__ID__));
+    const chips = hs.map(h => `<span class="sg-rackchip ${h.severidad === 'Crítico' ? 'crit' : h.severidad === 'Leve' ? 'leve' : ''}">${licEsc(h.rack)}</span>`).join('');
+    return `<tr>
+      <td>${fmtDate(c.fecha)}</td><td>${licEsc(c.hora || '')}</td>
+      <td><strong>${licEsc(c.pasillo)}</strong></td><td>${licEsc(c.inspector)}</td>
+      <td><span class="badge ${c.resultado === 'OK' ? 'badge-green' : 'badge-red'}">${c.resultado === 'OK' ? '✅ OK' : '⚠️ Con hallazgos'}</span></td>
+      <td>${chips || '—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="deleteRkControl('${c.__ID__}')">🗑️</button></td>
+    </tr>`;
+  }).join('') + listMore('rkc', rows, 7);
+}
+
+async function deleteRkControl(id) {
+  if (!confirm('¿Eliminar este control y los hallazgos que cargó?')) return;
+  if (API_URL) {
+    const res = await apiCall('deleteRackControl', { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  rackControlesData = rackControlesData.filter(c => String(c.__ID__) !== String(id));
+  rackHallazgosData = rackHallazgosData.filter(h => String(h.control_id) !== String(id));
+  sgSave(); renderRacks();
+  showToast('Control eliminado ✓', 'success');
+}
+
+function rkHallFiltrados() {
+  const fp = $a('rkHFPasillo').value, fe = $a('rkHFEstado').value, fs = $a('rkHFSev').value;
+  const q = kioskNormalizar($a('rkHBuscar').value);
+  return sgOrdenFecha(rackHallazgosData.filter(h => {
+    const ab = h.estado !== 'Resuelto';
+    if (fe === 'abiertos' && !ab) return false;
+    if (fe === 'resueltos' && ab) return false;
+    if (fp && String(h.pasillo) !== fp) return false;
+    if (fs && h.severidad !== fs) return false;
+    if (q && !kioskNormalizar([h.rack, h.items, h.nota, h.inspector].join(' ')).includes(q)) return false;
+    return true;
+  }));
+}
+
+function renderRkHallazgos() {
+  const tb = $a('rkHTbody'); if (!tb) return;
+  const ab = rkAbiertos();
+  $a('rkHStats').innerHTML =
+    sgCard('⚠️', ab.length, 'Abiertos', ab.length ? 'var(--warning)' : '') +
+    sgCard('⛔', ab.filter(h => h.severidad === 'Crítico').length, 'Críticos abiertos', ab.some(h => h.severidad === 'Crítico') ? 'var(--danger)' : '') +
+    sgCard('🎯', ab.filter(h => !rkPlanDe(h)).length, 'Abiertos sin plan') +
+    sgCard('✅', rackHallazgosData.length - ab.length, 'Resueltos');
+  const rows = rkHallFiltrados();
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">✅</div><p>No hay hallazgos con este filtro</p></div></td></tr>'; return; }
+  tb.innerHTML = listSlice('rkh', rows).map(h => {
+    const pl = rkPlanDe(h), abierto = h.estado !== 'Resuelto';
+    const c = pl ? audEstadoColor(pl.estado || 'Pendiente') : null;
+    return `<tr>
+      <td>${fmtDate(h.fecha)}</td>
+      <td><strong>${licEsc(h.rack)}</strong></td>
+      <td>${licEsc(h.nivel || '—')}</td>
+      <td style="max-width:340px">${licEsc(String(h.items || '').split(' | ').join(' · '))}${h.nota ? '<div style="font-size:12px;color:var(--text3);font-style:italic">' + licEsc(h.nota) + '</div>' : ''}</td>
+      <td>${sgSevBadge(h.severidad)}</td>
+      <td>${licEsc(h.inspector)}</td>
+      <td>${pl ? `<span class="estado-pill" style="background:${c.bg};color:${c.fg}">${licEsc(pl.estado || 'Pendiente')}</span>` : '<span style="color:var(--text3);font-size:12px">Sin plan</span>'}</td>
+      <td style="white-space:nowrap">
+        ${pl ? `<button class="btn btn-secondary btn-sm" onclick="openSgPlan('rk','${pl.__ID__}')">🎯 Ver plan</button>` : `<button class="btn btn-primary btn-sm" onclick="rkPlanDesdeHallazgo('${h.__ID__}')">🎯 Crear plan</button>`}
+        ${abierto ? `<button class="btn btn-secondary btn-sm" onclick="rkHallEstado('${h.__ID__}','Resuelto')">✔ Resuelto</button>` : `<button class="btn btn-secondary btn-sm" onclick="rkHallEstado('${h.__ID__}','Abierto')">↩ Reabrir</button>`}
+      </td>
+    </tr>`;
+  }).join('') + listMore('rkh', rows, 8);
+}
+
+function rkPlanDesdeHallazgo(id) {
+  const h = rackHallazgosData.find(x => String(x.__ID__) === String(id)); if (!h) return;
+  const det = String(h.items || '').split(' | ').filter(Boolean).join('; ') + (h.nota ? (h.items ? '. ' : '') + h.nota : '') + (h.nivel ? ' (' + h.nivel + ')' : '');
+  openSgPlan('rk', null, { elemento: h.rack, area: h.pasillo, hallazgo: det, severidad: h.severidad, ref_id: h.__ID__ });
+}
+
+async function rkHallEstado(id, estado) {
+  const h = rackHallazgosData.find(x => String(x.__ID__) === String(id)); if (!h) return;
+  if (API_URL) {
+    const res = await apiCall('updateRackHallazgo', { id: h.__ID__, data: { estado } });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  h.estado = estado; sgSave(); renderRacks();
+  showToast(estado === 'Resuelto' ? 'Hallazgo marcado como resuelto ✓' : 'Hallazgo reabierto ✓', 'success');
+}
+
+function exportRkCSV() {
+  const rows = rkHallFiltrados().map(h => {
+    const pl = rkPlanDe(h);
+    return [h.fecha, h.pasillo, h.rack, h.nivel, String(h.items || '').split(' | ').join('; '), h.nota, h.severidad, h.inspector, h.estado || 'Abierto', pl ? (pl.estado || 'Pendiente') : 'Sin plan', pl ? pl.responsable : '', pl ? pl.fecha_limite : ''];
+  });
+  sgCSV('hallazgos_racks.csv', ['Fecha', 'Pasillo', 'Rack', 'Nivel', 'Qué está mal', 'Detalle', 'Gravedad', 'Reportó', 'Estado', 'Plan de acción', 'Responsable', 'Fecha límite'], rows);
+}
+
+// ── Configuración de pasillos ──
+function renderRkConfig(cfg) {
+  const box = $a('rkCfgRows'); if (!box) return;
+  if (box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;
+  box.innerHTML = rkPasillosOrden(cfg).map(p => rkCfgRowHTML(p, cfg[p])).join('');
+}
+function rkCfgRowHTML(p, n) {
+  return `<div class="rk-cfg-row" style="display:flex;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+    <label style="width:70px;margin:0">Pasillo</label>
+    <input type="text" class="rk-cfg-p" value="${licEsc(p)}" style="width:80px;padding:8px;border:1px solid var(--border-strong);border-radius:8px;margin-right:14px" maxlength="10">
+    <label style="margin:0 8px 0 0">Posiciones</label>
+    <input type="number" class="rk-cfg-n" min="1" max="500" value="${licEsc(n)}" style="width:90px;padding:8px;border:1px solid var(--border-strong);border-radius:8px;margin-right:14px">
+    <button class="btn btn-danger btn-sm" onclick="this.parentNode.remove()">🗑️ Quitar</button>
+  </div>`;
+}
+function rkCfgAdd() {
+  const box = $a('rkCfgRows');
+  const usados = [...box.querySelectorAll('.rk-cfg-p')].map(i => parseInt(i.value, 10)).filter(n => !isNaN(n));
+  const sig = usados.length ? Math.max(...usados) + 1 : 1;
+  box.insertAdjacentHTML('beforeend', rkCfgRowHTML(String(sig), 20));
+}
+async function rkCfgGuardar() {
+  const out = {};
+  let error = '';
+  document.querySelectorAll('#rkCfgRows .rk-cfg-row').forEach(r => {
+    const p = r.querySelector('.rk-cfg-p').value.trim();
+    const n = parseInt(r.querySelector('.rk-cfg-n').value, 10);
+    if (!p) { error = 'Hay un pasillo sin número.'; return; }
+    if (!(n >= 1 && n <= 500)) { error = 'La cantidad de posiciones del pasillo ' + p + ' debe estar entre 1 y 500.'; return; }
+    if (out[p]) { error = 'El pasillo ' + p + ' está repetido.'; return; }
+    out[p] = n;
+  });
+  if (error) { showToast(error, 'error'); return; }
+  if (!Object.keys(out).length) { showToast('Cargá al menos un pasillo', 'error'); return; }
+  const json = JSON.stringify(out);
+  if (API_URL) {
+    const res = await apiCall('saveConfig', { data: { racks_config: json } });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  configData = { ...configData, racks_config: json };
+  if (!API_URL) { try { localStorage.setItem('rrhh_config', JSON.stringify(configData)); } catch (e) {} }
+  renderRacks();
+  showToast('Pasillos guardados ✓', 'success');
+}
+
+// ═══════════════════════ PLAN DE ACCIÓN (racks y equipos) ═══════════════════════
+const SG_CFG = {
+  rk: { arr: () => rackPlanData, set: v => { rackPlanData = v; }, add: 'addRackPlan', upd: 'updateRackPlan', del: 'deleteRackPlan', fotos: 'getRackPlanFotos', elem: 'Rack', ico: '🏗️', render: () => renderRacks() },
+  eq: { arr: () => equipoPlanData, set: v => { equipoPlanData = v; }, add: 'addEquipoPlan', upd: 'updateEquipoPlan', del: 'deleteEquipoPlan', fotos: 'getEquipoPlanFotos', elem: 'Equipo', ico: '🚜', render: () => renderEquipos() }
+};
+function renderRkPlan() { renderSgPlan('rk'); }
+function renderEqPlan() { renderSgPlan('eq'); }
+function sgVencida(p) { return p.estado !== 'Completada' && p.fecha_limite && licDia(p.fecha_limite) < licHoyISO(); }
+
+function renderSgPlan(m) {
+  const grid = $a(m + 'PGrid'); if (!grid) return;
+  const cfg = SG_CFG[m], arr = cfg.arr();
+  const cuenta = e => arr.filter(p => (p.estado || 'Pendiente') === e).length;
+  $a(m + 'PStats').innerHTML = sgCard('🕒', cuenta('Pendiente'), 'Pendientes') + sgCard('🔧', cuenta('En curso'), 'En curso') + sgCard('✅', cuenta('Completada'), 'Completadas') + sgCard('⏰', arr.filter(sgVencida).length, 'Vencidas', arr.some(sgVencida) ? 'var(--danger)' : '');
+  const fe = $a(m + 'PFEstado').value, fs = $a(m + 'PFSev').value, q = kioskNormalizar($a(m + 'PBuscar').value);
+  const orden = { 'Pendiente': 0, 'En curso': 1, 'Completada': 2 };
+  const lista = arr.filter(p => (!fe || (p.estado || 'Pendiente') === fe) && (!fs || p.severidad === fs) &&
+      (!q || kioskNormalizar([p.elemento, p.hallazgo, p.accion, p.responsable].join(' ')).includes(q)))
+    .sort((a, b) => (orden[a.estado || 'Pendiente'] ?? 0) - (orden[b.estado || 'Pendiente'] ?? 0) || sgSevRank(b.severidad) - sgSevRank(a.severidad) || String(a.fecha_limite || '9999').localeCompare(String(b.fecha_limite || '9999')));
+  if (!lista.length) { grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🎯</div><p>No hay acciones registradas</p></div>'; return; }
+  grid.innerHTML = lista.map(p => {
+    const est = p.estado || 'Pendiente', c = audEstadoColor(est), venc = sgVencida(p);
+    const tieneFoto = p.foto_antes_url || p.foto_despues_url;
+    return `<div class="plan-card">
+      <div class="plan-top"><h4>${cfg.ico} ${licEsc(p.elemento || '—')}</h4><span class="estado-pill" style="background:${c.bg};color:${c.fg}">${est}</span></div>
+      <div class="conduct-body"><b>Qué está mal:</b> ${licEsc(p.hallazgo)}</div>
+      <div class="conduct-body"><b>Acción:</b> ${licEsc(p.accion)}</div>
+      <div class="conduct-meta" style="flex-wrap:wrap">
+        ${sgSevBadge(p.severidad)}
+        <span>👤 ${licEsc(p.responsable || 'Sin asignar')}</span>
+        ${p.fecha ? `<span>📅 Creada: ${fmtDate(p.fecha)}</span>` : ''}
+        ${p.fecha_limite ? `<span style="${venc ? 'color:var(--danger);font-weight:600' : ''}">⏰ Límite: ${fmtDate(p.fecha_limite)}${venc ? ' (vencida)' : ''}</span>` : ''}
+        ${p.fecha_cierre ? `<span>✅ Cerrada: ${fmtDate(p.fecha_cierre)}</span>` : ''}
+      </div>
+      ${p.notas ? `<div class="conduct-body" style="font-style:italic;color:var(--text3)">${licEsc(p.notas)}</div>` : ''}
+      <div>${tieneFoto
+        ? `<button class="btn btn-secondary btn-sm" onclick="sgVerFotos('${m}','${p.__ID__}')">🖼️ Ver fotos (${p.foto_antes_url ? 'antes' : ''}${p.foto_antes_url && p.foto_despues_url ? ' / ' : ''}${p.foto_despues_url ? 'después' : ''})</button>`
+        : '<span style="font-size:12px;color:var(--text3)">📷 Sin fotos cargadas</span>'}</div>
+      <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <select class="filter-select" onchange="sgPlanEstado('${m}','${p.__ID__}', this.value)">${AUD_ESTADOS.map(e => `<option value="${e}" ${e === est ? 'selected' : ''}>${e}</option>`).join('')}</select>
+        <span><button class="btn btn-secondary btn-sm" onclick="openSgPlan('${m}','${p.__ID__}')">✏️ Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteSgPlan('${m}','${p.__ID__}')">🗑️</button></span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Cuando el plan se completa, se marca como resuelto el hallazgo (rack) o la falla (equipo) de origen
+async function sgSyncOrigen(m, p, resuelto) {
+  if (!p.ref_id) return;
+  if (m === 'rk') {
+    const h = rackHallazgosData.find(x => String(x.__ID__) === String(p.ref_id)); if (!h) return;
+    const nuevo = resuelto ? 'Resuelto' : 'Abierto';
+    if (h.estado === nuevo || (!h.estado && nuevo === 'Abierto')) return;
+    if (API_URL) { const r = await apiCall('updateRackHallazgo', { id: h.__ID__, data: { estado: nuevo } }); if (r?.error) { showToast('Error: ' + r.error, 'error'); return; } }
+    h.estado = nuevo;
+  } else {
+    const c = equipoControlesData.find(x => String(x.__ID__) === String(p.ref_id)); if (!c) return;
+    const nuevo = resuelto ? 'Resuelto' : 'Abierto';
+    if (c.resolucion === nuevo) return;
+    if (API_URL) { const r = await apiCall('updateEquipoControl', { id: c.__ID__, data: { resolucion: nuevo } }); if (r?.error) { showToast('Error: ' + r.error, 'error'); return; } }
+    c.resolucion = nuevo;
+  }
+}
+
+async function sgPlanEstado(m, id, estado) {
+  const cfg = SG_CFG[m];
+  const p = cfg.arr().find(x => String(x.__ID__) === String(id)); if (!p) return;
+  if (estado === 'Completada' && !p.foto_despues_url && !confirm('Esta acción no tiene la foto de cómo quedó resuelto. ¿Marcarla como completada igual?')) { renderSgPlan(m); return; }
+  const prev = { estado: p.estado, fecha_cierre: p.fecha_cierre };
+  p.estado = estado;
+  p.fecha_cierre = estado === 'Completada' ? (p.fecha_cierre || licHoyISO()) : '';
+  if (API_URL) {
+    const res = await apiCall(cfg.upd, { id: p.__ID__, data: p });
+    if (res?.error) { p.estado = prev.estado; p.fecha_cierre = prev.fecha_cierre; showToast('Error: ' + res.error, 'error'); renderSgPlan(m); return; }
+  }
+  await sgSyncOrigen(m, p, estado === 'Completada');
+  sgSave(); cfg.render();
+  showToast('Estado actualizado a "' + estado + '" ✓', 'success');
+}
+
+async function deleteSgPlan(m, id) {
+  if (!confirm('¿Eliminar esta acción del plan?')) return;
+  const cfg = SG_CFG[m];
+  if (API_URL) {
+    const res = await apiCall(cfg.del, { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  cfg.set(cfg.arr().filter(p => String(p.__ID__) !== String(id)));
+  sgSave(); cfg.render();
+  showToast('Acción eliminada ✓', 'success');
+}
+
+// ── Modal de plan de acción ──
+let sgPlanCtx = null;
+
+function sgNombresNomina() {
+  return [...new Set(employees.map(e => e.nombre).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function openSgPlan(m, id, pre) {
+  pre = pre || {};
+  const cfg = SG_CFG[m];
+  const p = id ? cfg.arr().find(x => String(x.__ID__) === String(id)) : null;
+  sgPlanCtx = { m, id: id || null, prev: p, prevEstado: p ? (p.estado || 'Pendiente') : null, ref: p ? (p.ref_id || '') : (pre.ref_id || ''), fotos: { antes: null, despues: null }, quitar: { antes: false, despues: false } };
+  $a('sgPlanTitle').textContent = (p ? '✏️ Editar acción' : '🎯 Nueva Acción') + ' · ' + cfg.elem;
+  $a('sgp_elem_lbl').textContent = cfg.elem + ' *';
+  const esRk = m === 'rk';
+  $a('sgp_elem').style.display = esRk ? '' : 'none';
+  $a('sgp_elem_sel').style.display = esRk ? 'none' : '';
+  const elem = p ? (p.elemento || '') : (pre.elemento || '');
+  if (esRk) {
+    $a('sgp_elem').value = elem;
+  } else {
+    const nombres = equiposListaData.map(e => e.nombre).filter(Boolean).sort();
+    if (elem && !nombres.includes(elem)) nombres.push(elem);
+    $a('sgp_elem_sel').innerHTML = '<option value="">Seleccioná el equipo...</option>' + nombres.map(n => `<option value="${licEsc(n)}">${licEsc(n)}</option>`).join('');
+    $a('sgp_elem_sel').value = elem;
+  }
+  $a('sgp_sev').value = p ? (p.severidad || 'Moderado') : (pre.severidad || 'Moderado');
+  $a('sgp_hall').value = p ? (p.hallazgo || '') : (pre.hallazgo || '');
+  $a('sgp_accion').value = p ? (p.accion || '') : '';
+  $a('sgp_resp').value = p ? (p.responsable || '') : '';
+  $a('sgRespList').innerHTML = sgNombresNomina().map(n => `<option value="${licEsc(n)}">`).join('');
+  $a('sgp_limite').value = p ? licDia(p.fecha_limite || '') : '';
+  $a('sgp_estado').value = p ? (p.estado || 'Pendiente') : 'Pendiente';
+  $a('sgp_cierre').value = p ? licDia(p.fecha_cierre || '') : '';
+  $a('sgp_notas').value = p ? (p.notas || '') : '';
+  ['antes', 'despues'].forEach(k => {
+    $a('sgp_f_' + k).value = '';
+    $a('sgp_i_' + k).style.display = 'none';
+    const tiene = p && p['foto_' + k + '_url'];
+    $a('sgp_s_' + k).textContent = tiene ? '📎 Ya tiene una foto guardada (si subís otra, la reemplaza)' : '';
+    $a('sgp_q_' + k).style.display = tiene ? '' : 'none';
+  });
+  $a('sgPlanSaveBtn').disabled = false; $a('sgPlanSaveBtn').textContent = '💾 Guardar acción';
+  $a('sgPlanModal').classList.add('open');
+}
+function closeSgPlan() { $a('sgPlanModal').classList.remove('open'); }
+
+// Reduce la foto (máx. 1600 px, JPEG) para que suba rápido desde el celular
+function sgFotoElegida(k, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('Elegí un archivo de imagen', 'error'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1600, f = Math.min(1, MAX / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      sgPlanCtx.fotos[k] = c.toDataURL('image/jpeg', 0.75);
+      sgPlanCtx.quitar[k] = false;
+      const im = $a('sgp_i_' + k); im.src = sgPlanCtx.fotos[k]; im.style.display = 'block';
+      $a('sgp_s_' + k).textContent = '✔ Foto lista para guardar';
+      $a('sgp_q_' + k).style.display = '';
+    };
+    img.onerror = () => { showToast('No se pudo leer la imagen', 'error'); input.value = ''; };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function sgFotoQuitar(k) {
+  sgPlanCtx.fotos[k] = null;
+  const tenia = sgPlanCtx.prev && sgPlanCtx.prev['foto_' + k + '_url'];
+  sgPlanCtx.quitar[k] = !!tenia;
+  $a('sgp_f_' + k).value = '';
+  $a('sgp_i_' + k).style.display = 'none';
+  $a('sgp_s_' + k).textContent = tenia ? '🗑️ La foto se quitará al guardar' : '';
+  $a('sgp_q_' + k).style.display = 'none';
+}
+
+async function saveSgPlan() {
+  const c = sgPlanCtx; if (!c) return;
+  const cfg = SG_CFG[c.m], p = c.prev;
+  const elem = (c.m === 'rk' ? $a('sgp_elem').value : $a('sgp_elem_sel').value).trim();
+  const hall = $a('sgp_hall').value.trim(), accion = $a('sgp_accion').value.trim(), resp = $a('sgp_resp').value.trim();
+  if (!elem) { showToast('Indicá ' + (c.m === 'rk' ? 'el rack (ej. 4-07)' : 'el equipo'), 'error'); return; }
+  if (!hall) { showToast('Describí qué está mal', 'error'); return; }
+  if (!accion) { showToast('Indicá la acción a realizar', 'error'); return; }
+  if (!resp) { showToast('Indicá el responsable', 'error'); return; }
+  const estado = $a('sgp_estado').value;
+  const area = c.m === 'rk' ? elem.split('-')[0] : ((equiposListaData.find(e => e.nombre === elem) || {}).tipo || (p ? p.area : '') || '');
+  const data = {
+    fecha: p ? (p.fecha || licHoyISO()) : licHoyISO(),
+    elemento: elem, area, hallazgo: hall, severidad: $a('sgp_sev').value, accion, responsable: resp,
+    fecha_limite: $a('sgp_limite').value, estado,
+    fecha_cierre: estado === 'Completada' ? ($a('sgp_cierre').value || licHoyISO()) : '',
+    notas: $a('sgp_notas').value.trim(), ref_id: c.ref,
+    foto_antes_url: p ? (p.foto_antes_url || '') : '', foto_despues_url: p ? (p.foto_despues_url || '') : ''
+  };
+  if (c.quitar.antes) data.foto_antes_url = '';
+  if (c.quitar.despues) data.foto_despues_url = '';
+  if (estado === 'Completada' && !c.fotos.despues && !data.foto_despues_url && !confirm('Esta acción no tiene la foto de cómo quedó resuelto. ¿Guardarla como completada igual?')) return;
+  const btn = $a('sgPlanSaveBtn');
+  btn.disabled = true; btn.textContent = (c.fotos.antes || c.fotos.despues) ? '⏳ Subiendo fotos...' : '⏳ Guardando...';
+  try {
+    if (API_URL) {
+      const payload = { ...data };
+      if (c.fotos.antes) payload.foto_antes_base64 = c.fotos.antes.split(',')[1];
+      if (c.fotos.despues) payload.foto_despues_base64 = c.fotos.despues.split(',')[1];
+      const res = c.id ? await apiCall(cfg.upd, { id: c.id, data: payload }) : await apiCall(cfg.add, { data: payload });
+      if (!res || res.error || !res.success) {
+        const err = (res && res.error) || 'sin conexión';
+        showToast(/permiso|permission|DriveApp|auth\/drive/i.test(err) ? 'Falta autorizar Drive en Apps Script (ejecutá autorizarDrive y publicá una nueva versión).' : 'Error: ' + err, 'error');
+        btn.disabled = false; btn.textContent = '💾 Guardar acción';
+        return;
+      }
+      data.foto_antes_url = res.foto_antes_url !== undefined ? res.foto_antes_url : data.foto_antes_url;
+      data.foto_despues_url = res.foto_despues_url !== undefined ? res.foto_despues_url : data.foto_despues_url;
+      if (!c.id) data.__ID__ = res.id;
+    } else {
+      if (c.fotos.antes) data.foto_antes_url = c.fotos.antes;
+      if (c.fotos.despues) data.foto_despues_url = c.fotos.despues;
+      if (!c.id) data.__ID__ = sgLocalId();
+    }
+    if (c.id && p) Object.assign(p, data); else cfg.arr().push(data);
+    const eraCompleta = c.prevEstado === 'Completada';
+    if (estado === 'Completada' || eraCompleta) await sgSyncOrigen(c.m, data, estado === 'Completada');
+    sgSave(); closeSgPlan(); cfg.render();
+    showToast('Acción guardada ✓', 'success');
+  } catch (e) {
+    showToast('Error: ' + e.message, 'error');
+    btn.disabled = false; btn.textContent = '💾 Guardar acción';
+  }
+}
+
+async function sgVerFotos(m, id) {
+  const cfg = SG_CFG[m];
+  const p = cfg.arr().find(x => String(x.__ID__) === String(id)); if (!p) return;
+  $a('sgFotosTitle').textContent = '🖼️ ' + cfg.elem + ' ' + (p.elemento || '');
+  const pinta = (id2, url) => { $a(id2).innerHTML = url ? '<img src="' + url + '" alt="">' : 'Sin foto'; };
+  $a('sgFotosModal').classList.add('open');
+  if (API_URL) {
+    $a('sgFotoAntes').textContent = 'Cargando...'; $a('sgFotoDespues').textContent = 'Cargando...';
+    const res = await apiCall(cfg.fotos, { data: { id } });
+    if (!res || res.error) {
+      const msg = (res && res.error) || 'sin conexión';
+      $a('sgFotoAntes').textContent = 'No se pudieron cargar: ' + msg; $a('sgFotoDespues').textContent = '';
+      return;
+    }
+    pinta('sgFotoAntes', res.antes); pinta('sgFotoDespues', res.despues);
+  } else {
+    pinta('sgFotoAntes', p.foto_antes_url); pinta('sgFotoDespues', p.foto_despues_url);
+  }
+}
+
+// ═══════════════════════ EQUIPOS DE MANIPULEO (administración) ═══════════════════════
+function eqUltimo(id) { return sgOrdenFecha(equipoControlesData.filter(c => String(c.equipo_id) === String(id)))[0]; }
+function eqEstadoActual(c) {
+  if (!c) return { k: 'sin', txt: 'Sin controles', ico: '⚪', cls: '' };
+  if (c.resultado === 'Fuera de servicio' && c.resolucion !== 'Resuelto') return { k: 'fs', txt: 'Fuera de servicio', ico: '⛔', cls: 'rojo' };
+  if (c.resultado === 'Con observaciones' && c.resolucion !== 'Resuelto') return { k: 'obs', txt: 'Con observaciones', ico: '🟡', cls: 'ambar' };
+  return { k: 'ok', txt: 'Apto', ico: '🟢', cls: 'verde' };
+}
+function eqFallas(c) {
+  try { const a = JSON.parse(c.fallas_json || '[]'); if (Array.isArray(a)) return a; } catch (e) {}
+  return String(c.fallas || '').split(' | ').filter(Boolean).map(t => ({ item: t, critico: /\(CRÍTICO\)/.test(t), nota: '' }));
+}
+function eqPlanDe(c) { return equipoPlanData.find(p => String(p.ref_id) === String(c.__ID__)); }
+
+function renderEquipos() {
+  if (!$a('panel-equipos')) return;
+  audFillSelect('eqCFEquipo', 'Todos los equipos', [...new Set(equiposListaData.map(e => e.nombre).filter(Boolean))].sort());
+  renderEqEstado();
+  renderEqControles();
+  renderSgPlan('eq');
+  renderEqLista();
+}
+
+function renderEqEstado() {
+  sgLinkBox('eqLinkBox', 'Enlace para que los operarios controlen los equipos',
+    eqLink(), 'Un solo enlace/QR para todos los equipos. Abajo, cada equipo tiene además su propio QR para pegarlo en el equipo.',
+    'Control de equipos de manipuleo: hacé el control de seguridad de tu equipo desde este enlace:', 'Control de Equipos de Manipuleo');
+  const hoy = licHoyISO();
+  const activos = equiposListaData.filter(e => e.activo !== 'No');
+  const info = activos.map(e => {
+    const ult = eqUltimo(e.__ID__);
+    return { e, ult, est: eqEstadoActual(ult), hoy: equipoControlesData.some(c => String(c.equipo_id) === String(e.__ID__) && licDia(c.fecha) === hoy) };
+  });
+  const abiertas = equipoControlesData.filter(c => c.resolucion === 'Abierto').length;
+  const sinHoy = info.filter(i => !i.hoy).length, fs = info.filter(i => i.est.k === 'fs').length;
+  $a('eqStats').innerHTML =
+    sgCard('🚜', activos.length, 'Equipos activos') +
+    sgCard('✅', (activos.length - sinHoy) + ' / ' + activos.length, 'Controlados hoy') +
+    sgCard('🕒', sinHoy, 'Sin control hoy', sinHoy ? 'var(--warning)' : '') +
+    sgCard('⛔', fs, 'Fuera de servicio', fs ? 'var(--danger)' : '') +
+    sgCard('⚠️', abiertas, 'Fallas abiertas', abiertas ? 'var(--warning)' : '');
+  if (!info.length) {
+    $a('eqCards').innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="icon">🚜</div><p>Todavía no cargaste equipos. Andá a la pestaña “Equipos” y agregá los autoelevadores, apiladores y zorras.</p></div>';
+    return;
+  }
+  $a('eqCards').innerHTML = info.map(i => `<div class="sg-pcard ${i.est.cls}">
+    <h4>${i.est.ico} ${licEsc(i.e.nombre)}</h4>
+    <div class="sub">${licEsc(i.e.tipo || '')} · <b>${i.est.txt}</b></div>
+    <div class="sub">${i.hoy ? '✅ Controlado hoy' : '🕒 Sin control hoy'}${i.ult ? '<br>Último: ' + fmtDate(i.ult.fecha) + ' ' + licEsc(i.ult.hora || '') + ' · ' + licEsc(i.ult.operario) : ''}</div>
+    <div style="margin-top:8px">${i.ult ? `<button class="btn btn-secondary btn-sm" onclick="eqVer('${i.ult.__ID__}')">👁 Último control</button> ` : ''}
+      <button class="btn btn-secondary btn-sm" onclick="eqImprimirQR('${i.e.__ID__}')">🖨️ QR del equipo</button></div>
+  </div>`).join('');
+}
+
+function eqImprimirQR(id) {
+  const e = equiposListaData.find(x => String(x.__ID__) === String(id)); if (!e) return;
+  if (!API_URL) { showToast('Conectá el sistema con Google Sheets para generar el QR', 'error'); return; }
+  sgImprimirQR(e.nombre, 'Control de seguridad diario · ' + (e.tipo || ''), eqLink(e.__ID__));
+}
+
+function eqCtrlFiltrados() {
+  const fe = $a('eqCFEquipo').value, fr = $a('eqCFRes').value, d1 = $a('eqCDesde').value, d2 = $a('eqCHasta').value;
+  return sgOrdenFecha(equipoControlesData.filter(c =>
+    (!fe || c.equipo === fe) && (!fr || c.resultado === fr) && (!d1 || licDia(c.fecha) >= d1) && (!d2 || licDia(c.fecha) <= d2)));
+}
+
+function renderEqControles() {
+  const tb = $a('eqCTbody'); if (!tb) return;
+  const rows = eqCtrlFiltrados();
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">🚜</div><p>No hay controles registrados</p></div></td></tr>'; return; }
+  tb.innerHTML = listSlice('eqc', rows).map(c => {
+    const bc = c.resultado === 'OK' ? 'badge-green' : c.resultado === 'Fuera de servicio' ? 'badge-red' : 'badge-yellow';
+    const res = c.resolucion === 'Abierto' ? '<span class="badge badge-red">Abierta</span>' : c.resolucion === 'Resuelto' ? '<span class="badge badge-green">Resuelta</span>' : '—';
+    return `<tr>
+      <td>${fmtDate(c.fecha)}</td><td>${licEsc(c.hora || '')}</td>
+      <td><strong>${licEsc(c.equipo)}</strong></td><td>${licEsc(c.operario)}</td>
+      <td><span class="badge ${bc}">${licEsc(c.resultado)}</span></td>
+      <td>${Number(c.cant_fallas) || 0}</td><td>${res}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary btn-sm" onclick="eqVer('${c.__ID__}')">👁 Ver</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEqControl('${c.__ID__}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('') + listMore('eqc', rows, 8);
+}
+
+async function deleteEqControl(id) {
+  if (!confirm('¿Eliminar este control?')) return;
+  if (API_URL) {
+    const res = await apiCall('deleteEquipoControl', { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  equipoControlesData = equipoControlesData.filter(c => String(c.__ID__) !== String(id));
+  sgSave(); renderEquipos();
+  showToast('Control eliminado ✓', 'success');
+}
+
+function eqVer(id) {
+  const c = equipoControlesData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  const fallas = eqFallas(c), pl = eqPlanDe(c);
+  const bc = c.resultado === 'OK' ? 'badge-green' : c.resultado === 'Fuera de servicio' ? 'badge-red' : 'badge-yellow';
+  $a('eqDetailTitle').textContent = '🚜 ' + (c.equipo || 'Control');
+  $a('eqDetailBody').innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;margin:-4px;font-size:13px">
+      <span style="margin:4px"><span class="badge ${bc}">${licEsc(c.resultado)}</span></span>
+      <span style="margin:4px">📅 ${fmtDate(c.fecha)} ${licEsc(c.hora || '')} · ${licEsc(c.turno || '')}</span>
+      <span style="margin:4px">👤 ${licEsc(c.operario)}</span>
+      ${c.tipo ? `<span style="margin:4px">🚜 ${licEsc(c.tipo)}</span>` : ''}
+      ${c.horometro ? `<span style="margin:4px">⏱ Horómetro: ${licEsc(c.horometro)}</span>` : ''}
+    </div>
+    ${fallas.length ? `<div style="margin-top:12px;font-weight:700;font-size:13px">Fallas informadas</div>` + fallas.map(f => `<div class="sg-hall" style="border-left-color:${f.critico ? 'var(--danger)' : 'var(--warning)'}"><b>${licEsc(f.item)}</b>${f.critico ? '<span class="sg-crit">CRÍTICO</span>' : ''}${f.nota ? '<div style="margin-top:3px;color:var(--text2)">' + licEsc(f.nota) + '</div>' : ''}</div>`).join('')
+      : '<div style="margin-top:12px;color:var(--success);font-weight:600">✅ Sin fallas: todos los puntos de control estaban bien.</div>'}
+    ${c.observaciones ? `<div style="margin-top:12px;font-size:13px"><b>Observaciones:</b> ${licEsc(c.observaciones)}</div>` : ''}
+    ${pl ? `<div style="margin-top:12px;font-size:13px"><b>Plan de acción:</b> ${licEsc(pl.estado || 'Pendiente')} · ${licEsc(pl.responsable || '')}</div>` : ''}`;
+  let foot = '<button class="btn btn-secondary" onclick="document.getElementById(\'eqDetailModal\').classList.remove(\'open\')">Cerrar</button>';
+  if (fallas.length) {
+    foot += pl ? `<button class="btn btn-secondary" onclick="document.getElementById('eqDetailModal').classList.remove('open');openSgPlan('eq','${pl.__ID__}')">🎯 Ver plan</button>`
+               : `<button class="btn btn-primary" onclick="eqPlanDesdeControl('${c.__ID__}')">🎯 Crear plan de acción</button>`;
+    foot += c.resolucion === 'Resuelto' ? `<button class="btn btn-secondary" onclick="eqResolucion('${c.__ID__}','Abierto')">↩ Reabrir</button>`
+                                        : `<button class="btn btn-secondary" onclick="eqResolucion('${c.__ID__}','Resuelto')">✔ Marcar resuelto</button>`;
+  }
+  $a('eqDetailFoot').innerHTML = foot;
+  $a('eqDetailModal').classList.add('open');
+}
+
+function eqPlanDesdeControl(id) {
+  const c = equipoControlesData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  $a('eqDetailModal').classList.remove('open');
+  const det = eqFallas(c).map(f => f.item + (f.nota ? ' (' + f.nota + ')' : '')).join('; ');
+  openSgPlan('eq', null, { elemento: c.equipo, hallazgo: det, severidad: c.resultado === 'Fuera de servicio' ? 'Crítico' : 'Moderado', ref_id: c.__ID__ });
+}
+
+async function eqResolucion(id, estado) {
+  const c = equipoControlesData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  if (API_URL) {
+    const res = await apiCall('updateEquipoControl', { id: c.__ID__, data: { resolucion: estado } });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  c.resolucion = estado; sgSave();
+  $a('eqDetailModal').classList.remove('open');
+  renderEquipos();
+  showToast(estado === 'Resuelto' ? 'Falla marcada como resuelta ✓' : 'Falla reabierta ✓', 'success');
+}
+
+function exportEqCSV() {
+  const rows = eqCtrlFiltrados().map(c => [c.fecha, c.hora, c.turno, c.equipo, c.tipo, c.operario, c.horometro, c.resultado, c.cant_fallas, c.fallas, c.observaciones, c.resolucion]);
+  sgCSV('controles_equipos.csv', ['Fecha', 'Hora', 'Turno', 'Equipo', 'Tipo', 'Operario', 'Horómetro', 'Resultado', 'Cant. fallas', 'Fallas', 'Observaciones', 'Resolución'], rows);
+}
+
+// ── Lista de equipos ──
+let eqEditId = null;
+function renderEqLista() {
+  const tb = $a('eqLTbody'); if (!tb) return;
+  if (!equiposListaData.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">🚜</div><p>No hay equipos cargados</p></div></td></tr>'; return; }
+  tb.innerHTML = [...equiposListaData].sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), undefined, { numeric: true })).map(e => `<tr>
+    <td><strong>${licEsc(e.nombre)}</strong></td><td>${licEsc(e.tipo || '')}</td>
+    <td><span class="badge ${e.activo === 'No' ? 'badge-gray' : 'badge-green'}">${e.activo === 'No' ? 'Dado de baja' : 'Activo'}</span></td>
+    <td>${licEsc(e.observaciones || '')}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-secondary btn-sm" onclick="eqImprimirQR('${e.__ID__}')">🖨️ QR</button>
+      <button class="btn btn-secondary btn-sm" onclick="openEqEquipo('${e.__ID__}')">✏️ Editar</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteEqEquipo('${e.__ID__}')">🗑️</button>
+    </td></tr>`).join('');
+}
+function openEqEquipo(id) {
+  eqEditId = id || null;
+  const e = id ? equiposListaData.find(x => String(x.__ID__) === String(id)) : null;
+  $a('eqEquipoTitle').textContent = e ? '✏️ Editar equipo' : '🚜 Nuevo equipo';
+  $a('eqe_tipo').innerHTML = Object.keys(EQ_TIPOS).map(t => `<option value="${licEsc(t)}">${licEsc(t)}</option>`).join('');
+  $a('eqe_nombre').value = e ? e.nombre : '';
+  $a('eqe_tipo').value = e ? (e.tipo || 'Otro') : 'Autoelevador';
+  $a('eqe_activo').value = e && e.activo === 'No' ? 'No' : 'Sí';
+  $a('eqe_obs').value = e ? (e.observaciones || '') : '';
+  $a('eqEquipoModal').classList.add('open');
+}
+async function saveEqEquipo() {
+  const nombre = $a('eqe_nombre').value.trim();
+  if (!nombre) { showToast('Ingresá el nombre o código del equipo', 'error'); return; }
+  if (equiposListaData.some(e => e.nombre.trim().toLowerCase() === nombre.toLowerCase() && String(e.__ID__) !== String(eqEditId))) { showToast('Ya existe un equipo con ese nombre', 'error'); return; }
+  const data = { nombre, tipo: $a('eqe_tipo').value, activo: $a('eqe_activo').value, observaciones: $a('eqe_obs').value.trim() };
+  if (API_URL) {
+    const res = eqEditId ? await apiCall('updateEquipo', { id: eqEditId, data }) : await apiCall('addEquipo', { data });
+    if (!res || res.error || !res.success) { showToast('Error: ' + ((res && res.error) || 'sin conexión'), 'error'); return; }
+    if (!eqEditId) data.__ID__ = res.id;
+  } else if (!eqEditId) { data.__ID__ = sgLocalId(); }
+  if (eqEditId) { const e = equiposListaData.find(x => String(x.__ID__) === String(eqEditId)); if (e) Object.assign(e, data); }
+  else equiposListaData.push(data);
+  sgSave();
+  $a('eqEquipoModal').classList.remove('open');
+  renderEquipos();
+  showToast('Equipo guardado ✓', 'success');
+}
+async function deleteEqEquipo(id) {
+  if (!confirm('¿Eliminar este equipo de la lista? Los controles anteriores se conservan. Si solo dejó de usarse, conviene “Editar” y darlo de baja.')) return;
+  if (API_URL) {
+    const res = await apiCall('deleteEquipo', { id });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
+  }
+  equiposListaData = equiposListaData.filter(e => String(e.__ID__) !== String(id));
+  sgSave(); renderEquipos();
+  showToast('Equipo eliminado ✓', 'success');
+}
+
+// ═══════════════════════ ENLACE PÚBLICO: CONTROL DE RACKS ═══════════════════════
+const rkPub = { emps: [], pasillos: {}, hoy: {}, pas: null, hall: [], sev: '', items: [], busy: false, lista: [] };
+
+function rkPubMsg(tipo, txt) {
+  const el = $a('rkPubMsg');
+  if (!txt) { el.style.display = 'none'; return; }
+  el.className = 'kiosk-result ' + tipo; el.textContent = txt; el.style.display = 'block';
+}
+
+async function initRackPublic(apiUrl) {
+  kioskApiUrl = apiUrl || '';
+  $a('rackScreen').classList.add('active');
+  $a('rkPubFecha').textContent = 'Fecha: ' + fmtDate(licHoyISO());
+  try { const n = localStorage.getItem('sg_nombre'); if (n) $a('rkPubNombre').value = n; } catch (e) {}
+  if (!kioskApiUrl) { rkPubMsg('error', 'Este enlace no es válido. Pedí uno nuevo al administrador.'); return; }
+  rkPubMsg('warn', 'Cargando pasillos...');
+  const res = await kioskApiCall('getRacksKiosk');
+  if (!res || res.error) { rkPubMsg('error', 'No se pudo conectar con el sistema. Revisá tu conexión y volvé a abrir el enlace.'); return; }
+  rkPubMsg('', '');
+  rkPub.pasillos = res.pasillos || {};
+  rkPub.hoy = res.hoy || {};
+  rkPub.emps = (res.employees || []).map(e => ({ nombre: e.nombre, _n: kioskNormalizar(e.nombre) })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  rkPubPasillos();
+}
+
+function rkPubOrden() { return Object.keys(rkPub.pasillos).sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); }
+
+function rkPubPasillos() {
+  $a('rkPubPasillos').innerHTML = rkPubOrden().map(p => {
+    const h = rkPub.hoy[p];
+    const cls = (h ? (h === 'OK' ? ' ok' : ' bad') : '') + (rkPub.pas === p ? ' on' : '');
+    const sub = h ? (h === 'OK' ? '✅ OK hoy' : '⚠️ con hallazgos hoy') : 'sin controlar hoy';
+    return '<button type="button" class="sg-pas' + cls + '" onclick="rkPubElegirPas(\'' + licEsc(p) + '\')">' + licEsc(p) + '<small>' + sub + '</small></button>';
+  }).join('') || '<div style="font-size:13px;color:var(--text3)">No hay pasillos cargados.</div>';
+}
+
+function rkPubFiltrar(txt) {
+  const n = kioskNormalizar(txt);
+  rkPub.lista = rkPub.emps.filter(e => !n || e._n.includes(n)).slice(0, 40);
+  const dd = $a('rkPubDrop');
+  dd.innerHTML = rkPub.lista.length
+    ? rkPub.lista.map((e, i) => `<div class="kiosk-combo-option" onmousedown="rkPubElegirNombre(${i})" ontouchstart="rkPubElegirNombre(${i})">${licEsc(e.nombre)}</div>`).join('')
+    : '<div class="kiosk-combo-empty">Sin coincidencias: podés usar el nombre que escribiste</div>';
+  dd.classList.add('open');
+}
+function rkPubElegirNombre(i) { const e = rkPub.lista[i]; if (!e) return; $a('rkPubNombre').value = e.nombre; rkPubCerrar(); }
+function rkPubCerrar() { $a('rkPubDrop').classList.remove('open'); }
+
+function rkPubElegirPas(p) {
+  rkPub.pas = p; rkPub.hall = []; rkPubResetForm();
+  rkPubPasillos(); rkPubMsg('', '');
+  const n = rkPub.pasillos[p] || 0;
+  $a('rkPubFilaTit').textContent = 'Pasillo ' + p + ' · racks ' + p + '-01 a ' + p + '-' + (n < 10 ? '0' + n : n);
+  $a('rkPubCheck').innerHTML = '<details><summary style="cursor:pointer;font-weight:600">Ver los puntos a controlar</summary><div style="margin:6px 0 2px">Fijate que NO haya:</div><ul style="margin:0;padding-left:18px">' + RK_ITEMS.slice(0, -1).map(t => '<li>' + licEsc(t) + '</li>').join('') + '</ul></details>';
+  let opts = '<option value="">Elegí el rack...</option>';
+  for (let i = 1; i <= n; i++) opts += '<option value="' + i + '">' + p + '-' + (i < 10 ? '0' + i : i) + '</option>';
+  opts += '<option value="GEN">Todo el pasillo / general (no es un rack puntual)</option>';
+  $a('rkPubPos').innerHTML = opts;
+  $a('rkPubItems').innerHTML = RK_ITEMS.map((t, i) => '<button type="button" class="sg-chip" style="width:100%;margin-bottom:6px" id="rkpi_' + i + '" onclick="rkPubItem(' + i + ')">' + licEsc(t) + '</button>').join('');
+  $a('rkPubSev').innerHTML = ['Leve', 'Moderado', 'Crítico'].map(s => '<button type="button" class="sg-sev s-' + s.toLowerCase().replace('í', 'i') + '" data-s="' + s + '" onclick="rkPubSev(\'' + s + '\')">' + s + '</button>').join('');
+  $a('rkPubMalBox').style.display = 'none';
+  $a('rkPubBtnOk').style.display = ''; $a('rkPubBtnMal').style.display = '';
+  $a('rkPubFila').style.display = 'block';
+  rkPubLista();
+  try { $a('rkPubFila').scrollIntoView({ block: 'start' }); } catch (e) {}
+}
+
+function rkPubResetForm() {
+  rkPub.sev = ''; rkPub.items = [];
+  ['rkPubPos', 'rkPubNivel', 'rkPubNota'].forEach(id => { const el = $a(id); if (el) el.value = ''; });
+  document.querySelectorAll('#rkPubItems .sg-chip').forEach(b => b.classList.remove('on'));
+  document.querySelectorAll('#rkPubSev .sg-sev').forEach(b => b.classList.remove('on'));
+  const h = $a('rkPubSevHint'); if (h) h.style.display = 'none';
+}
+function rkPubItem(i) {
+  const k = rkPub.items.indexOf(i);
+  if (k === -1) rkPub.items.push(i); else rkPub.items.splice(k, 1);
+  $a('rkpi_' + i).classList.toggle('on', k === -1);
+}
+function rkPubSev(s) {
+  rkPub.sev = s;
+  document.querySelectorAll('#rkPubSev .sg-sev').forEach(b => b.classList.toggle('on', b.dataset.s === s));
+  $a('rkPubSevHint').style.display = s === 'Crítico' ? 'block' : 'none';
+}
+function rkPubAlgoMal() {
+  $a('rkPubMalBox').style.display = 'block';
+  $a('rkPubBtnOk').style.display = 'none'; $a('rkPubBtnMal').style.display = 'none';
+  try { $a('rkPubMalBox').scrollIntoView({ block: 'start' }); } catch (e) {}
+}
+
+function rkPubAgregar(silencioso) {
+  const pos = $a('rkPubPos').value, nota = $a('rkPubNota').value.trim();
+  if (!pos) { if (!silencioso) rkPubMsg('error', 'Elegí en qué rack está el problema.'); return false; }
+  if (!rkPub.items.length && !nota) { if (!silencioso) rkPubMsg('error', 'Marcá qué está mal (o escribí el detalle).'); return false; }
+  if (!rkPub.sev) { if (!silencioso) rkPubMsg('error', 'Elegí la gravedad: leve, moderado o crítico.'); return false; }
+  const n = parseInt(pos, 10);
+  const rack = pos === 'GEN' ? rkPub.pas + ' (general)' : rkPub.pas + '-' + (n < 10 ? '0' + n : n);
+  rkPub.hall.push({ pos, rack, nivel: $a('rkPubNivel').value, items: rkPub.items.slice().sort((a, b) => a - b).map(i => RK_ITEMS[i]), nota, severidad: rkPub.sev });
+  rkPubResetForm(); rkPubMsg('', ''); rkPubLista();
+  return true;
+}
+function rkPubQuitar(i) { rkPub.hall.splice(i, 1); rkPubLista(); }
+
+function rkPubLista() {
+  const box = $a('rkPubLista'), btn = $a('rkPubBtnEnviar');
+  box.innerHTML = rkPub.hall.map((h, i) => '<div class="sg-hall" style="border-left-color:' + (h.severidad === 'Crítico' ? 'var(--danger)' : h.severidad === 'Leve' ? 'var(--warning)' : '#E07B18') + '"><b>Rack ' + licEsc(h.rack) + '</b>' + (h.nivel ? ' · ' + licEsc(h.nivel) : '') + ' · ' + licEsc(h.severidad) +
+    '<div style="margin-top:3px;color:var(--text2)">' + licEsc(h.items.join(' · ')) + (h.nota ? (h.items.length ? ' — ' : '') + licEsc(h.nota) : '') + '</div>' +
+    '<button type="button" class="btn btn-secondary btn-sm" style="margin-top:6px" onclick="rkPubQuitar(' + i + ')">Quitar</button></div>').join('');
+  btn.style.display = rkPub.hall.length ? 'block' : 'none';
+  btn.textContent = '📤 ENVIAR PASILLO ' + (rkPub.pas || '') + ' (' + rkPub.hall.length + (rkPub.hall.length === 1 ? ' rack con problema)' : ' racks con problemas)');
+}
+
+function rkPubNombreOk() {
+  const nombre = ($a('rkPubNombre').value || '').trim();
+  if (!nombre) { rkPubMsg('error', 'Primero elegí o escribí tu nombre.'); try { $a('rkPubNombre').scrollIntoView({ block: 'center' }); $a('rkPubNombre').focus(); } catch (e) {} return ''; }
+  return nombre;
+}
+
+function rkPubTodoOk() {
+  if (!rkPubNombreOk()) return;
+  if (!confirm('¿Confirmás que revisaste TODOS los racks del pasillo ' + rkPub.pas + ' y están bien?')) return;
+  rkPubSend([]);
+}
+
+function rkPubEnviar() {
+  if (!rkPubNombreOk()) return;
+  const pendiente = $a('rkPubPos').value || rkPub.items.length || $a('rkPubNota').value.trim();
+  if (pendiente && !rkPubAgregar(false)) return;
+  if (!rkPub.hall.length) { rkPubMsg('error', 'Agregá al menos un rack con problema.'); return; }
+  rkPubSend(rkPub.hall);
+}
+
+async function rkPubSend(hall) {
+  if (rkPub.busy) return;
+  const nombre = rkPubNombreOk(); if (!nombre) return;
+  rkPub.busy = true; rkPubMsg('warn', 'Enviando...');
+  document.querySelectorAll('#rackScreen .sg-big').forEach(b => b.disabled = true);
+  const res = await kioskApiCall('addRackControlPublica', { data: { inspector: nombre, pasillo: rkPub.pas, hallazgos: hall.map(h => ({ pos: h.pos, nivel: h.nivel, items: h.items, severidad: h.severidad, nota: h.nota })) } });
+  rkPub.busy = false;
+  document.querySelectorAll('#rackScreen .sg-big').forEach(b => b.disabled = false);
+  if (!res || res.error || !res.success) { rkPubMsg('error', 'No se pudo guardar: ' + ((res && res.error) || 'sin conexión') + '. Probá de nuevo.'); return; }
+  try { localStorage.setItem('sg_nombre', nombre); } catch (e) {}
+  rkPub.hoy[rkPub.pas] = res.resultado;
+  rkPubMsg('', '');
+  $a('rkPubForm').style.display = 'none';
+  const done = $a('rkPubDone'); done.style.display = 'block';
+  done.innerHTML = res.cant
+    ? '<div class="kiosk-result warn" style="font-size:15px;padding:18px">⚠️ <b>Control enviado</b><br>Pasillo ' + licEsc(rkPub.pas) + ': ' + res.cant + (res.cant === 1 ? ' rack con problema' : ' racks con problemas') + '.<br>Gracias, quedó avisado para su corrección.</div>'
+    : '<div class="kiosk-result ok" style="font-size:15px;padding:18px">✅ <b>¡Control enviado!</b><br>Pasillo ' + licEsc(rkPub.pas) + ': todo OK. Gracias.</div>';
+  done.innerHTML += '<button class="sg-big neutral" style="margin-top:16px" onclick="rkPubOtro()">➕ Controlar otro pasillo</button>';
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+
+function rkPubOtro() {
+  rkPub.pas = null; rkPub.hall = []; rkPubResetForm();
+  $a('rkPubFila').style.display = 'none';
+  $a('rkPubDone').style.display = 'none';
+  $a('rkPubForm').style.display = 'block';
+  rkPubPasillos(); rkPubMsg('', '');
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+
+// ═══════════════════════ ENLACE PÚBLICO: EQUIPOS DE MANIPULEO ═══════════════════════
+const eqPub = { emps: [], equipos: [], sel: null, def: null, resp: [], notas: [], busy: false, lista: [] };
+
+function eqPubMsg(tipo, txt) {
+  const el = $a('eqPubMsg');
+  if (!txt) { el.style.display = 'none'; return; }
+  el.className = 'kiosk-result ' + tipo; el.textContent = txt; el.style.display = 'block';
+}
+
+async function initEqPublic(apiUrl, eqId) {
+  kioskApiUrl = apiUrl || '';
+  $a('eqScreen').classList.add('active');
+  $a('eqPubFecha').textContent = 'Fecha: ' + fmtDate(licHoyISO());
+  try { const n = localStorage.getItem('sg_nombre'); if (n) $a('eqPubNombre').value = n; } catch (e) {}
+  $a('eqPubEquipo').innerHTML = '<option value="">Cargando equipos...</option>';
+  if (!kioskApiUrl) { $a('eqPubEquipo').innerHTML = ''; eqPubAviso('error', 'Este enlace no es válido. Pedí uno nuevo al administrador.'); return; }
+  const res = await kioskApiCall('getEquiposKiosk');
+  if (!res || res.error) { $a('eqPubEquipo').innerHTML = ''; eqPubAviso('error', 'No se pudo conectar con el sistema. Revisá tu conexión y volvé a abrir el enlace.'); return; }
+  eqPub.equipos = res.equipos || [];
+  eqPub.emps = (res.employees || []).map(e => ({ nombre: e.nombre, _n: kioskNormalizar(e.nombre) })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const grupos = {};
+  eqPub.equipos.forEach(e => { (grupos[e.tipo || 'Otro'] = grupos[e.tipo || 'Otro'] || []).push(e); });
+  let html = '<option value="">Elegí el equipo...</option>';
+  Object.keys(grupos).sort().forEach(t => {
+    html += '<optgroup label="' + licEsc(t) + '">' + grupos[t].sort((a, b) => a.nombre.localeCompare(b.nombre, undefined, { numeric: true })).map(e => {
+      const fs = e.ultimo && e.ultimo.resultado === 'Fuera de servicio' && e.ultimo.resolucion !== 'Resuelto';
+      return '<option value="' + licEsc(e.id) + '">' + (fs ? '⛔ ' : e.hoy ? '✅ ' : '') + licEsc(e.nombre) + (fs ? ' (fuera de servicio)' : e.hoy ? ' (ya controlado hoy)' : '') + '</option>';
+    }).join('') + '</optgroup>';
+  });
+  $a('eqPubEquipo').innerHTML = html;
+  if (!eqPub.equipos.length) eqPubAviso('warn', 'Todavía no hay equipos cargados. Avisá al administrador.');
+  if (eqId && eqPub.equipos.some(e => String(e.id) === String(eqId))) { $a('eqPubEquipo').value = eqId; eqPubElegir(eqId); }
+}
+
+function eqPubAviso(tipo, txt) {
+  const el = $a('eqPubAviso');
+  if (!txt) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.className = 'kiosk-result ' + tipo; el.innerHTML = txt; el.style.display = 'block';
+}
+
+function eqPubFiltrar(txt) {
+  const n = kioskNormalizar(txt);
+  eqPub.lista = eqPub.emps.filter(e => !n || e._n.includes(n)).slice(0, 40);
+  const dd = $a('eqPubDrop');
+  dd.innerHTML = eqPub.lista.length
+    ? eqPub.lista.map((e, i) => `<div class="kiosk-combo-option" onmousedown="eqPubElegirNombre(${i})" ontouchstart="eqPubElegirNombre(${i})">${licEsc(e.nombre)}</div>`).join('')
+    : '<div class="kiosk-combo-empty">Sin coincidencias: podés usar el nombre que escribiste</div>';
+  dd.classList.add('open');
+}
+function eqPubElegirNombre(i) { const e = eqPub.lista[i]; if (!e) return; $a('eqPubNombre').value = e.nombre; eqPubCerrar(); }
+function eqPubCerrar() { $a('eqPubDrop').classList.remove('open'); }
+
+function eqPubElegir(id) {
+  const e = eqPub.equipos.find(x => String(x.id) === String(id));
+  eqPubMsg('', '');
+  if (!e) { eqPub.sel = null; $a('eqPubCheck').style.display = 'none'; eqPubAviso('', ''); return; }
+  eqPub.sel = e;
+  eqPub.def = EQ_TIPOS[e.tipo] || EQ_TIPOS['Otro'];
+  eqPub.resp = new Array(eqPub.def.items.length).fill(null);
+  eqPub.notas = new Array(eqPub.def.items.length).fill('');
+  const fs = e.ultimo && e.ultimo.resultado === 'Fuera de servicio' && e.ultimo.resolucion !== 'Resuelto';
+  eqPubAviso(fs ? 'error' : (e.hoy ? 'warn' : ''),
+    fs ? '⛔ <b>Este equipo quedó FUERA DE SERVICIO</b> en el último control (' + fmtDate(e.ultimo.fecha) + '). No lo uses hasta que mantenimiento lo habilite.'
+       : (e.hoy ? 'ℹ️ Este equipo ya fue controlado hoy. Podés cargar otro control si hace falta (por ejemplo, otro turno).' : ''));
+  $a('eqPubHoroBox').style.display = eqPub.def.horo ? 'block' : 'none';
+  $a('eqPubHoro').value = ''; $a('eqPubObs').value = '';
+  $a('eqPubItems').innerHTML = eqPub.def.items.map((_, i) => eqPubItemHTML(i)).join('');
+  $a('eqPubCheck').style.display = 'block';
+}
+
+function eqPubItemHTML(i) {
+  const it = eqPub.def.items[i], r = eqPub.resp[i];
+  return '<div class="sg-item ' + (r || '') + '" id="eqit_' + i + '"><div class="sg-item-t">' + (i + 1) + '. ' + licEsc(it.t) + (it.c ? '<span class="sg-crit">CRÍTICO</span>' : '') + '</div>' +
+    '<div class="sg-ans"><button type="button" class="b-ok' + (r === 'ok' ? ' on' : '') + '" onclick="eqPubSet(' + i + ',\'ok\')">✅ Bien</button>' +
+    '<button type="button" class="b-mal' + (r === 'mal' ? ' on' : '') + '" onclick="eqPubSet(' + i + ',\'mal\')">❌ Mal</button>' +
+    '<button type="button" class="b-na' + (r === 'na' ? ' on' : '') + '" onclick="eqPubSet(' + i + ',\'na\')">No aplica</button></div>' +
+    (r === 'mal' ? '<textarea rows="2" placeholder="¿Qué le pasa? (opcional pero ayuda)" oninput="eqPub.notas[' + i + ']=this.value">' + licEsc(eqPub.notas[i]) + '</textarea>' : '') + '</div>';
+}
+function eqPubSet(i, v) {
+  eqPub.resp[i] = v;
+  const el = $a('eqit_' + i);
+  if (el) el.outerHTML = eqPubItemHTML(i);
+  eqPubMsg('', '');
+}
+function eqPubTodoOk() {
+  eqPub.resp = eqPub.resp.map(r => r || 'ok');
+  $a('eqPubItems').innerHTML = eqPub.def.items.map((_, i) => eqPubItemHTML(i)).join('');
+  eqPubMsg('', '');
+}
+
+async function eqPubEnviar() {
+  if (eqPub.busy || !eqPub.sel) return;
+  const nombre = ($a('eqPubNombre').value || '').trim();
+  if (!nombre) { eqPubMsg('error', 'Elegí o escribí tu nombre.'); try { $a('eqPubNombre').scrollIntoView({ block: 'center' }); $a('eqPubNombre').focus(); } catch (e) {} return; }
+  let primero = null;
+  eqPub.resp.forEach((r, i) => {
+    if (!r) { const el = $a('eqit_' + i); if (el) { el.classList.add('falta'); if (!primero) primero = el; } }
+  });
+  if (primero) { eqPubMsg('error', 'Faltan puntos por responder (marcados en naranja). Si todo está bien, tocá “Marcar todo como BIEN”.'); try { primero.scrollIntoView({ block: 'center' }); } catch (e) {} return; }
+  const fallas = [];
+  eqPub.resp.forEach((r, i) => { if (r === 'mal') fallas.push({ item: eqPub.def.items[i].t, critico: !!eqPub.def.items[i].c, nota: (eqPub.notas[i] || '').trim() }); });
+  if (fallas.some(f => f.critico) && !confirm('Marcaste una falla CRÍTICA: el equipo quedará FUERA DE SERVICIO y no se puede usar. ¿Enviar el control?')) return;
+  eqPub.busy = true; $a('eqPubBtn').disabled = true; $a('eqPubBtn').textContent = 'Enviando...';
+  const res = await kioskApiCall('addEquipoControlPublica', { data: { operario: nombre, equipo_id: eqPub.sel.id, horometro: eqPub.def.horo ? $a('eqPubHoro').value : '', fallas, observaciones: $a('eqPubObs').value } });
+  eqPub.busy = false; $a('eqPubBtn').disabled = false; $a('eqPubBtn').textContent = '✅ ENVIAR CONTROL';
+  if (!res || res.error || !res.success) { eqPubMsg('error', 'No se pudo guardar: ' + ((res && res.error) || 'sin conexión') + '. Probá de nuevo.'); return; }
+  try { localStorage.setItem('sg_nombre', nombre); } catch (e) {}
+  $a('eqPubForm').style.display = 'none';
+  const done = $a('eqPubDone'); done.style.display = 'block';
+  const nombreEq = licEsc(eqPub.sel.nombre);
+  done.innerHTML = res.resultado === 'OK'
+    ? '<div class="kiosk-result ok" style="font-size:15px;padding:18px">✅ <b>¡Control enviado!</b><br>' + nombreEq + ': todo en orden. Podés operar. Gracias.</div>'
+    : res.resultado === 'Fuera de servicio'
+      ? '<div class="kiosk-result error" style="font-size:15px;padding:18px">⛔ <b>Control enviado: EQUIPO FUERA DE SERVICIO</b><br>' + nombreEq + '<br><b>No lo uses.</b> Avisá ahora a tu supervisor y señalizá el equipo.</div>'
+      : '<div class="kiosk-result warn" style="font-size:15px;padding:18px">⚠️ <b>Control enviado con observaciones</b><br>' + nombreEq + ': ' + res.cant + (res.cant === 1 ? ' punto a corregir' : ' puntos a corregir') + '. Avisá a tu supervisor.</div>';
+  done.innerHTML += '<button class="sg-big neutral" style="margin-top:16px" onclick="eqPubOtro()">➕ Controlar otro equipo</button>';
+  eqPub.sel.hoy = true;
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+
+function eqPubOtro() {
+  eqPub.sel = null;
+  $a('eqPubEquipo').value = '';
+  $a('eqPubCheck').style.display = 'none';
+  eqPubAviso('', ''); eqPubMsg('', '');
+  $a('eqPubDone').style.display = 'none';
+  $a('eqPubForm').style.display = 'block';
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+
 // ═══════════════════════════════════════════════════
 // RENDIMIENTO: render por pestaña, listas limitadas, buscadores con espera
 // ═══════════════════════════════════════════════════
-var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','organigrama'];
+var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','organigrama'];
 var _tabsDirty = new Set();
 // Pestañas que se vuelven a dibujar cada vez que se abren (igual que antes)
-var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, organigrama:1, ropa:1 };
+var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, organigrama:1, ropa:1 };
 var TAB_RENDER = {
   nomina:        function () { renderNomina(); renderStats(); renderFilters(); },
   analisis:      function () { renderAnalysis(); },
@@ -12708,6 +14560,8 @@ var TAB_RENDER = {
   limpieza:      function () { renderLimpieza(); },
   capacitaciones:function () { renderCapacitaciones(); },
   auditorias:    function () { renderAuditorias(); },
+  racks:         function () { renderRacks(); },
+  equipos:       function () { renderEquipos(); },
   organigrama:   function () { renderOrganigrama(); }
 };
 function renderTab(tab) {
@@ -12742,7 +14596,7 @@ function listMore(key, arr, cols) {
 }
 function listMas(key) {
   listLim[key] = (listLim[key] || LIST_STEP) + LIST_STEP;
-  const fn = { dep: renderDeposito, dist: renderDistribucion, vacreg: renderVacRegistros, lic: renderLicencias, ropaent: renderRopaEntregas, fich: renderFichadasRegistros, cond: renderConducta, aud: renderAudRegistros }[key];
+  const fn = { dep: renderDeposito, dist: renderDistribucion, vacreg: renderVacRegistros, lic: renderLicencias, ropaent: renderRopaEntregas, fich: renderFichadasRegistros, cond: renderConducta, aud: renderAudRegistros, rkc: renderRkControles, rkh: renderRkHallazgos, eqc: renderEqControles }[key];
   if (fn) fn();
 }
 
