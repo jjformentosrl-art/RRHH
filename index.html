@@ -5013,10 +5013,14 @@ function sheetToJson(sheet) {
   if (data.length < 2) return [];
   var headers = data[0];
   var tz = Session.getScriptTimeZone();
+  var nomHoja = sheet.getName();
+  var fixRack = (nomHoja === 'RACKS_HALLAZGOS') ? 'rack' : (nomHoja === 'RACKS_PLAN') ? 'elemento' : '';
   return data.slice(1).map(function(row) {
     var obj = {};
+    var rackFecha = null;
     headers.forEach(function(h, i) {
       var v = row[i];
+      if (fixRack && h === fixRack && v instanceof Date) { rackFecha = v; obj[h] = ''; return; }
       if (v instanceof Date) {
         // Google Sheets a veces autoconvierte texto tipo "2026-08-01" o "14:35"
         // en un objeto Date interno. Cuando la celda es una HORA pura (sin
@@ -5033,6 +5037,14 @@ function sheetToJson(sheet) {
         obj[h] = v !== undefined && v !== null ? v.toString() : '';
       }
     });
+    if (rackFecha) {
+      // Rack que Sheets convirtio en fecha (ej. "1-07" -> 1 de julio): se recupera como pasillo-posicion
+      var dd = parseInt(Utilities.formatDate(rackFecha, tz, 'd'), 10);
+      var mm = parseInt(Utilities.formatDate(rackFecha, tz, 'M'), 10);
+      var pp = String(obj.pasillo || obj.area || '');
+      var p2 = function(n) { return n < 10 ? '0' + n : String(n); };
+      obj[fixRack] = (pp !== '' && pp === String(mm) && pp !== String(dd)) ? (mm + '-' + p2(dd)) : (dd + '-' + p2(mm));
+    }
     return obj;
   });
 }
@@ -5510,7 +5522,16 @@ function addRow(sheetName, data) {
   var id = Date.now().toString() + Math.floor(Math.random()*1000);
   var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].slice(1);
   var row = [id].concat(headers.map(function(h) { return data[h] !== undefined ? data[h] : ''; }));
-  sheet.appendRow(row);
+  var tcols = SG_TEXT_COLS[sheetName];
+  if (tcols) {
+    // Columnas tipo "4-01": se marcan como TEXTO antes de escribir, para que Sheets no las vuelva fecha
+    var nr = sheet.getLastRow() + 1;
+    if (nr > sheet.getMaxRows()) sheet.insertRowsAfter(sheet.getMaxRows(), 1);
+    tcols.forEach(function(c) { var ix = headers.indexOf(c); if (ix > -1) sheet.getRange(nr, ix + 2).setNumberFormat('@'); });
+    sheet.getRange(nr, 1, 1, row.length).setValues([row]);
+  } else {
+    sheet.appendRow(row);
+  }
   forceDateColumnsAsText(sheet, sheet.getLastRow(), headers, data);
   return { success: true, id: id };
 }
@@ -5525,6 +5546,8 @@ function updateRow(sheetName, id, data) {
   for (var i = 1; i < rows.length; i++) {
     if (rows[i][0].toString() === id.toString()) {
       var row = headers.map(function(h, idx) { return data[h] !== undefined ? data[h] : rows[i][idx+1]; });
+      var tcolsU = SG_TEXT_COLS[sheetName];
+      if (tcolsU) tcolsU.forEach(function(c) { var ix = headers.indexOf(c); if (ix > -1) sheet.getRange(i + 1, ix + 2).setNumberFormat('@'); });
       sheet.getRange(i+1, 2, 1, headers.length).setValues([row]);
       forceDateColumnsAsText(sheet, i+1, headers, data);
       return { success: true };
@@ -5627,6 +5650,7 @@ function loadLocalData() {
   rackControlesData = JSON.parse(localStorage.getItem('rrhh_rack_controles') || '[]');
   rackHallazgosData = JSON.parse(localStorage.getItem('rrhh_rack_hallazgos') || '[]');
   rackPlanData = JSON.parse(localStorage.getItem('rrhh_rack_plan') || '[]');
+  rkArreglarDatos();
   equiposListaData = JSON.parse(localStorage.getItem('rrhh_equipos_lista') || '[]');
   equipoControlesData = JSON.parse(localStorage.getItem('rrhh_equipos_controles') || '[]');
   equipoPlanData = JSON.parse(localStorage.getItem('rrhh_equipos_plan') || '[]');
@@ -5728,6 +5752,7 @@ async function loadAllData() {
   rackControlesData = data.racksControles || [];
   rackHallazgosData = data.racksHallazgos || [];
   rackPlanData = data.racksPlan || [];
+  rkArreglarDatos();
   equiposListaData = data.equiposLista || [];
   equipoControlesData = data.equiposControles || [];
   equipoPlanData = data.equiposPlan || [];
@@ -13447,6 +13472,20 @@ function audPubOtra() {
 // SEGURIDAD E HIGIENE: CONTROL DE RACKS Y EQUIPOS DE MANIPULEO
 // ═══════════════════════════════════════════════════════════════════
 let rackControlesData = [], rackHallazgosData = [], rackPlanData = [];
+
+// Si Sheets convirtio un rack tipo "1-07" en fecha (2026-07-01), lo devuelve a "pasillo-posicion"
+function rkArreglarRack(v, pasillo) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ''));
+  if (!m) return v;
+  const mes = parseInt(m[2], 10), dia = parseInt(m[3], 10), p = String(pasillo || '');
+  const pad = n => n < 10 ? '0' + n : String(n);
+  if (p !== '' && p === String(mes) && p !== String(dia)) return mes + '-' + pad(dia);
+  return dia + '-' + pad(mes);
+}
+function rkArreglarDatos() {
+  rackHallazgosData.forEach(h => { h.rack = rkArreglarRack(h.rack, h.pasillo); });
+  rackPlanData.forEach(pl => { pl.elemento = rkArreglarRack(pl.elemento, pl.area); });
+}
 let equiposListaData = [], equipoControlesData = [], equipoPlanData = [];
 
 // Puntos de control de racks (criterios habituales de inspección de estanterías porta-pallets / auditorías H&S)
