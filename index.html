@@ -2250,7 +2250,7 @@
             <input type="date" class="filter-select" id="eqRDia" onchange="renderEqResp()" style="max-width:160px">
             <button class="btn btn-secondary btn-sm" onclick="document.getElementById('eqRDia').value=licHoyISO();renderEqResp()">Hoy</button>
             <select class="filter-select" id="eqRFEstado" onchange="renderEqResp()">
-              <option value="">Todos</option><option value="ok">Check-in realizado</option><option value="no">No realizó check-in</option>
+              <option value="">Todos</option><option value="ok">Check-in realizado</option><option value="no">No realizó check-in</option><option value="fs">Fuera de servicio</option>
             </select>
             <button class="btn btn-secondary" style="margin-left:auto" onclick="exportEqRespCSV()">⬇ CSV</button>
           </div>
@@ -14192,10 +14192,10 @@ function renderEqEstado() {
     return { e, ult, est: eqEstadoActual(ult), hoy: equipoControlesData.some(c => String(c.equipo_id) === String(e.__ID__) && licDia(c.fecha) === hoy) };
   });
   const abiertas = equipoControlesData.filter(c => c.resolucion === 'Abierto').length;
-  const sinHoy = info.filter(i => !i.hoy).length, fs = info.filter(i => i.est.k === 'fs').length;
+  const sinHoy = info.filter(i => !i.hoy && i.est.k !== 'fs').length, fs = info.filter(i => i.est.k === 'fs').length;
   $a('eqStats').innerHTML =
     sgCard('🚜', activos.length, 'Equipos activos') +
-    sgCard('✅', (activos.length - sinHoy) + ' / ' + activos.length, 'Controlados hoy') +
+    sgCard('✅', info.filter(i => i.hoy).length + ' / ' + activos.length, 'Controlados hoy') +
     sgCard('🕒', sinHoy, 'Sin control hoy', sinHoy ? 'var(--warning)' : '') +
     sgCard('⛔', fs, 'Fuera de servicio', fs ? 'var(--danger)' : '') +
     sgCard('⚠️', abiertas, 'Fallas abiertas', abiertas ? 'var(--warning)' : '');
@@ -14207,7 +14207,7 @@ function renderEqEstado() {
     <h4>${i.est.ico} ${licEsc(i.e.nombre)}</h4>
     <div class="sub">${licEsc(i.e.tipo || '')} · <b>${i.est.txt}</b></div>
     <div class="sub">👤 Responsable: ${eqRespOf(i.e.__ID__) ? licEsc(eqRespOf(i.e.__ID__)) : '<i>sin asignar</i>'}</div>
-    <div class="sub">${i.hoy ? '✅ Check-in realizado hoy' : '❌ No realizó check-in hoy'}${i.ult ? '<br>Último: ' + fmtDate(i.ult.fecha) + ' ' + licEsc(i.ult.hora || '') + ' · ' + licEsc(i.ult.operario) : ''}</div>
+    <div class="sub">${i.hoy ? '✅ Check-in realizado hoy' : i.est.k === 'fs' ? '⛔ Equipo en mal estado (fuera de servicio)' : '❌ No realizó check-in hoy'}${i.ult ? '<br>Último: ' + fmtDate(i.ult.fecha) + ' ' + licEsc(i.ult.hora || '') + ' · ' + licEsc(i.ult.operario) : ''}</div>
     <div style="margin-top:8px">${i.ult ? `<button class="btn btn-secondary btn-sm" onclick="eqVer('${i.ult.__ID__}')">👁 Último control</button> ` : ''}
       <button class="btn btn-secondary btn-sm" onclick="eqImprimirQR('${i.e.__ID__}')">🖨️ QR del equipo</button></div>
   </div>`).join('');
@@ -14349,30 +14349,39 @@ function eqRespFilas() {
   const filas = equiposListaData.filter(e => e.activo !== 'No').map(e => {
     const ctrls = sgOrdenFecha(equipoControlesData.filter(c => String(c.equipo_id) === String(e.__ID__) && licDia(c.fecha) === dia));
     const c = ctrls[ctrls.length - 1] || null; // el primero del día
-    return { e, resp: eqRespOf(e.__ID__), c, hecho: !!c };
+    // Estado del equipo a la fecha mostrada: último control hasta ese día (si el último fue "Fuera de servicio" sin resolver, sigue roto)
+    const ult = sgOrdenFecha(equipoControlesData.filter(x => String(x.equipo_id) === String(e.__ID__) && licDia(x.fecha) <= dia))[0] || null;
+    const fs = eqEstadoActual(ult).k === 'fs';
+    return { e, resp: eqRespOf(e.__ID__), c, hecho: !!c, fs, fsDesde: fs ? ult.fecha : '' };
   });
-  filas.sort((a, b) => (a.resp || '~').localeCompare(b.resp || '~', undefined, { numeric: true }) || String(a.e.nombre).localeCompare(String(b.e.nombre), undefined, { numeric: true }));
-  return { dia, filas, vista: filas.filter(f => !fe || (fe === 'ok' ? f.hecho : !f.hecho)) };
+  // Los equipos fuera de servicio van al final del listado
+  filas.sort((a, b) => (a.fs - b.fs) || (a.resp || '~').localeCompare(b.resp || '~', undefined, { numeric: true }) || String(a.e.nombre).localeCompare(String(b.e.nombre), undefined, { numeric: true }));
+  return { dia, filas, vista: filas.filter(f => !fe || (fe === 'ok' ? (f.hecho && !f.fs) : fe === 'fs' ? f.fs : (!f.hecho && !f.fs))) };
 }
 function renderEqResp() {
   const tb = $a('eqRTbody'); if (!tb) return;
   const { dia, filas, vista } = eqRespFilas();
-  const hechos = filas.filter(f => f.hecho).length, pend = filas.length - hechos;
+  const fsN = filas.filter(f => f.fs).length;
+  const hechos = filas.filter(f => f.hecho && !f.fs).length, pend = filas.filter(f => !f.hecho && !f.fs).length;
   const sinResp = filas.filter(f => !f.resp).length;
   $a('eqRStats').innerHTML =
     sgCard('🚜', filas.length, 'Equipos activos') +
     sgCard('✅', hechos, 'Check-in realizado', hechos ? 'var(--success)' : '') +
     sgCard('❌', pend, 'No realizó check-in', pend ? 'var(--danger)' : '') +
+    sgCard('⛔', fsN, 'Fuera de servicio', fsN ? 'var(--danger)' : '') +
     sgCard('👤', sinResp, 'Equipos sin responsable', sinResp ? 'var(--warning)' : '');
   if (!filas.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="icon">🚜</div><p>Todavía no cargaste equipos</p></div></td></tr>'; return; }
   if (!vista.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="icon">🔎</div><p>No hay equipos con ese filtro</p></div></td></tr>'; return; }
   tb.innerHTML = vista.map(f => {
     const bc = !f.c ? '' : f.c.resultado === 'OK' ? 'badge-green' : f.c.resultado === 'Fuera de servicio' ? 'badge-red' : 'badge-yellow';
     const otro = f.c && f.resp && f.c.operario && kioskNormalizar(f.c.operario) !== kioskNormalizar(f.resp) ? `<div style="font-size:11px;color:var(--text3)">lo hizo: ${licEsc(f.c.operario)}</div>` : '';
-    return `<tr>
+    const celda = f.fs && !f.hecho
+      ? `<span class="badge badge-red">⛔ Equipo en mal estado (fuera de servicio)</span><div style="font-size:11px;color:var(--text3)">Sin check-in: equipo no operativo desde ${fmtDate(f.fsDesde)}</div>`
+      : `<span class="badge ${f.hecho ? 'badge-green' : 'badge-red'}">${f.hecho ? '✅ Check-in realizado' : '❌ No realizó check-in'}</span>${otro}`;
+    return `<tr${f.fs ? ' style="background:rgba(220,38,38,.06)"' : ''}>
       <td><strong>${f.resp ? licEsc(f.resp) : '<span style="color:var(--warning)">Sin asignar</span>'}</strong></td>
       <td>${licEsc(f.e.nombre)}<div style="font-size:11px;color:var(--text3)">${licEsc(f.e.tipo || '')}</div></td>
-      <td><span class="badge ${f.hecho ? 'badge-green' : 'badge-red'}">${f.hecho ? '✅ Check-in realizado' : '❌ No realizó check-in'}</span>${otro}</td>
+      <td>${celda}</td>
       <td>${f.c ? licEsc(f.c.hora || '') : '—'}</td>
       <td>${f.c ? `<span class="badge ${bc}">${licEsc(f.c.resultado)}</span>` : '—'}</td>
       <td>${eqRespSelect(f.e.__ID__)}</td>
@@ -14382,7 +14391,7 @@ function renderEqResp() {
 function exportEqRespCSV() {
   const { dia, vista } = eqRespFilas();
   sgCSV('responsables_checklist_' + dia + '.csv', ['Fecha', 'Responsable', 'Equipo', 'Tipo', 'Check-in', 'Hora', 'Resultado', 'Lo hizo'],
-    vista.map(f => [dia, f.resp || 'Sin asignar', f.e.nombre, f.e.tipo || '', f.hecho ? 'Check-in realizado' : 'No realizó check-in', f.c ? f.c.hora : '', f.c ? f.c.resultado : '', f.c ? f.c.operario : '']));
+    vista.map(f => [dia, f.resp || 'Sin asignar', f.e.nombre, f.e.tipo || '', f.fs && !f.hecho ? 'Equipo en mal estado (fuera de servicio)' : f.hecho ? 'Check-in realizado' : 'No realizó check-in', f.c ? f.c.hora : '', f.c ? f.c.resultado : '', f.c ? f.c.operario : '']));
 }
 
 // ── Lista de equipos ──
