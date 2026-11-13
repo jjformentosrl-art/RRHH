@@ -829,6 +829,7 @@
 #panel-racks::before{content:"Control de racks"}
 #panel-equipos::before{content:"Equipos de manipuleo"}
 #panel-camiones::before{content:"Checklist de camiones"}
+#panel-velocidad::before{content:"Reportes de velocidad"}
 #panel-organigrama::before{content:"Organigrama"}
 
   .tabs { grid-area: nav; flex-direction: column; gap: 2px; padding: 14px 12px 20px; background: var(--ink); border-bottom: 0; overflow-x: hidden; overflow-y: auto; min-height: 0; }
@@ -1096,6 +1097,7 @@
     <button class="tab" onclick="showTab('racks')">🏗️ Control de Racks</button>
     <button class="tab" onclick="showTab('equipos')">🚜 Equipos de Manipuleo</button>
     <button class="tab" onclick="showTab('camiones')">🚚 Checklist Camiones</button>
+    <button class="tab" onclick="showTab('velocidad')">⚡ Reportes de Velocidad</button>
     <div class="tabs-label">Gestión interna</div>
     <button class="tab" onclick="showTab('capacitaciones')">🎓 Capacitaciones</button>
     <button class="tab" onclick="showTab('auditorias')">🔍 Auditoría Cruzada</button>
@@ -2400,6 +2402,70 @@
       </div>
     </div>
 
+    <!-- REPORTES DE VELOCIDAD -->
+    <div class="panel" id="panel-velocidad">
+      <div class="desempeño-tabs" id="velTabs" style="flex-shrink:0">
+        <button class="dtab active" onclick="velTab('dia',this)">⚡ Reportes del día</button>
+        <button class="dtab" onclick="velTab('reg',this)">📋 Registro</button>
+        <button class="dtab" onclick="velTab('mes',this)">📈 Resumen mensual por empleado</button>
+      </div>
+      <div class="dpanel vel-p active" id="velp-dia">
+        <div class="aud-scroll">
+          <div class="link-box" style="font-family:inherit">⚡ Elegí la fecha y registrá los reportes de velocidad de cada camión. El responsable se elige entre el chofer y el ayudante asignados ese día (en “Checklist Camiones → Asignación”).</div>
+          <div class="toolbar" style="padding-left:0">
+            <label style="font-size:13px;color:var(--text2);font-weight:600">📅 Día:</label>
+            <input type="date" class="filter-select" id="velDia" onchange="renderVelDia()" style="max-width:160px">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('velDia').value=licHoyISO();renderVelDia()">Hoy</button>
+            <button class="btn btn-primary" style="margin-left:auto" onclick="velOpenModal('',document.getElementById('velDia').value)">+ Registrar reporte</button>
+          </div>
+          <div class="stats" id="velStats"></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Camión</th><th>Chofer</th><th>Ayudante</th><th>Reportes de velocidad</th><th></th></tr></thead>
+            <tbody id="velDTbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="dpanel vel-p" id="velp-reg">
+        <div class="toolbar">
+          <select class="filter-select" id="velRFCamion" onchange="renderVelReg()"></select>
+          <input type="text" class="filter-select" id="velRFResp" placeholder="🔍 Buscar responsable..." oninput="renderVelReg()" style="max-width:220px">
+          <label style="font-size:13px;color:var(--text2)">Desde</label>
+          <input type="date" class="filter-select" id="velRFDesde" onchange="renderVelReg()" style="max-width:150px">
+          <label style="font-size:13px;color:var(--text2)">Hasta</label>
+          <input type="date" class="filter-select" id="velRFHasta" onchange="renderVelReg()" style="max-width:150px">
+          <button class="btn btn-secondary" style="margin-left:auto" onclick="exportVelRegCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Fecha</th><th>Camión</th><th>Responsable</th><th>Cantidad</th><th>Observaciones</th><th></th></tr></thead>
+          <tbody id="velRTbody"></tbody>
+        </table></div>
+      </div>
+      <div class="dpanel vel-p" id="velp-mes">
+        <div class="aud-scroll">
+          <div class="link-box" style="font-family:inherit">📈 Cantidad de reportes de velocidad de cada empleado en el mes. Estos datos se cargan solos en “Desempeño en Distribución” al elegir al empleado y el mes.</div>
+          <div class="toolbar" style="padding-left:0">
+            <label style="font-size:13px;color:var(--text2);font-weight:600">🗓️ Mes:</label>
+            <input type="month" class="filter-select" id="velMes" onchange="renderVelMes()" style="max-width:170px">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('velMes').value=licHoyISO().slice(0,7);renderVelMes()">Este mes</button>
+            <button class="btn btn-secondary" style="margin-left:auto" onclick="exportVelMesCSV()">⬇ CSV</button>
+          </div>
+          <div class="stats" id="velMStats"></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Empleado</th><th>Salidas del mes</th><th>Reportes de velocidad</th><th>Camiones</th><th>Fechas</th></tr></thead>
+            <tbody id="velMTbody"></tbody>
+          </table></div>
+          <div class="toolbar" style="padding-left:0;margin-top:18px">
+            <label style="font-size:13px;color:var(--text2);font-weight:600">👤 Historial mensual de:</label>
+            <select class="filter-select" id="velHEmp" onchange="renderVelHist()"></select>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Mes</th><th>Reportes de velocidad</th><th>Fechas</th></tr></thead>
+            <tbody id="velHTbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ORGANIGRAMA -->
     <div class="panel" id="panel-organigrama">
       <div class="org-toolbar">
@@ -3256,11 +3322,12 @@
       <div class="form-grid">
         <div class="form-group full">
           <label>Empleado *</label>
-          <select id="dist_empleado"></select>
+          <select id="dist_empleado" onchange="distAutocompletar()"></select>
+          <div id="distAutoHint" style="display:none;font-size:12px;color:var(--text2);margin-top:6px"></div>
         </div>
         <div class="form-group">
           <label>Mes / Período *</label>
-          <input type="month" id="dist_fecha">
+          <input type="month" id="dist_fecha" onchange="distAutocompletar()">
         </div>
         <div class="form-group">
           <label>Cantidad de Excesos de Velocidad</label>
@@ -3573,6 +3640,31 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="document.getElementById('camCamionModal').classList.remove('open')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveCamCamion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPORTES DE VELOCIDAD: MODAL -->
+<div class="modal-overlay" id="velModal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <span class="modal-title">⚡ Registrar reporte de velocidad</span>
+      <button class="modal-close" onclick="document.getElementById('velModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha *</label><input type="date" id="vel_fecha" onchange="velModalResp()"></div>
+        <div class="form-group"><label>Camión *</label><select id="vel_camion" onchange="velModalResp()"></select></div>
+        <div class="form-group full"><label>Responsable *</label><select id="vel_resp" onchange="velRespCambio()"></select>
+          <input type="text" id="vel_resp_otro" placeholder="Nombre de la persona" style="display:none;margin-top:6px">
+          <div id="vel_hint" style="font-size:12px;color:var(--text2);margin-top:4px"></div></div>
+        <div class="form-group"><label>Cantidad de reportes</label><input type="number" id="vel_cant" min="1" value="1"></div>
+        <div class="form-group"><label>Observaciones</label><input type="text" id="vel_obs" placeholder="Opcional (hora, zona, velocidad...)"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('velModal').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-primary" onclick="velGuardar()">💾 Guardar</button>
     </div>
   </div>
 </div>
@@ -4288,6 +4380,7 @@ const WRITE_ACTIONS = [
   'deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos',
   'addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos',
   'addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones',
+  'addVelocidad','deleteVelocidad',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -4452,7 +4545,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones','addVelocidad','deleteVelocidad'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -4543,6 +4636,8 @@ function handleRequest(e) {
     else if (action === 'deleteCamionControl') result = deleteRow('CAMIONES_CONTROLES', body.id);
     else if (action === 'updateCamionControl') result = updateRow('CAMIONES_CONTROLES', body.id, body.data);
     else if (action === 'setCamionAsignaciones') result = setCamionAsignaciones(body.data);
+    else if (action === 'addVelocidad')        result = sgAddRow('VELOCIDAD_REPORTES', VEL_HEADERS, body.data);
+    else if (action === 'deleteVelocidad')     result = deleteRow('VELOCIDAD_REPORTES', body.id);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -4607,6 +4702,7 @@ function getAllData() {
   var camListaSheet = sgSheet('CAMIONES_LISTA', CAM_LISTA_HEADERS);
   var camCtrlSheet = sgSheet('CAMIONES_CONTROLES', CAM_CTRL_HEADERS);
   var camAsignSheet = sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS);
+  var velSheet = sgSheet('VELOCIDAD_REPORTES', VEL_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -4640,6 +4736,7 @@ function getAllData() {
     camionesLista: sheetToJson(camListaSheet),
     camionesControles: sheetToJson(camCtrlSheet),
     camionesAsign: sheetToJson(camAsignSheet),
+    velocidad: sheetToJson(velSheet),
     config:       getConfig()
   };
 }
@@ -5587,6 +5684,8 @@ var CAM_LISTA_HEADERS = ['numero','patente','activo','observaciones'];
 var CAM_ASIGN_HEADERS = ['fecha','camion_id','chofer','ayudante'];
 var CAM_CTRL_HEADERS = ['fecha','hora','camion_id','numero','patente','quien','rol','km','resultado','cant_fallas','fallas','fallas_json','observaciones','resolucion','origen'];
 
+var VEL_HEADERS = ['fecha','camion_id','numero','patente','responsable','cantidad','observaciones'];
+
 function getCamionesKiosk() {
   var hoy = sgHoy();
   var asign = sheetToJson(sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS)).filter(function(a) { return a.fecha === hoy; });
@@ -5922,6 +6021,7 @@ function loadLocalData() {
   camListaData = JSON.parse(localStorage.getItem('rrhh_cam_lista') || '[]');
   camControlesData = JSON.parse(localStorage.getItem('rrhh_cam_controles') || '[]');
   camAsignData = JSON.parse(localStorage.getItem('rrhh_cam_asign') || '[]');
+  velocidadData = JSON.parse(localStorage.getItem('rrhh_velocidad') || '[]');
   const storedLimp = localStorage.getItem('rrhh_limpieza');
   limpiezaData = storedLimp ? JSON.parse(storedLimp) : [];
   const storedCfg = localStorage.getItem('rrhh_config');
@@ -6027,6 +6127,7 @@ async function loadAllData() {
   camListaData = data.camionesLista || [];
   camControlesData = data.camionesControles || [];
   camAsignData = data.camionesAsign || [];
+  velocidadData = data.velocidad || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   orgData = null;
   setSyncStatus('ok', 'Conectado a Google Sheets');
@@ -8494,6 +8595,7 @@ function openDistribucionModal() {
     document.getElementById(id).value = '';
   });
   document.getElementById('distScorePreview').textContent = 'Completá los campos para ver el puntaje estimado';
+  { const h = document.getElementById('distAutoHint'); if (h) h.style.display = 'none'; }
   document.getElementById('distribucionModal').classList.add('open');
   ['dist_excesos_vel','dist_checklist_pct','dist_errores_caja','dist_nc_no_realizadas',
    'dist_kg_transportados','dist_km_recorridos','dist_cant_viajes','dist_clientes','dist_bultos'].forEach(id => {
@@ -13862,6 +13964,7 @@ function sgSave() {
     localStorage.setItem('rrhh_cam_lista', JSON.stringify(camListaData));
     localStorage.setItem('rrhh_cam_controles', JSON.stringify(camControlesData));
     localStorage.setItem('rrhh_cam_asign', JSON.stringify(camAsignData));
+    localStorage.setItem('rrhh_velocidad', JSON.stringify(velocidadData));
   } catch (e) {}
 }
 function sgDias(iso) {
@@ -15197,9 +15300,10 @@ function exportCamCSV() {
 }
 
 // ── Cumplimiento mensual por persona ──
-function camMesDatos() {
-  const inp = $a('camMes'); if (!inp.value) inp.value = licHoyISO().slice(0, 7);
-  const mes = inp.value, hoy = licHoyISO(), pers = {};
+function camMesDatos(mesOv) {
+  let mes = mesOv;
+  if (!mes) { const inp = $a('camMes'); if (!inp.value) inp.value = licHoyISO().slice(0, 7); mes = inp.value; }
+  const hoy = licHoyISO(), pers = {};
   let camDias = 0, camHechos = 0;
   camAsignData.forEach(a => {
     const d = licDia(a.fecha);
@@ -15377,12 +15481,182 @@ async function camPubEnviar() {
 }
 
 // ═══════════════════════════════════════════════════
+// REPORTES DE VELOCIDAD
+// ═══════════════════════════════════════════════════
+var velocidadData = velocidadData || [];
+function velCamionesActivos() { return camOrden(camListaData.filter(c => c.activo !== 'No')); }
+function velTab(t, el) {
+  document.querySelectorAll('#velTabs .dtab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.vel-p').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  $a('velp-' + t).classList.add('active');
+  renderVelocidad();
+}
+function renderVelocidad() {
+  if (!$a('panel-velocidad')) return;
+  renderVelDia(); renderVelReg(); renderVelMes();
+}
+function velCant(r) { return parseInt(r.cantidad, 10) || 1; }
+function renderVelDia() {
+  const tb = $a('velDTbody'); if (!tb) return;
+  const inp = $a('velDia'); if (!inp.value) inp.value = licHoyISO();
+  const dia = inp.value;
+  const reps = velocidadData.filter(r => licDia(r.fecha) === dia);
+  const total = reps.reduce((s, r) => s + velCant(r), 0);
+  const camConRep = new Set(reps.map(r => String(r.camion_id))).size;
+  $a('velStats').innerHTML = sgCard('⚡', total, 'Reportes del día', total ? 'var(--danger)' : 'var(--success)') +
+    sgCard('🚚', camConRep, 'Camiones con reporte') + sgCard('✅', Math.max(0, velCamionesActivos().length - camConRep), 'Camiones sin reporte');
+  const cams = velCamionesActivos();
+  if (!cams.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">🚚</div><p>Primero cargá los camiones en “Checklist Camiones”</p></div></td></tr>'; return; }
+  tb.innerHTML = cams.map(c => {
+    const a = camAsignDe(c.__ID__, dia);
+    const rs = reps.filter(r => String(r.camion_id) === String(c.__ID__));
+    const badges = rs.length ? rs.map(r => `<span class="badge badge-red" style="margin:2px">${licEsc(r.responsable)}${velCant(r) > 1 ? ' ×' + velCant(r) : ''} <a href="#" onclick="velEliminar('${licEsc(r.__ID__)}');return false" style="color:inherit;text-decoration:none" title="Eliminar">✕</a></span>`).join('') : '<span style="color:var(--text2)">Sin reportes</span>';
+    return `<tr><td><strong>${licEsc(camNom(c))}</strong></td><td>${licEsc(a.chofer || '—')}</td><td>${licEsc(a.ayudante || '—')}</td><td>${badges}</td>
+      <td><button class="btn btn-secondary btn-sm" onclick="velOpenModal('${licEsc(c.__ID__)}','${dia}')">+ Reporte</button></td></tr>`;
+  }).join('');
+}
+function velOpenModal(camId, dia) {
+  $a('vel_fecha').value = dia || licHoyISO();
+  const sel = $a('vel_camion');
+  sel.innerHTML = '<option value="">Elegí el camión...</option>' + velCamionesActivos().map(c => `<option value="${licEsc(c.__ID__)}">${licEsc(camNom(c))}</option>`).join('');
+  sel.value = camId || '';
+  $a('vel_cant').value = 1; $a('vel_obs').value = ''; $a('vel_resp_otro').value = '';
+  velModalResp();
+  $a('velModal').classList.add('open');
+}
+function velModalResp() {
+  const sel = $a('vel_resp'), prev = sel.value;
+  const camId = $a('vel_camion').value, dia = $a('vel_fecha').value;
+  const a = camId && dia ? camAsignDe(camId, dia) : { chofer: '', ayudante: '' };
+  let html = '<option value="">Elegí al responsable...</option>';
+  if (a.chofer) html += `<option value="${licEsc(a.chofer)}">${licEsc(a.chofer)} (chofer)</option>`;
+  if (a.ayudante) html += `<option value="${licEsc(a.ayudante)}">${licEsc(a.ayudante)} (ayudante)</option>`;
+  html += '<option value="__otro__">Otra persona...</option>';
+  sel.innerHTML = html;
+  if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+  else if (a.chofer && !a.ayudante) sel.value = a.chofer;
+  $a('vel_hint').textContent = !camId ? '' : (a.chofer || a.ayudante) ? 'Asignados ese día al camión: elegí quién manejaba.' : 'Ese camión no tiene chofer/ayudante asignado ese día: elegí “Otra persona”.';
+  velRespCambio();
+}
+function velRespCambio() { $a('vel_resp_otro').style.display = $a('vel_resp').value === '__otro__' ? '' : 'none'; }
+async function velGuardar() {
+  const fecha = $a('vel_fecha').value, camId = $a('vel_camion').value;
+  let resp = $a('vel_resp').value; if (resp === '__otro__') resp = $a('vel_resp_otro').value.trim();
+  const cam = camListaData.find(c => String(c.__ID__) === String(camId));
+  if (!fecha || !cam || !resp) { showToast('Completá fecha, camión y responsable', 'error'); return; }
+  const data = { fecha, camion_id: String(cam.__ID__), numero: cam.numero, patente: cam.patente || '', responsable: resp,
+    cantidad: Math.max(1, parseInt($a('vel_cant').value, 10) || 1), observaciones: $a('vel_obs').value.trim() };
+  if (API_URL) {
+    const res = await apiCall('addVelocidad', { data });
+    if (!res || res.error || !res.success) { showToast('Error: ' + ((res && res.error) || 'sin conexión'), 'error'); return; }
+    data.__ID__ = res.id;
+  } else data.__ID__ = sgLocalId();
+  velocidadData.push(data);
+  sgSave(); $a('velModal').classList.remove('open'); renderVelocidad(); showToast('Reporte de velocidad guardado ✓', 'success');
+}
+async function velEliminar(id) {
+  if (!confirm('¿Eliminar este reporte de velocidad?')) return;
+  if (API_URL) { const res = await apiCall('deleteVelocidad', { id }); if (res && res.error) { showToast('Error: ' + res.error, 'error'); return; } }
+  velocidadData = velocidadData.filter(r => String(r.__ID__) !== String(id));
+  sgSave(); renderVelocidad(); showToast('Reporte eliminado ✓', 'success');
+}
+function velRegFiltrados() {
+  const cam = $a('velRFCamion').value, q = kioskNormalizar($a('velRFResp').value || ''), d1 = $a('velRFDesde').value, d2 = $a('velRFHasta').value;
+  return sgOrdenFecha(velocidadData).filter(r => {
+    const d = licDia(r.fecha);
+    return (!cam || String(r.camion_id) === cam) && (!q || kioskNormalizar(r.responsable).includes(q)) && (!d1 || d >= d1) && (!d2 || d <= d2);
+  });
+}
+function renderVelReg() {
+  const tb = $a('velRTbody'); if (!tb) return;
+  const fs = $a('velRFCamion'), cur = fs.value;
+  fs.innerHTML = '<option value="">Todos los camiones</option>' + camOrden(camListaData).map(c => `<option value="${licEsc(c.__ID__)}">${licEsc(camNom(c))}</option>`).join('');
+  fs.value = cur;
+  const rows = velRegFiltrados();
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="icon">⚡</div><p>No hay reportes de velocidad registrados</p></div></td></tr>'; return; }
+  tb.innerHTML = rows.slice(0, 300).map(r => `<tr><td>${fmtDate(licDia(r.fecha))}</td><td>${licEsc('N° ' + (r.numero || '?') + (r.patente ? ' · ' + r.patente : ''))}</td>
+    <td><strong>${licEsc(r.responsable)}</strong></td><td>${velCant(r)}</td><td>${licEsc(r.observaciones || '')}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="velEliminar('${licEsc(r.__ID__)}')">🗑</button></td></tr>`).join('');
+}
+function exportVelRegCSV() {
+  sgCSV('reportes_velocidad.csv', ['Fecha', 'Camión', 'Patente', 'Responsable', 'Cantidad', 'Observaciones'],
+    velRegFiltrados().map(r => [licDia(r.fecha), r.numero, r.patente, r.responsable, velCant(r), r.observaciones]));
+}
+// Resumen mensual por empleado: reportes registrados + salidas del mes
+function velMesDatos(mes) {
+  const pers = {};
+  velocidadData.forEach(r => {
+    const d = licDia(r.fecha); if (d.slice(0, 7) !== mes) return;
+    const k = kioskNormalizar(r.responsable);
+    const p = pers[k] || (pers[k] = { nombre: r.responsable, reportes: 0, salidas: 0, camiones: new Set(), fechas: [] });
+    p.reportes += velCant(r); p.camiones.add(r.numero); p.fechas.push(d.slice(8) + '/' + d.slice(5, 7));
+  });
+  camMesDatos(mes).lista.forEach(c => {
+    const k = kioskNormalizar(c.nombre);
+    const p = pers[k] || (pers[k] = { nombre: c.nombre, reportes: 0, salidas: 0, camiones: new Set(), fechas: [] });
+    p.salidas = c.salidas;
+  });
+  return Object.values(pers).sort((a, b) => b.reportes - a.reportes || a.nombre.localeCompare(b.nombre));
+}
+function velReportesDe(nombre, mes) {
+  const k = kioskNormalizar(nombre);
+  return velocidadData.filter(r => licDia(r.fecha).slice(0, 7) === mes && kioskNormalizar(r.responsable) === k).reduce((s, r) => s + velCant(r), 0);
+}
+function renderVelMes() {
+  const tb = $a('velMTbody'); if (!tb) return;
+  const inp = $a('velMes'); if (!inp.value) inp.value = licHoyISO().slice(0, 7);
+  const lista = velMesDatos(inp.value);
+  const total = lista.reduce((s, p) => s + p.reportes, 0), conRep = lista.filter(p => p.reportes).length;
+  $a('velMStats').innerHTML = sgCard('⚡', total, 'Reportes del mes', total ? 'var(--danger)' : 'var(--success)') + sgCard('👥', conRep, 'Empleados con reportes') + sgCard('✅', lista.length - conRep, 'Empleados sin reportes');
+  tb.innerHTML = lista.length ? lista.map(p => `<tr><td><strong>${licEsc(p.nombre)}</strong></td><td>${p.salidas}</td>
+    <td>${p.reportes ? `<span style="color:var(--danger);font-weight:700">${p.reportes}</span>` : '0'}</td><td>${licEsc([...p.camiones].join(', ') || '—')}</td><td>${licEsc(p.fechas.sort().join(', ') || '—')}</td></tr>`).join('')
+    : '<tr><td colspan="5"><div class="empty-state"><div class="icon">📈</div><p>No hay datos en este mes</p></div></td></tr>';
+  const nombres = [...new Set(velocidadData.map(r => r.responsable).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  audFillSelect('velHEmp', 'Elegí un empleado...', nombres);
+  renderVelHist();
+}
+function renderVelHist() {
+  const tb = $a('velHTbody'); if (!tb) return;
+  const nom = $a('velHEmp').value;
+  if (!nom) { tb.innerHTML = '<tr><td colspan="3"><div class="empty-state"><p>Elegí un empleado para ver su historial</p></div></td></tr>'; return; }
+  const k = kioskNormalizar(nom), meses = {};
+  velocidadData.filter(r => kioskNormalizar(r.responsable) === k).forEach(r => {
+    const d = licDia(r.fecha), m = d.slice(0, 7);
+    const o = meses[m] || (meses[m] = { n: 0, f: [] }); o.n += velCant(r); o.f.push(d.slice(8) + '/' + d.slice(5, 7));
+  });
+  tb.innerHTML = Object.keys(meses).sort().reverse().map(m => `<tr><td>${m}</td><td><strong>${meses[m].n}</strong></td><td>${licEsc(meses[m].f.sort().join(', '))}</td></tr>`).join('');
+}
+function exportVelMesCSV() {
+  const mes = $a('velMes').value;
+  sgCSV('velocidad_' + mes + '.csv', ['Empleado', 'Salidas del mes', 'Reportes de velocidad', 'Camiones', 'Fechas'],
+    velMesDatos(mes).map(p => [p.nombre, p.salidas, p.reportes, [...p.camiones].join(' '), p.fechas.sort().join(' ')]));
+}
+// Desempeño en Distribución: al elegir empleado y mes, carga los datos ya recolectados
+function distAutocompletar() {
+  const nombre = $a('dist_empleado').value, mes = $a('dist_fecha').value, hint = $a('distAutoHint');
+  if (!nombre || !mes) { if (hint) hint.style.display = 'none'; return; }
+  const k = kioskNormalizar(nombre);
+  const p = camMesDatos(mes).lista.find(x => kioskNormalizar(x.nombre) === k);
+  const exc = velReportesDe(nombre, mes);
+  $a('dist_excesos_vel').value = exc;
+  if (p) { $a('dist_checklist_pct').value = p.pct; $a('dist_cant_viajes').value = p.salidas; }
+  else { $a('dist_checklist_pct').value = ''; $a('dist_cant_viajes').value = ''; }
+  if (hint) {
+    hint.style.display = '';
+    hint.textContent = p ? `⚡ Datos cargados de ${mes}: checklist ${p.pct}% · ${exc} exceso(s) de velocidad · ${p.salidas} viaje(s). Podés modificarlos.`
+      : `⚡ Sin salidas asignadas en ${mes} (checklist y viajes quedan vacíos). Excesos de velocidad: ${exc}.`;
+  }
+  updateDistScorePreview();
+}
+
+// ═══════════════════════════════════════════════════
 // RENDIMIENTO: render por pestaña, listas limitadas, buscadores con espera
 // ═══════════════════════════════════════════════════
-var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','camiones','organigrama'];
+var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','camiones','velocidad','organigrama'];
 var _tabsDirty = new Set();
 // Pestañas que se vuelven a dibujar cada vez que se abren (igual que antes)
-var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, camiones:1, organigrama:1, ropa:1 };
+var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, camiones:1, velocidad:1, organigrama:1, ropa:1 };
 var TAB_RENDER = {
   nomina:        function () { renderNomina(); renderStats(); renderFilters(); },
   analisis:      function () { renderAnalysis(); },
@@ -15401,6 +15675,7 @@ var TAB_RENDER = {
   racks:         function () { renderRacks(); },
   equipos:       function () { renderEquipos(); },
   camiones:      function () { renderCamiones(); },
+  velocidad:     function () { renderVelocidad(); },
   organigrama:   function () { renderOrganigrama(); }
 };
 function renderTab(tab) {
