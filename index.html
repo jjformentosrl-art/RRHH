@@ -10,7 +10,7 @@
    Se detecta antes de pintar nada: se oculta toda la app de administración,
    no se descargan tipografías externas y se desactivan animaciones/sombras. */
 (function(){
-  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion|auditoria|racks|equipos)=1(&|$)/.test(location.search);
+  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion|auditoria|racks|equipos|camiones)=1(&|$)/.test(location.search);
   if (lite) { document.documentElement.className += ' lite'; }
   else {
     var l = document.createElement('link');
@@ -675,10 +675,10 @@
 
 
   /* ═══ SEGURIDAD E HIGIENE: CONTROL DE RACKS Y EQUIPOS DE MANIPULEO ═══ */
-  #rackScreen, #eqScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
-  #rackScreen.active, #eqScreen.active { display: flex; }
-  html.lite #rackScreen, html.lite #eqScreen { position: static; padding: 16px 12px 32px; overflow: visible; }
-  html.lite #rackScreen.active, html.lite #eqScreen.active { display: block; }
+  #rackScreen, #eqScreen, #camScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
+  #rackScreen.active, #eqScreen.active, #camScreen.active { display: flex; }
+  html.lite #rackScreen, html.lite #eqScreen, html.lite #camScreen { position: static; padding: 16px 12px 32px; overflow: visible; }
+  html.lite #rackScreen.active, html.lite #eqScreen.active, html.lite #camScreen.active { display: block; }
   .sg-wrap { display: flex; flex-wrap: wrap; margin: -4px; }
   .sg-wrap > * { margin: 4px; }
   .sg-pas { flex: 1 1 84px; min-width: 84px; padding: 14px 8px; border: 2px solid var(--border-strong); border-radius: 12px; background: var(--surface); font-weight: 700; font-size: 19px; line-height: 1.1; font-family: inherit; text-align: center; cursor: pointer; color: var(--text); }
@@ -828,6 +828,7 @@
 #panel-auditorias::before{content:"Auditoría cruzada 5S"}
 #panel-racks::before{content:"Control de racks"}
 #panel-equipos::before{content:"Equipos de manipuleo"}
+#panel-camiones::before{content:"Checklist de camiones"}
 #panel-organigrama::before{content:"Organigrama"}
 
   .tabs { grid-area: nav; flex-direction: column; gap: 2px; padding: 14px 12px 20px; background: var(--ink); border-bottom: 0; overflow-x: hidden; overflow-y: auto; min-height: 0; }
@@ -1094,6 +1095,7 @@
     <div class="tabs-label">Seguridad e Higiene</div>
     <button class="tab" onclick="showTab('racks')">🏗️ Control de Racks</button>
     <button class="tab" onclick="showTab('equipos')">🚜 Equipos de Manipuleo</button>
+    <button class="tab" onclick="showTab('camiones')">🚚 Checklist Camiones</button>
     <div class="tabs-label">Gestión interna</div>
     <button class="tab" onclick="showTab('capacitaciones')">🎓 Capacitaciones</button>
     <button class="tab" onclick="showTab('auditorias')">🔍 Auditoría Cruzada</button>
@@ -2311,6 +2313,93 @@
       </div>
     </div>
 
+    <!-- CHECKLIST CAMIONES -->
+    <div class="panel" id="panel-camiones">
+      <div class="desempeño-tabs" id="camTabs" style="flex-shrink:0">
+        <button class="dtab active" onclick="camTab('estado',this)">📊 Estado del día</button>
+        <button class="dtab" onclick="camTab('asig',this)">📅 Asignación</button>
+        <button class="dtab" onclick="camTab('ctrl',this)">📋 Controles</button>
+        <button class="dtab" onclick="camTab('mes',this)">📈 Cumplimiento mensual</button>
+        <button class="dtab" onclick="camTab('lista',this)">🚚 Camiones</button>
+      </div>
+      <div class="dpanel cam-p active" id="camp-estado">
+        <div class="aud-scroll">
+          <div id="camLinkBox" style="flex-shrink:0"></div>
+          <div class="toolbar" style="padding-left:0">
+            <label style="font-size:13px;color:var(--text2);font-weight:600">📅 Día:</label>
+            <input type="date" class="filter-select" id="camDia" onchange="renderCamEstado()" style="max-width:160px">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('camDia').value=licHoyISO();renderCamEstado()">Hoy</button>
+            <select class="filter-select" id="camFEstado" onchange="renderCamEstado()">
+              <option value="">Todos</option><option value="ok">Check completado</option><option value="pend">Sin completar</option><option value="obs">Con observaciones / fallas</option>
+            </select>
+            <button class="btn btn-secondary" style="margin-left:auto" onclick="exportCamEstadoCSV()">⬇ CSV</button>
+          </div>
+          <div class="stats" id="camStats"></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Camión</th><th>Chofer</th><th>Ayudante</th><th>Checklist de seguridad</th><th>Hora / Lo completó</th><th>Resultado</th><th>Observaciones</th><th></th></tr></thead>
+            <tbody id="camETbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="dpanel cam-p" id="camp-asig">
+        <div class="aud-scroll">
+          <div class="link-box" style="font-family:inherit">📅 Elegí la fecha del reparto y asigná el chofer y el ayudante de cada camión: ellos son quienes deben completar el checklist ese día. Los cambios se guardan solos.</div>
+          <div class="toolbar" style="padding-left:0">
+            <label style="font-size:13px;color:var(--text2);font-weight:600">📅 Fecha:</label>
+            <input type="date" class="filter-select" id="camADia" onchange="renderCamAsig()" style="max-width:160px">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('camADia').value=licHoyISO();renderCamAsig()">Hoy</button>
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('camADia').value=camMananaISO();renderCamAsig()">Mañana</button>
+            <button class="btn btn-secondary" style="margin-left:auto" onclick="camAsignCopiar()">📋 Copiar asignación anterior</button>
+          </div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Camión</th><th>Chofer</th><th>Ayudante</th></tr></thead>
+            <tbody id="camATbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="dpanel cam-p" id="camp-ctrl">
+        <div class="toolbar">
+          <select class="filter-select" id="camCFCamion" onchange="renderCamControles()"></select>
+          <select class="filter-select" id="camCFRes" onchange="renderCamControles()">
+            <option value="">Todos los resultados</option><option value="OK">OK</option><option value="Con observaciones">Con observaciones</option><option value="Fuera de servicio">Fuera de servicio</option>
+          </select>
+          <input type="date" class="filter-select" id="camCDesde" onchange="renderCamControles()" title="Desde" style="max-width:150px">
+          <input type="date" class="filter-select" id="camCHasta" onchange="renderCamControles()" title="Hasta" style="max-width:150px">
+          <button class="btn btn-secondary" onclick="exportCamCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Fecha</th><th>Hora</th><th>Camión</th><th>Lo completó</th><th>Resultado</th><th>Fallas</th><th>Resolución</th><th>Acciones</th></tr></thead>
+          <tbody id="camCTbody"></tbody>
+        </table></div>
+      </div>
+      <div class="dpanel cam-p" id="camp-mes">
+        <div class="aud-scroll">
+          <div class="link-box" style="font-family:inherit">📈 Por cada chofer y ayudante: cuántas veces salió de reparto en el mes (días en que estuvo asignado a un camión, hasta hoy) y qué porcentaje de esos días el camión tuvo su checklist completo. Si lo completa el chofer o el ayudante, suma a los dos; si nadie lo completa, baja el porcentaje de los dos.</div>
+          <div class="toolbar" style="padding-left:0">
+            <label style="font-size:13px;color:var(--text2);font-weight:600">🗓️ Mes:</label>
+            <input type="month" class="filter-select" id="camMes" onchange="renderCamMes()" style="max-width:170px">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('camMes').value=licHoyISO().slice(0,7);renderCamMes()">Este mes</button>
+            <button class="btn btn-secondary" style="margin-left:auto" onclick="exportCamMesCSV()">⬇ CSV</button>
+          </div>
+          <div class="stats" id="camMStats"></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Persona</th><th>Salidas del mes</th><th>Como chofer</th><th>Como ayudante</th><th>Checklists realizados</th><th>Completados por él/ella</th><th>Sin completar</th><th>% cumplimiento</th></tr></thead>
+            <tbody id="camMTbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="dpanel cam-p" id="camp-lista">
+        <div class="toolbar">
+          <span style="font-size:13px;color:var(--text2)">Cargá los camiones con su número de vehículo y patente (cada uno tiene su propio QR para pegar en la cabina).</span>
+          <button class="btn btn-primary" style="margin-left:auto" onclick="openCamCamion()">+ Nuevo camión</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>N° de vehículo</th><th>Patente</th><th>Estado</th><th>Observaciones</th><th>Acciones</th></tr></thead>
+          <tbody id="camLTbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- ORGANIGRAMA -->
     <div class="panel" id="panel-organigrama">
       <div class="org-toolbar">
@@ -2518,6 +2607,40 @@
       </div>
     </div>
     <div id="eqPubDone" style="display:none"></div>
+  </div>
+</div>
+
+<!-- CHECKLIST CAMIONES: PANTALLA MÓVIL -->
+<div id="camScreen">
+  <div class="kiosk-card" style="max-width:560px;width:100%">
+    <div class="kiosk-title">
+      <div class="icon">🚚</div>
+      <h2>Checklist de Seguridad del Camión</h2>
+      <p id="camPubFecha"></p>
+    </div>
+    <div id="camPubForm">
+      <div class="kiosk-field kiosk-combo">
+        <label>Tu nombre</label>
+        <input type="text" id="camPubNombre" placeholder="Elegí de la lista o escribí tu nombre..." autocomplete="off" oninput="camPubFiltrar(this.value)" onfocus="camPubFiltrar(this.value)" onblur="setTimeout(camPubCerrar, 200)">
+        <div class="kiosk-combo-dropdown" id="camPubDrop"></div>
+      </div>
+      <div class="kiosk-field" style="margin-top:16px">
+        <label>Camión</label>
+        <select id="camPubCamion" onchange="camPubElegir(this.value)"></select>
+      </div>
+      <div id="camPubAviso" style="display:none;margin-top:12px"></div>
+      <div id="camPubCheck" style="display:none">
+        <label class="sg-lbl">Kilometraje (opcional)</label>
+        <input type="number" id="camPubKm" inputmode="decimal" placeholder="Km del camión" style="width:100%;padding:12px;font-size:16px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text);box-sizing:border-box">
+        <button class="sg-big ghost" style="margin-top:14px" onclick="camPubTodoOk()">✅ Marcar todo como BIEN</button>
+        <div id="camPubItems"></div>
+        <label class="sg-lbl">Observaciones generales (opcional)</label>
+        <textarea id="camPubObs" rows="2" style="width:100%;padding:10px;font-size:14px;border:1px solid var(--border-strong);border-radius:10px;font-family:inherit;background:var(--surface);color:var(--text);box-sizing:border-box" placeholder="Algo más que quieras avisar..."></textarea>
+        <div id="camPubMsg" class="kiosk-result" style="display:none;margin-top:14px"></div>
+        <button class="sg-big ok" id="camPubBtn" onclick="camPubEnviar()" style="margin-top:16px">✅ ENVIAR CHECKLIST</button>
+      </div>
+    </div>
+    <div id="camPubDone" style="display:none"></div>
   </div>
 </div>
 
@@ -3422,6 +3545,38 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="camDetailModal">
+  <div class="modal" style="width:640px">
+    <div class="modal-header">
+      <span class="modal-title" id="camDetailTitle">🚚 Checklist</span>
+      <button class="modal-close" onclick="document.getElementById('camDetailModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body" id="camDetailBody"></div>
+    <div class="modal-footer" id="camDetailFoot"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="camCamionModal">
+  <div class="modal" style="width:520px">
+    <div class="modal-header">
+      <span class="modal-title" id="camCamionTitle">🚚 Nuevo camión</span>
+      <button class="modal-close" onclick="document.getElementById('camCamionModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>N° de vehículo *</label><input type="text" id="camc_numero" placeholder="Ej: 12"></div>
+        <div class="form-group"><label>Patente *</label><input type="text" id="camc_patente" placeholder="Ej: AB123CD" style="text-transform:uppercase"></div>
+        <div class="form-group"><label>Estado</label><select id="camc_activo"><option value="Sí">Activo (se controla)</option><option value="No">Dado de baja</option></select></div>
+        <div class="form-group"><label>Observaciones</label><input type="text" id="camc_obs" placeholder="Opcional (marca, modelo, zona...)"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="document.getElementById('camCamionModal').classList.remove('open')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCamCamion()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- AUDITORÍA CRUZADA: MODALES -->
 <div class="modal-overlay" id="audModal">
   <div class="modal" style="width:760px">
@@ -4132,6 +4287,7 @@ const WRITE_ACTIONS = [
   'addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan',
   'deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos',
   'addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos',
+  'addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -4296,7 +4452,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -4379,6 +4535,14 @@ function handleRequest(e) {
     else if (action === 'updateEquipoPlan')    result = sgPlanGuardar('EQUIPOS_PLAN', body.id, body.data, 'equipo');
     else if (action === 'deleteEquipoPlan')    result = deleteRow('EQUIPOS_PLAN', body.id);
     else if (action === 'getEquipoPlanFotos')  result = sgPlanFotos('EQUIPOS_PLAN', body.data);
+    else if (action === 'getCamionesKiosk')    result = getCamionesKiosk();
+    else if (action === 'addCamionControlPublica') result = addCamionControl(body.data);
+    else if (action === 'addCamion')           result = sgAddRow('CAMIONES_LISTA', CAM_LISTA_HEADERS, body.data);
+    else if (action === 'updateCamion')        result = updateRow('CAMIONES_LISTA', body.id, body.data);
+    else if (action === 'deleteCamion')        result = deleteRow('CAMIONES_LISTA', body.id);
+    else if (action === 'deleteCamionControl') result = deleteRow('CAMIONES_CONTROLES', body.id);
+    else if (action === 'updateCamionControl') result = updateRow('CAMIONES_CONTROLES', body.id, body.data);
+    else if (action === 'setCamionAsignaciones') result = setCamionAsignaciones(body.data);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -4440,6 +4604,9 @@ function getAllData() {
   var eqListaSheet = sgSheet('EQUIPOS_LISTA', EQ_LISTA_HEADERS);
   var eqCtrlSheet = sgSheet('EQUIPOS_CONTROLES', EQ_CTRL_HEADERS);
   var eqPlanSheet = sgSheet('EQUIPOS_PLAN', SG_PLAN_HEADERS);
+  var camListaSheet = sgSheet('CAMIONES_LISTA', CAM_LISTA_HEADERS);
+  var camCtrlSheet = sgSheet('CAMIONES_CONTROLES', CAM_CTRL_HEADERS);
+  var camAsignSheet = sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -4470,6 +4637,9 @@ function getAllData() {
     equiposLista: sheetToJson(eqListaSheet),
     equiposControles: sheetToJson(eqCtrlSheet),
     equiposPlan:  sheetToJson(eqPlanSheet),
+    camionesLista: sheetToJson(camListaSheet),
+    camionesControles: sheetToJson(camCtrlSheet),
+    camionesAsign: sheetToJson(camAsignSheet),
     config:       getConfig()
   };
 }
@@ -5412,6 +5582,77 @@ function addEquipoControl(data) {
   return r;
 }
 
+// ── Checklist diario de camiones ──
+var CAM_LISTA_HEADERS = ['numero','patente','activo','observaciones'];
+var CAM_ASIGN_HEADERS = ['fecha','camion_id','chofer','ayudante'];
+var CAM_CTRL_HEADERS = ['fecha','hora','camion_id','numero','patente','quien','rol','km','resultado','cant_fallas','fallas','fallas_json','observaciones','resolucion','origen'];
+
+function getCamionesKiosk() {
+  var hoy = sgHoy();
+  var asign = sheetToJson(sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS)).filter(function(a) { return a.fecha === hoy; });
+  var ctrls = sheetToJson(sgSheet('CAMIONES_CONTROLES', CAM_CTRL_HEADERS));
+  var camiones = sheetToJson(sgSheet('CAMIONES_LISTA', CAM_LISTA_HEADERS)).filter(function(c) { return (c.numero || c.patente) && String(c.activo) !== 'No'; }).map(function(c) {
+    var id = String(c.__ID__), a = null, hecho = false;
+    asign.forEach(function(x) { if (String(x.camion_id) === id) a = x; });
+    ctrls.forEach(function(k) { if (String(k.camion_id) === id && k.fecha === hoy) hecho = true; });
+    return { id: id, numero: c.numero, patente: c.patente, hoy: hecho, chofer: a ? a.chofer : '', ayudante: a ? a.ayudante : '' };
+  });
+  return { employees: sgNomina(), camiones: camiones };
+}
+
+// Guarda el checklist de un camión (enlace público). El resultado se calcula en el servidor.
+function addCamionControl(data) {
+  if (!data) return { error: 'Sin datos' };
+  var quien = audTexto(data.quien, 80);
+  if (!quien) return { error: 'Falta tu nombre' };
+  var cam = null;
+  sheetToJson(sgSheet('CAMIONES_LISTA', CAM_LISTA_HEADERS)).forEach(function(c) { if (String(c.__ID__) === String(data.camion_id) && String(c.activo) !== 'No') cam = c; });
+  if (!cam) return { error: 'Camión no encontrado' };
+  var fallas = Object.prototype.toString.call(data.fallas) === '[object Array]' ? data.fallas : [];
+  if (fallas.length > 40) return { error: 'Demasiadas fallas en un solo envío' };
+  var limpias = [], hayCritica = false;
+  fallas.forEach(function(f) {
+    var item = audTexto(f && f.item, 150);
+    if (!item) return;
+    var crit = !!(f && f.critico);
+    if (crit) hayCritica = true;
+    limpias.push({ item: item, critico: crit, nota: audTexto(f && f.nota, 300) });
+  });
+  var hoy = sgHoy(), id = String(cam.__ID__), a = null;
+  sheetToJson(sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS)).forEach(function(x) { if (x.fecha === hoy && String(x.camion_id) === id) a = x; });
+  var q = quien.toLowerCase();
+  var rol = a && String(a.chofer).toLowerCase() === q ? 'Chofer' : (a && String(a.ayudante).toLowerCase() === q ? 'Ayudante' : '');
+  var resultado = hayCritica ? 'Fuera de servicio' : (limpias.length ? 'Con observaciones' : 'OK');
+  var km = String(data.km === undefined || data.km === null ? '' : data.km).replace(',', '.');
+  var r = addRow('CAMIONES_CONTROLES', {
+    fecha: hoy, hora: sgAhora(), camion_id: id, numero: cam.numero, patente: cam.patente, quien: quien, rol: rol,
+    km: isNaN(Number(km)) ? '' : km, resultado: resultado, cant_fallas: limpias.length,
+    fallas: limpias.map(function(f) { return f.item + (f.critico ? ' (CRÍTICO)' : '') + (f.nota ? ': ' + f.nota : ''); }).join(' | '),
+    fallas_json: JSON.stringify(limpias), observaciones: audTexto(data.observaciones, 500),
+    resolucion: limpias.length ? 'Abierto' : '', origen: 'Enlace'
+  });
+  if (r && r.success) { r.resultado = resultado; r.cant = limpias.length; }
+  return r;
+}
+
+// Asigna chofer y ayudante a un camión para una fecha (si ya existe esa fecha+camión, la actualiza)
+function setCamionAsignaciones(data) {
+  var items = data && Object.prototype.toString.call(data.items) === '[object Array]' ? data.items : [];
+  if (!items.length || items.length > 100) return { error: 'Sin datos' };
+  var rows = sheetToJson(sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS));
+  for (var i = 0; i < items.length; i++) {
+    var fecha = audTexto(items[i].fecha, 10), cid = audTexto(items[i].camion_id, 40);
+    if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha) || !cid) return { error: 'Datos inválidos' };
+    var fila = { fecha: fecha, camion_id: cid, chofer: audTexto(items[i].chofer, 80), ayudante: audTexto(items[i].ayudante, 80) };
+    var id = null;
+    rows.forEach(function(x) { if (x.fecha === fecha && String(x.camion_id) === cid) id = x.__ID__; });
+    var r = id ? updateRow('CAMIONES_ASIGN', id, fila) : addRow('CAMIONES_ASIGN', fila);
+    if (!r || !r.success) return r || { error: 'No se pudo guardar' };
+    if (!id) rows.push({ __ID__: r.id, fecha: fecha, camion_id: cid });
+  }
+  return { success: true };
+}
+
 // Alta en una hoja de este módulo, creándola si todavía no existe
 function sgAddRow(hoja, headers, data) {
   sgSheet(hoja, headers);
@@ -5605,12 +5846,13 @@ document.addEventListener('DOMContentLoaded', () => {
   else if (params.get('auditoria') === '1') initAudPublic(params.get('api') || API_URL);
   else if (params.get('racks') === '1') initRackPublic(params.get('api') || API_URL);
   else if (params.get('equipos') === '1') initEqPublic(params.get('api') || API_URL, params.get('eq') || '');
+  else if (params.get('camiones') === '1') initCamPublic(params.get('api') || API_URL, params.get('cam') || '');
 });
 
 window.onload = () => {
   const params = new URLSearchParams(location.search);
   // Kiosko y vacaciones ya arrancaron en DOMContentLoaded (modo liviano)
-  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1' || params.get('auditoria') === '1' || params.get('racks') === '1' || params.get('equipos') === '1') return;
+  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1' || params.get('auditoria') === '1' || params.get('racks') === '1' || params.get('equipos') === '1' || params.get('camiones') === '1') return;
   const today = new Date().toISOString().split('T')[0];
   ['c_fecha','d_fecha','f_alta','f_art','r_fecha','e_fecha','p_fecha'].forEach(id => {
     const el = document.getElementById(id);
@@ -5677,6 +5919,9 @@ function loadLocalData() {
   equiposListaData = JSON.parse(localStorage.getItem('rrhh_equipos_lista') || '[]');
   equipoControlesData = JSON.parse(localStorage.getItem('rrhh_equipos_controles') || '[]');
   equipoPlanData = JSON.parse(localStorage.getItem('rrhh_equipos_plan') || '[]');
+  camListaData = JSON.parse(localStorage.getItem('rrhh_cam_lista') || '[]');
+  camControlesData = JSON.parse(localStorage.getItem('rrhh_cam_controles') || '[]');
+  camAsignData = JSON.parse(localStorage.getItem('rrhh_cam_asign') || '[]');
   const storedLimp = localStorage.getItem('rrhh_limpieza');
   limpiezaData = storedLimp ? JSON.parse(storedLimp) : [];
   const storedCfg = localStorage.getItem('rrhh_config');
@@ -5779,6 +6024,9 @@ async function loadAllData() {
   equiposListaData = data.equiposLista || [];
   equipoControlesData = data.equiposControles || [];
   equipoPlanData = data.equiposPlan || [];
+  camListaData = data.camionesLista || [];
+  camControlesData = data.camionesControles || [];
+  camAsignData = data.camionesAsign || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   orgData = null;
   setSyncStatus('ok', 'Conectado a Google Sheets');
@@ -13611,6 +13859,9 @@ function sgSave() {
     localStorage.setItem('rrhh_equipos_lista', JSON.stringify(equiposListaData));
     localStorage.setItem('rrhh_equipos_controles', JSON.stringify(equipoControlesData));
     localStorage.setItem('rrhh_equipos_plan', JSON.stringify(equipoPlanData));
+    localStorage.setItem('rrhh_cam_lista', JSON.stringify(camListaData));
+    localStorage.setItem('rrhh_cam_controles', JSON.stringify(camControlesData));
+    localStorage.setItem('rrhh_cam_asign', JSON.stringify(camAsignData));
   } catch (e) {}
 }
 function sgDias(iso) {
@@ -14743,13 +14994,395 @@ function eqPubOtro() {
   try { window.scrollTo(0, 0); } catch (e) {}
 }
 
+// ═══════════════════════ CHECKLIST DIARIO DE CAMIONES ═══════════════════════
+let camListaData = [], camControlesData = [], camAsignData = [];
+// c:1 = punto crítico (si está mal, el camión queda FUERA DE SERVICIO)
+const CAM_ITEMS = [
+  { t: 'Frenos de servicio y de mano funcionan bien', c: 1 },
+  { t: 'Dirección sin juego ni ruidos', c: 1 },
+  { t: 'Neumáticos en buen estado (dibujo, presión, sin cortes) y rueda de auxilio', c: 1 },
+  { t: 'Luces bajas/altas, de freno, giro y posición funcionan', c: 1 },
+  { t: 'Espejos retrovisores completos y bien regulados', c: 1 },
+  { t: 'Cinturones de seguridad en buen estado', c: 1 },
+  { t: 'Sin pérdidas de aceite, combustible ni líquido de frenos', c: 1 },
+  { t: 'Carga bien estibada y asegurada (sin riesgo de caída)', c: 1 },
+  { t: 'Extintor presente, vigente y accesible', c: 1 },
+  { t: 'Documentación vigente (VTV, seguro, cédula, licencia)', c: 1 },
+  { t: 'Bocina y alarma de retroceso funcionan', c: 0 },
+  { t: 'Parabrisas sin roturas y limpiaparabrisas funcionan', c: 0 },
+  { t: 'Niveles de aceite, agua/refrigerante y combustible suficientes', c: 0 },
+  { t: 'Balizas / triángulos, cuñas y botiquín completos', c: 0 },
+  { t: 'Caja: puertas, cierres y piso en buen estado', c: 0 },
+  { t: 'Rampa / zorra / carros de reparto en buen estado', c: 0 },
+  { t: 'Equipo de frío funcionando (si corresponde)', c: 0 },
+  { t: 'Cabina y caja limpias y ordenadas', c: 0 },
+  { t: 'Chaleco y calzado de seguridad puestos (EPP)', c: 0 },
+  { t: 'Sin golpes ni daños nuevos en el camión (si hay, detallar)', c: 0 }
+];
+function camLink(id) { return sgBase() + '?camiones=1' + (id ? '&cam=' + encodeURIComponent(id) : '') + '&api=' + encodeURIComponent(API_URL); }
+function camNom(c) { return 'N° ' + (c.numero || '?') + (c.patente ? ' · ' + c.patente : ''); }
+function camOrden(arr) { return [...arr].sort((a, b) => String(a.numero).localeCompare(String(b.numero), undefined, { numeric: true })); }
+function camAsignDe(id, dia) { return camAsignData.find(a => String(a.camion_id) === String(id) && licDia(a.fecha) === dia) || { chofer: '', ayudante: '' }; }
+function camMananaISO() {
+  const d = new Date(licHoyISO() + 'T00:00:00'); d.setDate(d.getDate() + 1);
+  const p = n => (n < 10 ? '0' : '') + n;
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+function camBadgeRes(r) { return r === 'OK' ? 'badge-green' : r === 'Fuera de servicio' ? 'badge-red' : 'badge-yellow'; }
+function camTab(tab, el) {
+  document.querySelectorAll('#camTabs .dtab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.cam-p').forEach(p => p.classList.remove('active'));
+  el.classList.add('active'); $a('camp-' + tab).classList.add('active');
+  renderCamiones();
+}
+function renderCamiones() {
+  if (!$a('panel-camiones')) return;
+  audFillSelect('camCFCamion', 'Todos los camiones', camOrden(camListaData).map(c => camNom(c)));
+  renderCamEstado(); renderCamAsig(); renderCamControles(); renderCamMes(); renderCamLista();
+}
+function camOpts(cur) {
+  const dist = [], otros = [];
+  employees.forEach(e => { if (e.nombre) (kioskNormalizar(e.sector).includes('distribucion') ? dist : otros).push(e.nombre); });
+  const ord = (a, b) => a.localeCompare(b); dist.sort(ord); otros.sort(ord);
+  if (cur && !dist.includes(cur) && !otros.includes(cur)) otros.push(cur);
+  const o = n => `<option value="${licEsc(n)}"${n === cur ? ' selected' : ''}>${licEsc(n)}</option>`;
+  return '<option value="">— Sin asignar —</option>' + (dist.length ? '<optgroup label="Distribución">' + dist.map(o).join('') + '</optgroup>' : '') + '<optgroup label="' + (dist.length ? 'Otros' : 'Personal') + '">' + otros.map(o).join('') + '</optgroup>';
+}
+
+// ── Estado del día ──
+function camFilas() {
+  const inp = $a('camDia'); if (!inp.value) inp.value = licHoyISO();
+  const dia = inp.value, fe = $a('camFEstado').value;
+  const filas = camListaData.filter(c => c.activo !== 'No').map(c => {
+    const a = camAsignDe(c.__ID__, dia), asig = !!(a.chofer || a.ayudante);
+    const k = sgOrdenFecha(camControlesData.filter(x => String(x.camion_id) === String(c.__ID__) && licDia(x.fecha) === dia))[0] || null; // el más reciente del día
+    const st = k ? (k.resultado === 'Fuera de servicio' ? 'fs' : k.resultado === 'Con observaciones' ? 'obs' : 'ok') : (asig ? 'pend' : 'sin');
+    return { c, a, k, asig, st };
+  });
+  const rank = { pend: 0, fs: 1, obs: 2, ok: 3, sin: 4 };
+  filas.sort((x, y) => rank[x.st] - rank[y.st] || String(x.c.numero).localeCompare(String(y.c.numero), undefined, { numeric: true }));
+  return { dia, filas, vista: filas.filter(f => !fe || (fe === 'ok' ? !!f.k : fe === 'pend' ? f.st === 'pend' : (f.st === 'obs' || f.st === 'fs'))) };
+}
+function renderCamEstado() {
+  const tb = $a('camETbody'); if (!tb) return;
+  sgLinkBox('camLinkBox', 'Enlace para que choferes y ayudantes envíen el checklist del camión', camLink(),
+    'Un solo enlace/QR para todos: al poner su nombre se elige solo el camión que tienen asignado. Cada camión tiene además su propio QR en la pestaña “Camiones”.',
+    'Checklist diario de seguridad del camión: completalo desde este enlace antes de salir al reparto:', 'Checklist de Camiones');
+  const { dia, filas, vista } = camFilas();
+  const n = s => filas.filter(f => f.st === s).length;
+  const pend = n('pend'), obs = n('obs') + n('fs'), sinAsig = filas.filter(f => !f.asig && !f.k).length;
+  $a('camStats').innerHTML = sgCard('🚚', filas.filter(f => f.asig).length, 'Camiones con reparto asignado') +
+    sgCard('✅', filas.filter(f => f.k).length, 'Check completado', 'var(--success)') +
+    sgCard('❌', pend, 'Sin completar', pend ? 'var(--danger)' : '') +
+    sgCard('⚠️', obs, 'Con observaciones', obs ? 'var(--warning)' : '') +
+    sgCard('⛔', n('fs'), 'Fuera de servicio', n('fs') ? 'var(--danger)' : '') +
+    sgCard('👤', sinAsig, 'Sin chofer asignado', sinAsig ? 'var(--warning)' : '');
+  if (!filas.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">🚚</div><p>Todavía no cargaste camiones. Andá a la pestaña “Camiones”.</p></div></td></tr>'; return; }
+  if (!vista.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">🔎</div><p>No hay camiones con ese filtro</p></div></td></tr>'; return; }
+  const nom = v => v ? licEsc(v) : '<span style="color:var(--warning)">Sin asignar</span>';
+  tb.innerHTML = vista.map(f => {
+    const k = f.k, fl = k ? eqFallas(k) : [];
+    const est = k ? '<span class="badge badge-green">✅ Check completado</span>' : f.st === 'pend' ? '<span class="badge badge-red">❌ Sin completar</span>' : '<span class="badge badge-gray">Sin reparto asignado</span>';
+    const obs = k ? (fl.map(x => `<div style="font-size:12px;color:${x.critico ? 'var(--danger)' : '#8A5A00'}">${x.critico ? '⛔' : '⚠️'} ${licEsc(x.item)}${x.nota ? ': ' + licEsc(x.nota) : ''}</div>`).join('') + (k.observaciones ? `<div style="font-size:12px">💬 ${licEsc(k.observaciones)}</div>` : '') || '<span style="color:var(--text3);font-size:12px">Sin observaciones</span>') : '—';
+    const quien = k ? licEsc(k.hora || '') + ' · ' + licEsc(k.quien) + (k.rol ? ' <span style="color:var(--text3)">(' + k.rol + ')</span>' : (f.asig ? ' <span style="color:var(--warning)">(no es el asignado)</span>' : '')) : '—';
+    return `<tr${f.st === 'pend' ? ' style="background:rgba(220,38,38,.06)"' : ''}>
+      <td><strong>N° ${licEsc(f.c.numero)}</strong><div style="font-size:11px;color:var(--text3)">${licEsc(f.c.patente || '')}</div></td>
+      <td>${nom(f.a.chofer)}</td><td>${nom(f.a.ayudante)}</td><td>${est}</td><td>${quien}</td>
+      <td>${k ? `<span class="badge ${camBadgeRes(k.resultado)}">${licEsc(k.resultado)}</span>` : '—'}</td>
+      <td>${obs}</td>
+      <td>${k ? `<button class="btn btn-secondary btn-sm" onclick="camVer('${k.__ID__}')">👁 Ver</button>` : ''}</td></tr>`;
+  }).join('') + `<tr><td colspan="8" style="font-size:11.5px;color:var(--text3)">Día mostrado: ${fmtDate(dia)}. Un camión cuenta como “Sin completar” si tiene chofer o ayudante asignado ese día y todavía no se envió el checklist. Si se envió más de uno, se muestra el último.</td></tr>`;
+}
+function exportCamEstadoCSV() {
+  const { dia, vista } = camFilas();
+  sgCSV('checklist_camiones_' + dia + '.csv', ['Fecha', 'N° vehículo', 'Patente', 'Chofer', 'Ayudante', 'Checklist', 'Hora', 'Lo completó', 'Resultado', 'Observaciones'],
+    vista.map(f => [dia, f.c.numero, f.c.patente, f.a.chofer, f.a.ayudante, f.k ? 'Check completado' : f.st === 'pend' ? 'Sin completar' : 'Sin reparto asignado',
+      f.k ? f.k.hora : '', f.k ? f.k.quien : '', f.k ? f.k.resultado : '', f.k ? [f.k.fallas, f.k.observaciones].filter(Boolean).join(' | ') : '']));
+}
+
+// ── Asignación de chofer y ayudante por fecha ──
+function renderCamAsig() {
+  const tb = $a('camATbody'); if (!tb) return;
+  const inp = $a('camADia'); if (!inp.value) inp.value = licHoyISO();
+  const dia = inp.value, act = camOrden(camListaData.filter(c => c.activo !== 'No'));
+  if (!act.length) { tb.innerHTML = '<tr><td colspan="3"><div class="empty-state"><div class="icon">🚚</div><p>Todavía no cargaste camiones</p></div></td></tr>'; return; }
+  const cuenta = {};
+  act.forEach(c => { const a = camAsignDe(c.__ID__, dia); [a.chofer, a.ayudante].forEach(v => { if (v) cuenta[v] = (cuenta[v] || 0) + 1; }); });
+  const dup = v => v && cuenta[v] > 1 ? '<div style="font-size:11px;color:var(--warning)">⚠️ Está asignado en más de un camión</div>' : '';
+  tb.innerHTML = act.map(c => {
+    const a = camAsignDe(c.__ID__, dia), id = licEsc(String(c.__ID__));
+    return `<tr><td><strong>N° ${licEsc(c.numero)}</strong><div style="font-size:11px;color:var(--text3)">${licEsc(c.patente || '')}</div></td>
+      <td><select class="filter-select" style="min-width:180px" onchange="camAsignSet('${id}','chofer',this.value)">${camOpts(a.chofer)}</select>${dup(a.chofer)}</td>
+      <td><select class="filter-select" style="min-width:180px" onchange="camAsignSet('${id}','ayudante',this.value)">${camOpts(a.ayudante)}</select>${dup(a.ayudante)}</td></tr>`;
+  }).join('');
+}
+async function camAsignGuardar(items) {
+  if (API_URL) {
+    const res = await apiCall('setCamionAsignaciones', { data: { items } });
+    if (!res || res.error || !res.success) { showToast('Error: ' + ((res && res.error) || 'sin conexión'), 'error'); renderCamiones(); return false; }
+  }
+  items.forEach(it => {
+    const a = camAsignData.find(x => String(x.camion_id) === it.camion_id && licDia(x.fecha) === it.fecha);
+    if (a) Object.assign(a, it); else camAsignData.push({ ...it, __ID__: sgLocalId() });
+  });
+  sgSave(); renderCamiones(); return true;
+}
+async function camAsignSet(id, campo, valor) {
+  const dia = $a('camADia').value || licHoyISO(), prev = camAsignDe(id, dia);
+  const ok = await camAsignGuardar([{ fecha: dia, camion_id: String(id), chofer: prev.chofer || '', ayudante: prev.ayudante || '', [campo]: valor }]);
+  if (ok) showToast('Asignación guardada ✓', 'success');
+}
+async function camAsignCopiar() {
+  const dia = $a('camADia').value || licHoyISO();
+  const prev = [...new Set(camAsignData.map(a => licDia(a.fecha)).filter(d => d && d < dia))].sort().pop();
+  if (!prev) { showToast('No hay una asignación anterior para copiar', 'error'); return; }
+  const items = camListaData.filter(c => c.activo !== 'No').map(c => {
+    const o = camAsignDe(c.__ID__, prev), a = camAsignDe(c.__ID__, dia);
+    return { fecha: dia, camion_id: String(c.__ID__), chofer: a.chofer || o.chofer || '', ayudante: a.ayudante || o.ayudante || '' };
+  }).filter(i => i.chofer || i.ayudante);
+  if (!items.length) { showToast('La asignación anterior estaba vacía', 'error'); return; }
+  if (await camAsignGuardar(items)) showToast('Asignación copiada del ' + fmtDate(prev) + ' ✓ (no pisa lo ya cargado)', 'success');
+}
+
+// ── Historial de controles ──
+function camCtrlFiltrados() {
+  const fc = $a('camCFCamion').value, fr = $a('camCFRes').value, d1 = $a('camCDesde').value, d2 = $a('camCHasta').value;
+  return sgOrdenFecha(camControlesData.filter(c => (!fc || camNom(c) === fc) && (!fr || c.resultado === fr) && (!d1 || licDia(c.fecha) >= d1) && (!d2 || licDia(c.fecha) <= d2)));
+}
+function renderCamControles() {
+  const tb = $a('camCTbody'); if (!tb) return;
+  const rows = camCtrlFiltrados();
+  if (!rows.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">🚚</div><p>No hay checklists registrados</p></div></td></tr>'; return; }
+  tb.innerHTML = listSlice('camc', rows).map(c => {
+    const res = c.resolucion === 'Abierto' ? '<span class="badge badge-red">Abierta</span>' : c.resolucion === 'Resuelto' ? '<span class="badge badge-green">Resuelta</span>' : '—';
+    return `<tr><td>${fmtDate(c.fecha)}</td><td>${licEsc(c.hora || '')}</td><td><strong>${licEsc(camNom(c))}</strong></td>
+      <td>${licEsc(c.quien)}${c.rol ? ' <span style="color:var(--text3)">(' + c.rol + ')</span>' : ''}</td>
+      <td><span class="badge ${camBadgeRes(c.resultado)}">${licEsc(c.resultado)}</span></td><td>${Number(c.cant_fallas) || 0}</td><td>${res}</td>
+      <td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="camVer('${c.__ID__}')">👁 Ver</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCamControl('${c.__ID__}')">🗑️</button></td></tr>`;
+  }).join('') + listMore('camc', rows, 8);
+}
+async function deleteCamControl(id) {
+  if (!confirm('¿Eliminar este checklist?')) return;
+  if (API_URL) { const res = await apiCall('deleteCamionControl', { id }); if (res?.error) { showToast('Error: ' + res.error, 'error'); return; } }
+  camControlesData = camControlesData.filter(c => String(c.__ID__) !== String(id));
+  sgSave(); renderCamiones(); showToast('Checklist eliminado ✓', 'success');
+}
+function camVer(id) {
+  const c = camControlesData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  const fl = eqFallas(c);
+  $a('camDetailTitle').textContent = '🚚 ' + camNom(c);
+  $a('camDetailBody').innerHTML = `<div style="display:flex;flex-wrap:wrap;margin:-4px;font-size:13px">
+      <span style="margin:4px"><span class="badge ${camBadgeRes(c.resultado)}">${licEsc(c.resultado)}</span></span>
+      <span style="margin:4px">📅 ${fmtDate(c.fecha)} ${licEsc(c.hora || '')}</span>
+      <span style="margin:4px">👤 ${licEsc(c.quien)}${c.rol ? ' (' + c.rol + ')' : ''}</span>
+      ${c.km ? `<span style="margin:4px">🛣️ ${licEsc(c.km)} km</span>` : ''}</div>
+    ${fl.length ? '<div style="margin-top:12px;font-weight:700;font-size:13px">Fallas informadas</div>' + fl.map(f => `<div class="sg-hall" style="border-left-color:${f.critico ? 'var(--danger)' : 'var(--warning)'}"><b>${licEsc(f.item)}</b>${f.critico ? '<span class="sg-crit">CRÍTICO</span>' : ''}${f.nota ? '<div style="margin-top:4px">' + licEsc(f.nota) + '</div>' : ''}</div>`).join('')
+      : '<div style="margin-top:12px;color:var(--success);font-weight:600">✅ Sin fallas: todos los puntos estaban bien.</div>'}
+    ${c.observaciones ? `<div style="margin-top:12px;font-size:13px"><b>Observaciones:</b> ${licEsc(c.observaciones)}</div>` : ''}`;
+  let foot = '<button class="btn btn-secondary" onclick="document.getElementById(\'camDetailModal\').classList.remove(\'open\')">Cerrar</button>';
+  if (fl.length) foot += c.resolucion === 'Resuelto' ? `<button class="btn btn-secondary" onclick="camResolucion('${c.__ID__}','Abierto')">↩ Reabrir</button>` : `<button class="btn btn-primary" onclick="camResolucion('${c.__ID__}','Resuelto')">✔ Marcar resuelto</button>`;
+  $a('camDetailFoot').innerHTML = foot;
+  $a('camDetailModal').classList.add('open');
+}
+async function camResolucion(id, estado) {
+  const c = camControlesData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  if (API_URL) { const res = await apiCall('updateCamionControl', { id: c.__ID__, data: { resolucion: estado } }); if (res?.error) { showToast('Error: ' + res.error, 'error'); return; } }
+  c.resolucion = estado; sgSave(); $a('camDetailModal').classList.remove('open'); renderCamiones();
+  showToast(estado === 'Resuelto' ? 'Falla marcada como resuelta ✓' : 'Falla reabierta ✓', 'success');
+}
+function exportCamCSV() {
+  sgCSV('checklists_camiones.csv', ['Fecha', 'Hora', 'N° vehículo', 'Patente', 'Lo completó', 'Rol', 'Km', 'Resultado', 'Cant. fallas', 'Fallas', 'Observaciones', 'Resolución'],
+    camCtrlFiltrados().map(c => [c.fecha, c.hora, c.numero, c.patente, c.quien, c.rol, c.km, c.resultado, c.cant_fallas, c.fallas, c.observaciones, c.resolucion]));
+}
+
+// ── Cumplimiento mensual por persona ──
+function camMesDatos() {
+  const inp = $a('camMes'); if (!inp.value) inp.value = licHoyISO().slice(0, 7);
+  const mes = inp.value, hoy = licHoyISO(), pers = {};
+  let camDias = 0, camHechos = 0;
+  camAsignData.forEach(a => {
+    const d = licDia(a.fecha);
+    if (!d || d.slice(0, 7) !== mes || d > hoy) return;
+    const ks = camControlesData.filter(k => licDia(k.fecha) === d && String(k.camion_id) === String(a.camion_id));
+    if (a.chofer || a.ayudante) { camDias++; if (ks.length) camHechos++; }
+    [['chofer', a.chofer], ['ayudante', a.ayudante]].forEach(([rol, nombre]) => {
+      if (!nombre) return;
+      const key = kioskNormalizar(nombre);
+      const p = pers[key] || (pers[key] = { nombre, salidas: 0, chofer: 0, ayudante: 0, hechos: 0, comp: 0 });
+      p.salidas++; p[rol]++;
+      if (ks.length) p.hechos++; // si el camión tuvo checklist ese día, cuenta para chofer y ayudante
+      if (ks.some(k => kioskNormalizar(k.quien) === key)) p.comp++; // cuántos los completó personalmente
+    });
+  });
+  const lista = Object.values(pers).map(p => ({ ...p, pend: p.salidas - p.hechos, pct: p.salidas ? Math.round(p.hechos * 100 / p.salidas) : 0 }))
+    .sort((a, b) => a.pct - b.pct || b.salidas - a.salidas || a.nombre.localeCompare(b.nombre));
+  return { mes, lista, camDias, camHechos };
+}
+function renderCamMes() {
+  const tb = $a('camMTbody'); if (!tb) return;
+  const { lista, camDias, camHechos } = camMesDatos();
+  const pctFlota = camDias ? Math.round(camHechos * 100 / camDias) : 0;
+  $a('camMStats').innerHTML = sgCard('👥', lista.length, 'Personas con salidas') +
+    sgCard('🚚', camDias, 'Salidas de camiones') +
+    sgCard('✅', camHechos, 'Salidas con checklist') +
+    sgCard('📈', camDias ? pctFlota + '%' : '—', 'Cumplimiento general', !camDias ? '' : pctFlota >= 90 ? 'var(--success)' : pctFlota >= 70 ? 'var(--warning)' : 'var(--danger)');
+  if (!lista.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">📈</div><p>No hay salidas asignadas en este mes</p></div></td></tr>'; return; }
+  tb.innerHTML = lista.map(p => `<tr><td><strong>${licEsc(p.nombre)}</strong></td><td>${p.salidas}</td><td>${p.chofer}</td><td>${p.ayudante}</td>
+    <td>${p.hechos}</td><td>${p.comp}</td><td>${p.pend ? `<span style="color:var(--danger);font-weight:700">${p.pend}</span>` : '0'}</td>
+    <td><span class="badge ${p.pct >= 90 ? 'badge-green' : p.pct >= 70 ? 'badge-yellow' : 'badge-red'}">${p.pct}%</span></td></tr>`).join('') +
+    '<tr><td colspan="8" style="font-size:11.5px;color:var(--text3)">Una salida = un día en que la persona estuvo asignada a un camión (como chofer o ayudante). Si el chofer o el ayudante completa el checklist, suma a los dos; si nadie lo completa, baja el % de los dos. “Completados por él/ella” indica cuántos de esos checklists los envió personalmente.</td></tr>';
+}
+function exportCamMesCSV() {
+  const { mes, lista } = camMesDatos();
+  sgCSV('cumplimiento_checklist_camiones_' + mes + '.csv', ['Mes', 'Persona', 'Salidas', 'Como chofer', 'Como ayudante', 'Checklists realizados (tripulación)', 'Completados personalmente', 'Sin completar', '% cumplimiento'],
+    lista.map(p => [mes, p.nombre, p.salidas, p.chofer, p.ayudante, p.hechos, p.comp, p.pend, p.pct]));
+}
+
+// ── Lista de camiones ──
+let camEditId = null;
+function renderCamLista() {
+  const tb = $a('camLTbody'); if (!tb) return;
+  if (!camListaData.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">🚚</div><p>No hay camiones cargados</p></div></td></tr>'; return; }
+  tb.innerHTML = camOrden(camListaData).map(c => `<tr><td><strong>N° ${licEsc(c.numero)}</strong></td><td>${licEsc(c.patente || '')}</td>
+    <td><span class="badge ${c.activo === 'No' ? 'badge-gray' : 'badge-green'}">${c.activo === 'No' ? 'Dado de baja' : 'Activo'}</span></td><td>${licEsc(c.observaciones || '')}</td>
+    <td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="camImprimirQR('${c.__ID__}')">🖨️ QR</button>
+      <button class="btn btn-secondary btn-sm" onclick="openCamCamion('${c.__ID__}')">✏️ Editar</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCamCamion('${c.__ID__}')">🗑️</button></td></tr>`).join('');
+}
+function camImprimirQR(id) {
+  const c = camListaData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  if (!API_URL) { showToast('Conectá el sistema con Google Sheets para generar el QR', 'error'); return; }
+  sgImprimirQR('Camión N° ' + c.numero, 'Checklist diario de seguridad · ' + (c.patente || ''), camLink(c.__ID__));
+}
+function openCamCamion(id) {
+  camEditId = id || null;
+  const c = id ? camListaData.find(x => String(x.__ID__) === String(id)) : null;
+  $a('camCamionTitle').textContent = c ? '✏️ Editar camión' : '🚚 Nuevo camión';
+  $a('camc_numero').value = c ? c.numero : ''; $a('camc_patente').value = c ? (c.patente || '') : '';
+  $a('camc_activo').value = c && c.activo === 'No' ? 'No' : 'Sí'; $a('camc_obs').value = c ? (c.observaciones || '') : '';
+  $a('camCamionModal').classList.add('open');
+}
+async function saveCamCamion() {
+  const numero = $a('camc_numero').value.trim(), patente = $a('camc_patente').value.trim().toUpperCase().replace(/\s+/g, '');
+  if (!numero || !patente) { showToast('Ingresá el número de vehículo y la patente', 'error'); return; }
+  if (camListaData.some(c => String(c.__ID__) !== String(camEditId) && (String(c.numero).trim() === numero || String(c.patente).trim().toUpperCase() === patente))) { showToast('Ya existe un camión con ese número o patente', 'error'); return; }
+  const data = { numero, patente, activo: $a('camc_activo').value, observaciones: $a('camc_obs').value.trim() };
+  if (API_URL) {
+    const res = camEditId ? await apiCall('updateCamion', { id: camEditId, data }) : await apiCall('addCamion', { data });
+    if (!res || res.error || !res.success) { showToast('Error: ' + ((res && res.error) || 'sin conexión'), 'error'); return; }
+    if (!camEditId) data.__ID__ = res.id;
+  } else if (!camEditId) { data.__ID__ = sgLocalId(); }
+  if (camEditId) { const c = camListaData.find(x => String(x.__ID__) === String(camEditId)); if (c) Object.assign(c, data); } else camListaData.push(data);
+  sgSave(); $a('camCamionModal').classList.remove('open'); renderCamiones(); showToast('Camión guardado ✓', 'success');
+}
+async function deleteCamCamion(id) {
+  if (!confirm('¿Eliminar este camión de la lista? Los checklists anteriores se conservan. Si solo dejó de usarse, conviene “Editar” y darlo de baja.')) return;
+  if (API_URL) { const res = await apiCall('deleteCamion', { id }); if (res?.error) { showToast('Error: ' + res.error, 'error'); return; } }
+  camListaData = camListaData.filter(c => String(c.__ID__) !== String(id));
+  sgSave(); renderCamiones(); showToast('Camión eliminado ✓', 'success');
+}
+
+// ═══════════════════════ ENLACE PÚBLICO: CHECKLIST DE CAMIONES ═══════════════════════
+const camPub = { emps: [], camiones: [], sel: null, resp: [], notas: [], busy: false, lista: [], fijo: false };
+function camPubMsg(tipo, txt) {
+  const el = $a('camPubMsg');
+  if (!txt) { el.style.display = 'none'; return; }
+  el.className = 'kiosk-result ' + tipo; el.textContent = txt; el.style.display = 'block';
+}
+function camPubAviso(tipo, txt) {
+  const el = $a('camPubAviso');
+  if (!txt) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.className = 'kiosk-result ' + tipo; el.innerHTML = txt; el.style.display = 'block';
+}
+async function initCamPublic(apiUrl, camId) {
+  kioskApiUrl = apiUrl || '';
+  $a('camScreen').classList.add('active');
+  $a('camPubFecha').textContent = 'Fecha: ' + fmtDate(licHoyISO());
+  try { const n = localStorage.getItem('sg_nombre'); if (n) $a('camPubNombre').value = n; } catch (e) {}
+  $a('camPubCamion').innerHTML = '<option value="">Cargando camiones...</option>';
+  if (!kioskApiUrl) { $a('camPubCamion').innerHTML = ''; camPubAviso('error', 'Este enlace no es válido. Pedí uno nuevo al administrador.'); return; }
+  const res = await kioskApiCall('getCamionesKiosk');
+  if (!res || res.error) { $a('camPubCamion').innerHTML = ''; camPubAviso('error', 'No se pudo conectar con el sistema. Revisá tu conexión y volvé a abrir el enlace.'); return; }
+  camPub.camiones = camOrden(res.camiones || []);
+  camPub.emps = (res.employees || []).map(e => ({ nombre: e.nombre, _n: kioskNormalizar(e.nombre) })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  $a('camPubCamion').innerHTML = '<option value="">Elegí el camión...</option>' + camPub.camiones.map(c => '<option value="' + licEsc(c.id) + '">' + licEsc(camNom(c)) + (c.hoy ? ' ✅ (ya completado hoy)' : '') + '</option>').join('');
+  if (!camPub.camiones.length) camPubAviso('warn', 'Todavía no hay camiones cargados. Avisá al administrador.');
+  if (camId && camPub.camiones.some(c => String(c.id) === String(camId))) { camPub.fijo = true; $a('camPubCamion').value = camId; camPubElegir(camId); }
+  else camPubAuto();
+}
+function camPubFiltrar(txt) {
+  const n = kioskNormalizar(txt);
+  camPub.lista = camPub.emps.filter(e => !n || e._n.includes(n)).slice(0, 40);
+  const dd = $a('camPubDrop');
+  dd.innerHTML = camPub.lista.length
+    ? camPub.lista.map((e, i) => `<div class="kiosk-combo-option" onmousedown="camPubElegirNombre(${i})" ontouchstart="camPubElegirNombre(${i})">${licEsc(e.nombre)}</div>`).join('')
+    : '<div class="kiosk-combo-empty">Sin coincidencias: podés usar el nombre que escribiste</div>';
+  dd.classList.add('open');
+}
+function camPubElegirNombre(i) { const e = camPub.lista[i]; if (!e) return; $a('camPubNombre').value = e.nombre; camPubCerrar(); camPubAuto(); }
+function camPubCerrar() { $a('camPubDrop').classList.remove('open'); camPubAuto(); }
+// Si la persona tiene un camión asignado hoy, se elige solo
+function camPubAuto() {
+  if (camPub.fijo) return;
+  const n = kioskNormalizar($a('camPubNombre').value); if (!n) return;
+  const c = camPub.camiones.find(x => kioskNormalizar(x.chofer) === n || kioskNormalizar(x.ayudante) === n);
+  if (c && (!camPub.sel || String(camPub.sel.id) !== String(c.id))) { $a('camPubCamion').value = c.id; camPubElegir(c.id); }
+}
+function camPubElegir(id) {
+  const c = camPub.camiones.find(x => String(x.id) === String(id));
+  camPubMsg('', '');
+  if (!c) { camPub.sel = null; $a('camPubCheck').style.display = 'none'; camPubAviso('', ''); return; }
+  camPub.sel = c;
+  camPub.resp = new Array(CAM_ITEMS.length).fill(null); camPub.notas = new Array(CAM_ITEMS.length).fill('');
+  camPubAviso(c.hoy ? 'warn' : '', c.hoy ? 'ℹ️ Este camión ya tiene el checklist completado hoy. Podés enviar otro si hace falta.' : '');
+  $a('camPubKm').value = ''; $a('camPubObs').value = '';
+  $a('camPubItems').innerHTML = CAM_ITEMS.map((_, i) => camPubItemHTML(i)).join('');
+  $a('camPubCheck').style.display = 'block';
+}
+function camPubItemHTML(i) {
+  const it = CAM_ITEMS[i], r = camPub.resp[i];
+  return '<div class="sg-item ' + (r || '') + '" id="camit_' + i + '"><div class="sg-item-t">' + (i + 1) + '. ' + licEsc(it.t) + (it.c ? '<span class="sg-crit">CRÍTICO</span>' : '') + '</div>' +
+    '<div class="sg-ans"><button type="button" class="b-ok' + (r === 'ok' ? ' on' : '') + '" onclick="camPubSet(' + i + ',\'ok\')">✅ Bien</button>' +
+    '<button type="button" class="b-mal' + (r === 'mal' ? ' on' : '') + '" onclick="camPubSet(' + i + ',\'mal\')">❌ Mal</button>' +
+    '<button type="button" class="b-na' + (r === 'na' ? ' on' : '') + '" onclick="camPubSet(' + i + ',\'na\')">No aplica</button></div>' +
+    (r === 'mal' ? '<textarea rows="2" placeholder="¿Qué le pasa? (opcional pero ayuda)" oninput="camPub.notas[' + i + ']=this.value">' + licEsc(camPub.notas[i]) + '</textarea>' : '') + '</div>';
+}
+function camPubSet(i, v) { camPub.resp[i] = v; const el = $a('camit_' + i); if (el) el.outerHTML = camPubItemHTML(i); camPubMsg('', ''); }
+function camPubTodoOk() { camPub.resp = camPub.resp.map(r => r || 'ok'); $a('camPubItems').innerHTML = CAM_ITEMS.map((_, i) => camPubItemHTML(i)).join(''); camPubMsg('', ''); }
+async function camPubEnviar() {
+  if (camPub.busy || !camPub.sel) return;
+  const nombre = ($a('camPubNombre').value || '').trim();
+  if (!nombre) { camPubMsg('error', 'Elegí o escribí tu nombre.'); try { $a('camPubNombre').scrollIntoView({ block: 'center' }); $a('camPubNombre').focus(); } catch (e) {} return; }
+  let primero = null;
+  camPub.resp.forEach((r, i) => { if (!r) { const el = $a('camit_' + i); if (el) { el.classList.add('falta'); if (!primero) primero = el; } } });
+  if (primero) { camPubMsg('error', 'Faltan puntos por responder (marcados en naranja). Si todo está bien, tocá “Marcar todo como BIEN”.'); try { primero.scrollIntoView({ block: 'center' }); } catch (e) {} return; }
+  const fallas = [];
+  camPub.resp.forEach((r, i) => { if (r === 'mal') fallas.push({ item: CAM_ITEMS[i].t, critico: !!CAM_ITEMS[i].c, nota: (camPub.notas[i] || '').trim() }); });
+  if (fallas.some(f => f.critico) && !confirm('Marcaste una falla CRÍTICA: el camión quedará FUERA DE SERVICIO y no debe salir a reparto. ¿Enviar el checklist?')) return;
+  camPub.busy = true; $a('camPubBtn').disabled = true; $a('camPubBtn').textContent = 'Enviando...';
+  const res = await kioskApiCall('addCamionControlPublica', { data: { quien: nombre, camion_id: camPub.sel.id, km: $a('camPubKm').value, fallas, observaciones: $a('camPubObs').value } });
+  camPub.busy = false; $a('camPubBtn').disabled = false; $a('camPubBtn').textContent = '✅ ENVIAR CHECKLIST';
+  if (!res || res.error || !res.success) { camPubMsg('error', 'No se pudo guardar: ' + ((res && res.error) || 'sin conexión') + '. Probá de nuevo.'); return; }
+  try { localStorage.setItem('sg_nombre', nombre); } catch (e) {}
+  $a('camPubForm').style.display = 'none';
+  const done = $a('camPubDone'); done.style.display = 'block';
+  const nc = licEsc(camNom(camPub.sel));
+  done.innerHTML = res.resultado === 'OK'
+    ? '<div class="kiosk-result ok" style="font-size:15px;padding:18px">✅ <b>¡Checklist enviado!</b><br>' + nc + ': todo en orden. Buen reparto.</div>'
+    : res.resultado === 'Fuera de servicio'
+      ? '<div class="kiosk-result error" style="font-size:15px;padding:18px">⛔ <b>Checklist enviado: CAMIÓN FUERA DE SERVICIO</b><br>' + nc + '<br><b>No salgas a reparto.</b> Avisá ahora a tu supervisor.</div>'
+      : '<div class="kiosk-result warn" style="font-size:15px;padding:18px">⚠️ <b>Checklist enviado con observaciones</b><br>' + nc + ': ' + res.cant + (res.cant === 1 ? ' punto a corregir' : ' puntos a corregir') + '. Avisá a tu supervisor.</div>';
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+
 // ═══════════════════════════════════════════════════
 // RENDIMIENTO: render por pestaña, listas limitadas, buscadores con espera
 // ═══════════════════════════════════════════════════
-var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','organigrama'];
+var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','camiones','organigrama'];
 var _tabsDirty = new Set();
 // Pestañas que se vuelven a dibujar cada vez que se abren (igual que antes)
-var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, organigrama:1, ropa:1 };
+var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, camiones:1, organigrama:1, ropa:1 };
 var TAB_RENDER = {
   nomina:        function () { renderNomina(); renderStats(); renderFilters(); },
   analisis:      function () { renderAnalysis(); },
@@ -14767,6 +15400,7 @@ var TAB_RENDER = {
   auditorias:    function () { renderAuditorias(); },
   racks:         function () { renderRacks(); },
   equipos:       function () { renderEquipos(); },
+  camiones:      function () { renderCamiones(); },
   organigrama:   function () { renderOrganigrama(); }
 };
 function renderTab(tab) {
@@ -14801,7 +15435,7 @@ function listMore(key, arr, cols) {
 }
 function listMas(key) {
   listLim[key] = (listLim[key] || LIST_STEP) + LIST_STEP;
-  const fn = { dep: renderDeposito, dist: renderDistribucion, vacreg: renderVacRegistros, lic: renderLicencias, ropaent: renderRopaEntregas, fich: renderFichadasRegistros, cond: renderConducta, aud: renderAudRegistros, rkc: renderRkControles, rkh: renderRkHallazgos, eqc: renderEqControles }[key];
+  const fn = { dep: renderDeposito, dist: renderDistribucion, vacreg: renderVacRegistros, lic: renderLicencias, ropaent: renderRopaEntregas, fich: renderFichadasRegistros, cond: renderConducta, aud: renderAudRegistros, rkc: renderRkControles, rkh: renderRkHallazgos, eqc: renderEqControles, camc: renderCamControles }[key];
   if (fn) fn();
 }
 
