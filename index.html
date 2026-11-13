@@ -2334,7 +2334,8 @@
             <select class="filter-select" id="camFEstado" onchange="renderCamEstado()">
               <option value="">Todos</option><option value="ok">Check completado</option><option value="pend">Sin completar</option><option value="obs">Con observaciones / fallas</option>
             </select>
-            <button class="btn btn-secondary" style="margin-left:auto" onclick="exportCamEstadoCSV()">⬇ CSV</button>
+            <button class="btn btn-primary" style="margin-left:auto" onclick="camGenerarImagen()">🖼️ Imagen para WhatsApp</button>
+            <button class="btn btn-secondary" onclick="exportCamEstadoCSV()">⬇ CSV</button>
           </div>
           <div class="stats" id="camStats"></div>
           <div class="table-wrap"><table>
@@ -2416,7 +2417,8 @@
             <label style="font-size:13px;color:var(--text2);font-weight:600">📅 Día:</label>
             <input type="date" class="filter-select" id="velDia" onchange="renderVelDia()" style="max-width:160px">
             <button class="btn btn-secondary btn-sm" onclick="document.getElementById('velDia').value=licHoyISO();renderVelDia()">Hoy</button>
-            <button class="btn btn-primary" style="margin-left:auto" onclick="velOpenModal('',document.getElementById('velDia').value)">+ Registrar reporte</button>
+            <button class="btn btn-secondary" style="margin-left:auto" onclick="velGenerarImagen()">🖼️ Imagen para WhatsApp</button>
+            <button class="btn btn-primary" onclick="velOpenModal('',document.getElementById('velDia').value)">+ Registrar reporte</button>
           </div>
           <div class="stats" id="velStats"></div>
           <div class="table-wrap"><table>
@@ -15718,6 +15720,289 @@ function listMas(key) {
 function dbn(fn, ms) {
   clearTimeout(fn._t);
   fn._t = setTimeout(function () { for (const k in listLim) delete listLim[k]; fn(); }, ms || 220);
+}
+
+// ═══════════════════════════════════════════════════
+// IMÁGENES DE ALERTA PARA WHATSAPP: CHECKLIST DE CAMIONES Y EXCESOS DE VELOCIDAD
+// ═══════════════════════════════════════════════════
+const AL_DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+function alDiaTxt(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  return isNaN(d) ? alFecha(iso) : AL_DIAS[d.getDay()] + ' ' + alFecha(iso);
+}
+function alPill(ctx, txt, xRight, yTop, bg, fg, fs) {
+  ctx.font = '800 ' + fs + 'px ' + AL_FONT;
+  const w = ctx.measureText(txt).width + 36, h = fs + 20;
+  ctx.fillStyle = bg; alRR(ctx, xRight - w, yTop, w, h, h / 2); ctx.fill();
+  ctx.fillStyle = fg; ctx.textAlign = 'left';
+  ctx.fillText(txt, xRight - w + 18, yTop + h / 2 + fs * 0.35);
+  return w;
+}
+// cfg: { tono:'red'|'amber'|'green', titulo, fechaTxt, mensaje, chips:[{n,label,color}], items:[{num,patente,color,pill:[txt,bg,fg],rows:[[[label,valor,color?]]],extra,notas:[{t,c,b}]}], vacio }
+function alListaRender(ctx, cfg) {
+  const W = 1080, P = 40, CW = W - P * 2, GAP = 16;
+  const pal = { red: ['#B91C1C', '#7F1D1D', '#FEE2E2'], amber: ['#D97706', '#92400E', '#FEF3C7'], green: ['#15803D', '#14532D', '#DCFCE7'] }[cfg.tono];
+  const c1 = pal[0], c2 = pal[1], c3 = pal[2];
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.fillStyle = '#F3F4F6'; ctx.fillRect(0, 0, W, 30000);
+
+  // encabezado
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, c2); g.addColorStop(1, c1);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 200);
+  ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(P + 56, 100, 56, 0, Math.PI * 2); ctx.fill();
+  if (cfg.tono === 'green') {
+    ctx.strokeStyle = c1; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(P + 30, 102); ctx.lineTo(P + 50, 124); ctx.lineTo(P + 84, 78); ctx.stroke();
+    ctx.lineCap = 'butt';
+  } else {
+    ctx.fillStyle = c1; ctx.beginPath();
+    ctx.moveTo(P + 56, 62); ctx.lineTo(P + 94, 126); ctx.lineTo(P + 18, 126); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#FFFFFF'; ctx.font = '800 40px ' + AL_FONT; ctx.textAlign = 'center';
+    ctx.fillText('!', P + 56, 118); ctx.textAlign = 'left';
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '600 22px ' + AL_FONT;
+  ctx.fillText('AVISO INTERNO DE SEGURIDAD E HIGIENE', P + 140, 78);
+  let fs = 54; ctx.font = '800 ' + fs + 'px ' + AL_FONT;
+  const maxT = W - (P + 140) - P;
+  while (ctx.measureText(cfg.titulo).width > maxT && fs > 28) { fs -= 2; ctx.font = '800 ' + fs + 'px ' + AL_FONT; }
+  ctx.fillStyle = '#FFFFFF'; ctx.fillText(cfg.titulo, P + 140, 142);
+
+  // franja empresa
+  ctx.fillStyle = '#111827'; ctx.fillRect(0, 200, W, 64);
+  ctx.fillStyle = '#FFFFFF'; ctx.font = '700 26px ' + AL_FONT;
+  ctx.fillText('JUAN JOSE FORMENTO S.R.L', P, 242);
+  ctx.textAlign = 'right'; ctx.font = '600 24px ' + AL_FONT; ctx.fillStyle = '#E5E7EB';
+  ctx.fillText(cfg.fechaTxt, W - P, 242); ctx.textAlign = 'left';
+
+  // mensaje principal
+  ctx.font = '800 30px ' + AL_FONT;
+  const ml = alWrap(ctx, cfg.mensaje, CW - 24);
+  const bh = ml.length * 40 + 36;
+  ctx.fillStyle = c3; ctx.fillRect(0, 264, W, bh);
+  ctx.fillStyle = c1; ctx.fillRect(0, 264, 12, bh);
+  ctx.fillStyle = c2;
+  ml.forEach((ln, i) => ctx.fillText(ln, P, 264 + 18 + 30 + i * 40));
+  let y = 264 + bh + 28;
+
+  // indicadores
+  const n = cfg.chips.length, cw = (CW - GAP * (n - 1)) / n;
+  cfg.chips.forEach((c, i) => {
+    const x = P + i * (cw + GAP);
+    ctx.fillStyle = '#FFFFFF'; alRR(ctx, x, y, cw, 124, 14); ctx.fill();
+    ctx.strokeStyle = '#E5E7EB'; ctx.lineWidth = 2; alRR(ctx, x, y, cw, 124, 14); ctx.stroke();
+    ctx.textAlign = 'center';
+    ctx.fillStyle = c.color; ctx.font = '800 50px ' + AL_FONT; ctx.fillText(String(c.n), x + cw / 2, y + 62);
+    ctx.fillStyle = '#6B7280'; ctx.font = '700 16px ' + AL_FONT;
+    alWrap(ctx, c.label.toUpperCase(), cw - 16).slice(0, 2).forEach((ln, j) => ctx.fillText(ln, x + cw / 2, y + 90 + j * 20));
+    ctx.textAlign = 'left';
+  });
+  y += 124 + 30;
+
+  // título de sección
+  ctx.fillStyle = c1; alRR(ctx, P, y, 8, 30, 4); ctx.fill();
+  ctx.fillStyle = c2; ctx.font = '800 25px ' + AL_FONT;
+  ctx.fillText('DETALLE POR CAMIÓN', P + 24, y + 25);
+  y += 50;
+
+  if (!cfg.items.length) {
+    ctx.fillStyle = '#FFFFFF'; alRR(ctx, P, y, CW, 120, 16); ctx.fill();
+    ctx.fillStyle = '#6B7280'; ctx.font = '600 26px ' + AL_FONT; ctx.textAlign = 'center';
+    ctx.fillText(cfg.vacio, W / 2, y + 70); ctx.textAlign = 'left';
+    y += 120 + GAP;
+  }
+
+  const innerX = P + 34, innerW = CW - 34 - 24;
+  cfg.items.forEach(it => {
+    // medición
+    const rowsM = it.rows.map(r => {
+      const cwc = (innerW - 20 * (r.length - 1)) / r.length;
+      ctx.font = '700 26px ' + AL_FONT;
+      const cells = r.map(c => ({ label: c[0], lines: alWrap(ctx, c[1] || '—', cwc), color: c[2] || '#111827', w: cwc }));
+      return { cells, h: 46 + (Math.max(...cells.map(c => c.lines.length)) - 1) * 32 + 22 };
+    });
+    const notasM = (it.notas || []).map(nt => {
+      ctx.font = (nt.b ? '800' : '600') + ' 24px ' + AL_FONT;
+      const lines = alWrap(ctx, nt.t, innerW - 28);
+      return { nt, lines, h: lines.length * 30 + 10 };
+    });
+    const extraH = it.extra ? 34 : 0;
+    const h = 22 + 64 + rowsM.reduce((s, r) => s + r.h, 0) + extraH + notasM.reduce((s, r) => s + r.h, 0) + 16;
+
+    // tarjeta
+    ctx.fillStyle = '#FFFFFF'; alRR(ctx, P, y, CW, h, 16); ctx.fill();
+    ctx.save(); alRR(ctx, P, y, CW, h, 16); ctx.clip(); ctx.fillStyle = it.color; ctx.fillRect(P, y, 14, h); ctx.restore();
+    ctx.strokeStyle = '#E5E7EB'; ctx.lineWidth = 2; alRR(ctx, P, y, CW, h, 16); ctx.stroke();
+
+    // título: camión + patente + estado
+    ctx.fillStyle = '#111827'; ctx.font = '800 38px ' + AL_FONT;
+    const ttl = 'CAMIÓN N° ' + it.num;
+    ctx.fillText(ttl, innerX, y + 62);
+    const tw = ctx.measureText(ttl).width;
+    if (it.patente) {
+      ctx.font = '800 28px ' + AL_FONT;
+      const pw = ctx.measureText(it.patente).width + 32;
+      ctx.fillStyle = '#F9FAFB'; alRR(ctx, innerX + tw + 20, y + 26, pw, 46, 8); ctx.fill();
+      ctx.strokeStyle = '#111827'; ctx.lineWidth = 3; alRR(ctx, innerX + tw + 20, y + 26, pw, 46, 8); ctx.stroke();
+      ctx.fillStyle = '#111827'; ctx.fillText(it.patente, innerX + tw + 20 + 16, y + 26 + 34);
+    }
+    alPill(ctx, it.pill[0], P + CW - 24, y + 26, it.pill[1], it.pill[2], 24);
+
+    let yy = y + 22 + 64;
+    rowsM.forEach(r => {
+      let x = innerX;
+      r.cells.forEach(c => {
+        ctx.fillStyle = '#6B7280'; ctx.font = '700 16px ' + AL_FONT; ctx.fillText(c.label.toUpperCase(), x, yy + 16);
+        ctx.fillStyle = c.color; ctx.font = '700 26px ' + AL_FONT;
+        c.lines.forEach((ln, i) => ctx.fillText(ln, x, yy + 46 + i * 32));
+        x += c.w + 20;
+      });
+      yy += r.h;
+    });
+    if (it.extra) { ctx.fillStyle = '#6B7280'; ctx.font = '500 22px ' + AL_FONT; ctx.fillText(it.extra, innerX, yy + 22); yy += extraH; }
+    notasM.forEach(m => {
+      ctx.fillStyle = m.nt.c; ctx.beginPath(); ctx.arc(innerX + 7, yy + 18, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.font = (m.nt.b ? '800' : '600') + ' 24px ' + AL_FONT;
+      m.lines.forEach((ln, i) => ctx.fillText(ln, innerX + 28, yy + 25 + i * 30));
+      yy += m.h;
+    });
+    y += h + GAP;
+  });
+
+  // pie
+  y += 10;
+  const now = new Date(), pad = v => String(v).padStart(2, '0');
+  const stamp = pad(now.getDate()) + '/' + pad(now.getMonth() + 1) + '/' + now.getFullYear() + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+  ctx.fillStyle = '#111827'; ctx.fillRect(0, y, W, 104);
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#FFFFFF'; ctx.font = '700 22px ' + AL_FONT;
+  ctx.fillText('Comunicar cualquier novedad al área de Seguridad e Higiene / RRHH', W / 2, y + 42);
+  ctx.fillStyle = '#9CA3AF'; ctx.font = '500 19px ' + AL_FONT;
+  ctx.fillText('Generada el ' + stamp, W / 2, y + 76);
+  ctx.textAlign = 'left';
+  return y + 104;
+}
+async function alListaCanvas(cfg) {
+  const m = document.createElement('canvas'); m.width = 1080; m.height = 10;
+  const H = alListaRender(m.getContext('2d'), cfg);   // 1° pasada: solo mide el alto
+  const cv = document.createElement('canvas'); cv.width = 1080; cv.height = Math.ceil(H);
+  alListaRender(cv.getContext('2d'), cfg);
+  return cv;
+}
+async function alPreviewCanvas(cv, nombre) {
+  const modal = document.getElementById('alertaPreviewModal');
+  modal.classList.add('open');
+  document.getElementById('alPrevImg').style.display = 'none';
+  document.getElementById('alPrevLoading').style.display = 'block';
+  document.getElementById('alPrevLoading').textContent = '⏳ Generando imagen...';
+  try {
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    alUltimoBlob = blob; alUltimoNombre = nombre;
+    const img = document.getElementById('alPrevImg');
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    img.dataset.url = URL.createObjectURL(blob);
+    img.src = img.dataset.url; img.style.display = 'inline-block';
+    document.getElementById('alPrevLoading').style.display = 'none';
+    let canShare = false;
+    try { canShare = !!(navigator.canShare && navigator.canShare({ files: [new File([blob], nombre, { type: 'image/png' })] })); } catch (e) {}
+    document.getElementById('alShareBtn').style.display = canShare ? '' : 'none';
+  } catch (err) {
+    document.getElementById('alPrevLoading').textContent = 'No se pudo generar la imagen';
+  }
+}
+
+// ── Imagen: checklist de seguridad de los camiones del día ──
+async function camGenerarImagen() {
+  const { dia, filas } = camFilas();
+  const lista = filas.filter(f => f.asig || f.k);   // camiones con reparto asignado (o que igual enviaron checklist)
+  const sinAs = v => v || 'Sin asignar';
+  const items = lista.map(f => {
+    const k = f.k, fl = k ? eqFallas(k) : [];
+    const it = { num: f.c.numero, patente: f.c.patente || '', notas: [],
+      rows: [[['Chofer', sinAs(f.a.chofer), f.a.chofer ? '' : '#B45309'], ['Ayudante', sinAs(f.a.ayudante), f.a.ayudante ? '' : '#B45309']]] };
+    if (!k) {
+      it.color = '#DC2626'; it.pill = ['SIN COMPLETAR', '#DC2626', '#FFFFFF'];
+      it.extra = 'Nadie envió el checklist de seguridad de este camión';
+      it.notas.push({ t: 'Checklist pendiente: no se puede confirmar el estado del camión', c: '#B91C1C', b: true });
+    } else {
+      it.pill = ['COMPLETADO', '#16A34A', '#FFFFFF'];
+      it.extra = 'Enviado ' + (k.hora ? 'a las ' + k.hora + ' ' : '') + 'por ' + k.quien + (k.rol ? ' (' + k.rol + ')' : (f.asig ? ' (no es el asignado)' : ''));
+      if (k.resultado === 'Fuera de servicio') { it.color = '#B91C1C'; it.notas.push({ t: 'FUERA DE SERVICIO: no debe salir a reparto', c: '#B91C1C', b: true }); }
+      else if (k.resultado === 'Con observaciones') it.color = '#D97706';
+      else it.color = '#16A34A';
+      fl.forEach(x => it.notas.push({ t: (x.critico ? 'CRÍTICO · ' : '') + x.item + (x.nota ? ': ' + x.nota : ''), c: x.critico ? '#B91C1C' : '#B45309' }));
+      if (k.observaciones) it.notas.push({ t: 'Observación: ' + k.observaciones, c: '#374151' });
+      if (!fl.length && !k.observaciones) it.notas.push({ t: 'Sin problemas ni observaciones: todo en orden', c: '#16A34A' });
+    }
+    return it;
+  });
+  const pend = lista.filter(f => !f.k).length, hechos = lista.filter(f => f.k).length;
+  const fs = lista.filter(f => f.st === 'fs').length, obs = lista.filter(f => f.st === 'obs').length;
+  const partes = [];
+  if (pend) partes.push(pend + (pend === 1 ? ' camión sin completar el checklist' : ' camiones sin completar el checklist'));
+  if (fs) partes.push(fs + ' fuera de servicio');
+  if (obs) partes.push(obs + (obs === 1 ? ' con observaciones' : ' con observaciones'));
+  const cfg = {
+    tono: (pend || fs) ? 'red' : obs ? 'amber' : 'green',
+    titulo: 'ALERTA CHECKLIST DE CAMIONES',
+    fechaTxt: alDiaTxt(dia),
+    mensaje: !lista.length ? 'No hay camiones con reparto asignado en esta fecha' : partes.length ? 'ATENCIÓN: ' + partes.join(' · ') : 'TODOS LOS CHECKLISTS COMPLETOS Y SIN OBSERVACIONES',
+    chips: [
+      { n: lista.length, label: 'Camiones con reparto', color: '#111827' },
+      { n: hechos, label: 'Check completado', color: '#16A34A' },
+      { n: pend, label: 'Sin completar', color: pend ? '#DC2626' : '#9CA3AF' },
+      { n: obs, label: 'Con observaciones', color: obs ? '#D97706' : '#9CA3AF' },
+      { n: fs, label: 'Fuera de servicio', color: fs ? '#B91C1C' : '#9CA3AF' }
+    ],
+    items, vacio: 'Asigná chofer y ayudante a los camiones para esta fecha'
+  };
+  const cv = await alListaCanvas(cfg);
+  alPreviewCanvas(cv, 'alerta_checklist_camiones_' + dia + '.png');
+}
+
+// ── Imagen: excesos de velocidad de los camiones del día ──
+async function velGenerarImagen() {
+  const inp = $a('velDia'); if (!inp.value) inp.value = licHoyISO();
+  const dia = inp.value;
+  const reps = velocidadData.filter(r => licDia(r.fecha) === dia);
+  const filas = velCamionesActivos().map(c => {
+    const a = camAsignDe(c.__ID__, dia), rs = reps.filter(r => String(r.camion_id) === String(c.__ID__));
+    return { c, a, rs, total: rs.reduce((s, r) => s + velCant(r), 0) };
+  }).filter(f => f.a.chofer || f.a.ayudante || f.rs.length);   // camiones asignados a control ese día (o con reporte)
+  filas.sort((x, y) => y.total - x.total || String(x.c.numero).localeCompare(String(y.c.numero), undefined, { numeric: true }));
+  const sinAs = v => v || 'Sin asignar';
+  const items = filas.map(f => {
+    const it = { num: f.c.numero, patente: f.c.patente || '', notas: [],
+      rows: [[['Chofer', sinAs(f.a.chofer), f.a.chofer ? '' : '#B45309'], ['Ayudante', sinAs(f.a.ayudante), f.a.ayudante ? '' : '#B45309']]] };
+    if (f.total) {
+      it.color = '#DC2626'; it.pill = [f.total + (f.total === 1 ? ' EXCESO REPORTADO' : ' EXCESOS REPORTADOS'), '#DC2626', '#FFFFFF'];
+      const resp = f.rs.map(r => r.responsable + (velCant(r) > 1 ? ' (×' + velCant(r) + ')' : '')).join(' · ');
+      it.rows.push([['Responsable del exceso', resp, '#B91C1C'], ['Cantidad reportada', f.total + (f.total === 1 ? ' exceso' : ' excesos'), '#B91C1C']]);
+      f.rs.filter(r => r.observaciones).forEach(r => it.notas.push({ t: 'Observación (' + r.responsable + '): ' + r.observaciones, c: '#374151' }));
+    } else {
+      it.color = '#16A34A'; it.pill = ['SIN EXCESOS', '#16A34A', '#FFFFFF'];
+      it.notas.push({ t: 'Sin reportes de exceso de velocidad', c: '#16A34A' });
+    }
+    return it;
+  });
+  const total = filas.reduce((s, f) => s + f.total, 0), conExc = filas.filter(f => f.total).length;
+  const cfg = {
+    tono: total ? 'red' : 'green',
+    titulo: 'ALERTA EXCESOS DE VELOCIDAD',
+    fechaTxt: alDiaTxt(dia),
+    mensaje: !filas.length ? 'No hay camiones asignados a control en esta fecha'
+      : total ? 'ATENCIÓN: ' + total + (total === 1 ? ' exceso de velocidad reportado en ' : ' excesos de velocidad reportados en ') + conExc + (conExc === 1 ? ' camión' : ' camiones')
+      : 'SIN EXCESOS DE VELOCIDAD REPORTADOS',
+    chips: [
+      { n: filas.length, label: 'Camiones controlados', color: '#111827' },
+      { n: conExc, label: 'Con excesos', color: conExc ? '#DC2626' : '#9CA3AF' },
+      { n: filas.length - conExc, label: 'Sin excesos', color: '#16A34A' },
+      { n: total, label: 'Excesos reportados', color: total ? '#B91C1C' : '#9CA3AF' }
+    ],
+    items, vacio: 'Asigná chofer y ayudante a los camiones para esta fecha'
+  };
+  const cv = await alListaCanvas(cfg);
+  alPreviewCanvas(cv, 'alerta_excesos_velocidad_' + dia + '.png');
 }
 </script>
 </body>
