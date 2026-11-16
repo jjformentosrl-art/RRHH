@@ -737,6 +737,17 @@
   /* Documentación de vehículos */
   .vd-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 150px; }
   .vd-cell .vd-f { font-size: 12px; color: var(--text3); }
+  /* Resaltado por estado: rojo = vencido · amarillo = pendiente (sin cargar) · naranja = por vencer · verde = vigente */
+  td.vd-c-venc   { background: rgba(239,68,68,0.16) !important; }
+  td.vd-c-falta  { background: rgba(250,204,21,0.30) !important; }
+  td.vd-c-pronto { background: rgba(249,115,22,0.16) !important; }
+  td.vd-c-ok     { background: rgba(16,185,129,0.16) !important; }
+  td.vd-n-venc   { background: rgba(239,68,68,0.10) !important; box-shadow: inset 5px 0 0 #DC2626; }
+  td.vd-n-falta  { background: rgba(250,204,21,0.20) !important; box-shadow: inset 5px 0 0 #EAB308; }
+  td.vd-n-pronto { background: rgba(249,115,22,0.10) !important; box-shadow: inset 5px 0 0 #F97316; }
+  td.vd-n-ok     { background: rgba(16,185,129,0.10) !important; box-shadow: inset 5px 0 0 #16A34A; }
+  .vd-leyenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text2); margin: 0 0 10px; }
+  .vd-leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
   .vd-doc-box { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); margin-bottom: 12px; }
   .vd-doc-box h4 { margin: 0 0 10px; font-size: 14px; }
   .vd-doc-box .sg-fotoin { background: var(--surface); }
@@ -2490,6 +2501,11 @@
             <span>🔍</span>
             <input type="text" id="vdSearch" placeholder="Buscar por N° de vehículo o patente..." oninput="dbn(renderVehDocs)">
           </div>
+          <select class="filter-select" id="vdOrden" onchange="renderVehDocs()" title="Ordenar">
+            <option value="num">Ordenar: N° de camión (menor a mayor)</option>
+            <option value="numdesc">Ordenar: N° de camión (mayor a menor)</option>
+            <option value="urg">Ordenar: más urgentes primero</option>
+          </select>
           <select class="filter-select" id="vdFiltro" onchange="renderVehDocs()">
             <option value="">Todos los vehículos</option>
             <option value="venc">Con documentos vencidos</option>
@@ -2500,6 +2516,7 @@
           <button class="btn btn-primary" onclick="vdGenerarImagen()">🖼️ Imagen para WhatsApp</button>
           <button class="btn btn-secondary" onclick="exportVehDocsCSV()">⬇ CSV</button>
         </div>
+        <div class="vd-leyenda"><span><i style="background:#DC2626"></i>Vencido</span><span><i style="background:#EAB308"></i>Pendiente (sin cargar)</span><span><i style="background:#F97316"></i>Por vencer</span><span><i style="background:#16A34A"></i>Vigente</span></div>
         <div class="table-wrap"><table>
           <thead><tr><th>Vehículo</th><th>🛡️ Seguro</th><th>🔍 VTV</th><th>📋 Senasa</th><th>Acciones</th></tr></thead>
           <tbody id="vdTbody"></tbody>
@@ -15555,7 +15572,10 @@ function vdFilas() {
     VD_DOCS.forEach(d => { docs[d.k] = vdEstado(r[d.k + '_vence']); peor = Math.min(peor, docs[d.k].rank); });
     return { c, r, docs, peor, ests: VD_DOCS.map(d => docs[d.k].k) };
   });
-  filas.sort((x, y) => x.peor - y.peor);   // lo más urgente arriba (el orden por N° se mantiene dentro de cada grupo)
+  const ord = $a('vdOrden') ? $a('vdOrden').value : 'num';
+  if (ord === 'urg') filas.sort((x, y) => x.peor - y.peor);   // lo más urgente arriba (el orden por N° se mantiene dentro de cada grupo)
+  else if (ord === 'numdesc') filas.reverse();                 // N° de camión de mayor a menor
+  // 'num' (por defecto): N° de camión de menor a mayor, tal como viene de camOrden
   const vista = filas.filter(x => {
     if (q && !(String(x.c.numero).toLowerCase().includes(q) || String(x.c.patente || '').toLowerCase().includes(q))) return false;
     if (f === 'venc') return x.ests.includes('venc');
@@ -15578,14 +15598,15 @@ function renderVehDocs() {
   if (!camListaData.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">🚚</div><p>Primero cargá los vehículos en “Checklist Camiones”</p></div></td></tr>'; return; }
   if (!vista.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">🔍</div><p>No hay vehículos para ese filtro</p></div></td></tr>'; return; }
   tb.innerHTML = vista.map(x => {
+    const fila = x.ests.includes('venc') ? 'venc' : x.ests.includes('falta') ? 'falta' : x.ests.includes('pronto') ? 'pronto' : 'ok';
     const celdas = VD_DOCS.map(d => {
       const e = x.docs[d.k], v = licDia(x.r[d.k + '_vence']), tiene = !!x.r[d.k + '_foto_url'];
-      return `<td><div class="vd-cell"><span class="badge ${e.cls}">${licEsc(e.txt)}</span>` +
+      return `<td class="${e.k === 'na' ? '' : 'vd-c-' + e.k}"><div class="vd-cell"><span class="badge ${e.cls}">${licEsc(e.txt)}</span>` +
         (v ? `<span class="vd-f">Vence: ${fmtDate(v)}</span>` : '') +
         (tiene ? `<button class="btn btn-secondary btn-sm" onclick="verVehDocFoto('${x.c.__ID__}','${d.k}')">📷 Ver foto</button>` : `<span class="vd-f">Sin foto</span>`) +
         `</div></td>`;
     }).join('');
-    return `<tr><td><strong>N° ${licEsc(x.c.numero)}</strong><div class="vd-f" style="font-size:12px;color:var(--text3)">${licEsc(x.c.patente || '')}</div></td>${celdas}` +
+    return `<tr><td class="vd-n-${fila}"><strong>N° ${licEsc(x.c.numero)}</strong><div class="vd-f" style="font-size:12px;color:var(--text3)">${licEsc(x.c.patente || '')}</div></td>${celdas}` +
       `<td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openVehDoc('${x.c.__ID__}')">✏️ Editar</button></td></tr>`;
   }).join('');
 }
@@ -15602,7 +15623,7 @@ function exportVehDocsCSV() {
 
 // ── Imagen de alerta para WhatsApp: documentación vencida, por vencer y pendiente ──
 async function vdGenerarImagen() {
-  const { filas } = vdFilas();                       // ya vienen ordenadas: lo más urgente primero
+  const filas = vdFilas().filas.slice().sort((x, y) => x.peor - y.peor);   // la imagen siempre va con lo más urgente primero
   const pl = (n, a, b) => n + ' ' + (n === 1 ? a : b);
   let venc = 0, pronto = 0, falta = 0;
   const items = [];
