@@ -2267,7 +2267,8 @@
             <select class="filter-select" id="eqRFEstado" onchange="renderEqResp()">
               <option value="">Todos</option><option value="ok">Check-in realizado</option><option value="no">No realizó check-in</option><option value="fs">Fuera de servicio</option>
             </select>
-            <button class="btn btn-secondary" style="margin-left:auto" onclick="exportEqRespCSV()">⬇ CSV</button>
+            <button class="btn btn-primary" style="margin-left:auto" onclick="eqRespGenerarImagen()">🖼️ Imagen para WhatsApp</button>
+            <button class="btn btn-secondary" onclick="exportEqRespCSV()">⬇ CSV</button>
           </div>
           <div class="stats" id="eqRStats"></div>
           <div class="table-wrap">
@@ -2496,6 +2497,7 @@
             <option value="falta">Con documentos sin cargar</option>
             <option value="ok">Todo vigente</option>
           </select>
+          <button class="btn btn-primary" onclick="vdGenerarImagen()">🖼️ Imagen para WhatsApp</button>
           <button class="btn btn-secondary" onclick="exportVehDocsCSV()">⬇ CSV</button>
         </div>
         <div class="table-wrap"><table>
@@ -15535,6 +15537,7 @@ const VD_DOCS = [
 function vehDocDe(camId) { return vehDocsData.find(r => String(r.camion_id) === String(camId)) || {}; }
 // Estado de un documento: días que faltan para el vencimiento (negativo = vencido)
 function vdEstado(vence) {
+  if (String(vence || '').toUpperCase() === 'NA') return { k: 'na', dias: null, cls: 'badge-gray', txt: 'No aplica', rank: 3 };
   const v = licDia(vence);
   if (!v) return { k: 'falta', dias: null, cls: 'badge-gray', txt: 'Sin cargar', rank: 2 };
   const dias = -sgDias(v);
@@ -15595,6 +15598,49 @@ function exportVehDocsCSV() {
     VD_DOCS.forEach(d => { const e = x.docs[d.k]; row.push(fmtDate(licDia(x.r[d.k + '_vence'])), e.dias == null ? '' : e.dias, x.r[d.k + '_foto_url'] ? 'Sí' : 'No'); });
     return row;
   }));
+}
+
+// ── Imagen de alerta para WhatsApp: documentación vencida, por vencer y pendiente ──
+async function vdGenerarImagen() {
+  const { filas } = vdFilas();                       // ya vienen ordenadas: lo más urgente primero
+  const pl = (n, a, b) => n + ' ' + (n === 1 ? a : b);
+  let venc = 0, pronto = 0, falta = 0;
+  const items = [];
+  filas.filter(x => x.peor < 3).forEach(x => {
+    const ord = { venc: 0, pronto: 1, falta: 2 };
+    const notas = [], celdas = [];
+    VD_DOCS.slice().sort((a, b) => (ord[x.docs[a.k].k] ?? 3) - (ord[x.docs[b.k].k] ?? 3) || (x.docs[a.k].dias ?? 0) - (x.docs[b.k].dias ?? 0)).forEach(d => {
+      const e = x.docs[d.k], v = licDia(x.r[d.k + '_vence']);
+      if (e.k === 'venc') { venc++; notas.push({ t: d.n + ': VENCIDO hace ' + pl(-e.dias, 'día', 'días') + ' (venció el ' + fmtDate(v) + ')', c: '#B91C1C', b: true }); }
+      else if (e.k === 'pronto') { pronto++; notas.push({ t: d.n + ': ' + (e.dias === 0 ? 'vence HOY' : 'vence en ' + pl(e.dias, 'día', 'días')) + ' (' + fmtDate(v) + ')', c: '#B45309', b: true }); }
+      else if (e.k === 'falta') { falta++; notas.push({ t: d.n + ': pendiente de realizar (sin fecha cargada)', c: '#374151', b: true }); }
+    });
+    VD_DOCS.forEach(d => {
+      const e = x.docs[d.k], v = licDia(x.r[d.k + '_vence']);
+      celdas.push([d.n, v ? fmtDate(v) : 'Sin fecha', e.k === 'venc' ? '#B91C1C' : e.k === 'pronto' ? '#B45309' : e.k === 'falta' ? '#6B7280' : '#16A34A']);
+    });
+    const pill = x.peor === 0 ? ['VENCIDO', '#DC2626', '#FFFFFF'] : x.peor === 1 ? ['POR VENCER', '#D97706', '#FFFFFF'] : ['PENDIENTE', '#6B7280', '#FFFFFF'];
+    items.push({ num: x.c.numero, patente: x.c.patente || '', color: pill[1], pill, rows: [celdas], notas });
+  });
+  const partes = [];
+  if (venc) partes.push(pl(venc, 'documento vencido', 'documentos vencidos'));
+  if (pronto) partes.push(pl(pronto, 'por vencer', 'por vencer'));
+  if (falta) partes.push(pl(falta, 'pendiente de realizar', 'pendientes de realizar'));
+  const cfg = {
+    tono: venc ? 'red' : (pronto || falta) ? 'amber' : 'green',
+    titulo: 'ALERTA DOCUMENTACIÓN DE VEHÍCULOS',
+    fechaTxt: alDiaTxt(licHoyISO()),
+    mensaje: !filas.length ? 'No hay vehículos cargados en Checklist Camiones' : partes.length ? 'ATENCIÓN: ' + partes.join(' · ') : 'TODA LA DOCUMENTACIÓN DE LOS VEHÍCULOS ESTÁ VIGENTE',
+    chips: [
+      { n: filas.length, label: 'Vehículos activos', color: '#111827' },
+      { n: venc, label: 'Documentos vencidos', color: venc ? '#DC2626' : '#9CA3AF' },
+      { n: pronto, label: 'Vencen en ' + VD_AVISO + ' días o menos', color: pronto ? '#D97706' : '#9CA3AF' },
+      { n: falta, label: 'Pendientes de realizar', color: falta ? '#374151' : '#9CA3AF' }
+    ],
+    items, vacio: 'Todos los vehículos tienen la documentación vigente'
+  };
+  const cv = await alListaCanvas(cfg);
+  alPreviewCanvas(cv, 'alerta_documentacion_vehiculos_' + licHoyISO() + '.png');
 }
 
 // ── Editar: vencimiento + foto de cada documento ──
@@ -16113,7 +16159,7 @@ function alListaRender(ctx, cfg) {
   // título de sección
   ctx.fillStyle = c1; alRR(ctx, P, y, 8, 30, 4); ctx.fill();
   ctx.fillStyle = c2; ctx.font = '800 25px ' + AL_FONT;
-  ctx.fillText('DETALLE POR CAMIÓN', P + 24, y + 25);
+  ctx.fillText(cfg.seccion || 'DETALLE POR CAMIÓN', P + 24, y + 25);
   y += 50;
 
   if (!cfg.items.length) {
@@ -16147,7 +16193,7 @@ function alListaRender(ctx, cfg) {
 
     // título: camión + patente + estado
     ctx.fillStyle = '#111827'; ctx.font = '800 38px ' + AL_FONT;
-    const ttl = 'CAMIÓN N° ' + it.num;
+    const ttl = it.titulo || ('CAMIÓN N° ' + it.num);
     ctx.fillText(ttl, innerX, y + 62);
     const tw = ctx.measureText(ttl).width;
     if (it.patente) {
@@ -16314,6 +16360,70 @@ async function velGenerarImagen() {
   };
   const cv = await alListaCanvas(cfg);
   alPreviewCanvas(cv, 'alerta_excesos_velocidad_' + dia + '.png');
+}
+
+// ── Imagen: aviso de checklist diario de equipos de manipuleo (responsable, equipo, check, observaciones) ──
+async function eqRespGenerarImagen() {
+  const { dia, filas } = eqRespFilas();   // todos los equipos activos del día elegido (sin el filtro de estado)
+  const sinAs = v => v || 'Sin asignar';
+  const items = filas.map(f => {
+    const c = f.c, fl = c ? eqFallas(c) : [];
+    const it = { titulo: f.resp ? f.resp : 'SIN RESPONSABLE', notas: [], rows: [] };
+    const equipoTxt = f.e.nombre + (f.e.tipo ? ' · ' + f.e.tipo : '');
+    let checkTxt, checkCol;
+    if (f.fs && !f.hecho) {
+      it.color = '#B91C1C'; it.pill = ['FUERA DE SERVICIO', '#B91C1C', '#FFFFFF'];
+      checkTxt = 'No aplica: equipo fuera de servicio'; checkCol = '#B91C1C';
+      it.extra = 'Equipo no operativo desde ' + fmtDate(f.fsDesde);
+      it.notas.push({ t: 'Equipo en mal estado (fuera de servicio): no se debe utilizar', c: '#B91C1C', b: true });
+      const ult = sgOrdenFecha(equipoControlesData.filter(x => String(x.equipo_id) === String(f.e.__ID__) && licDia(x.fecha) <= dia))[0];
+      if (ult) {
+        eqFallas(ult).forEach(x => it.notas.push({ t: (x.critico ? 'CRÍTICO · ' : '') + x.item + (x.nota ? ': ' + x.nota : ''), c: x.critico ? '#B91C1C' : '#B45309' }));
+        if (ult.observaciones) it.notas.push({ t: 'Observación: ' + ult.observaciones, c: '#374151' });
+      }
+    } else if (!f.hecho) {
+      it.color = '#DC2626'; it.pill = ['NO REALIZÓ CHECK', '#DC2626', '#FFFFFF'];
+      checkTxt = 'No'; checkCol = '#B91C1C';
+      it.notas.push({ t: 'Checklist diario pendiente: no se puede confirmar el estado del equipo', c: '#B91C1C', b: true });
+    } else {
+      const res = c.resultado;
+      if (f.fs || res === 'Fuera de servicio') { it.color = '#B91C1C'; it.pill = ['FUERA DE SERVICIO', '#B91C1C', '#FFFFFF']; checkTxt = 'Sí' + (c.hora ? ', a las ' + c.hora : '') + ' · equipo fuera de servicio'; checkCol = '#B91C1C'; }
+      else if (res === 'Con observaciones') { it.color = '#D97706'; it.pill = ['CHECK REALIZADO', '#16A34A', '#FFFFFF']; checkTxt = 'Sí' + (c.hora ? ', a las ' + c.hora : '') + ' · con observaciones'; checkCol = '#B45309'; }
+      else { it.color = '#16A34A'; it.pill = ['CHECK REALIZADO', '#16A34A', '#FFFFFF']; checkTxt = 'Sí' + (c.hora ? ', a las ' + c.hora : '') + ' · todo OK'; checkCol = '#15803D'; }
+      if (c.operario && f.resp && kioskNormalizar(c.operario) !== kioskNormalizar(f.resp)) it.extra = 'Lo realizó: ' + c.operario;
+      if (it.color === '#B91C1C') it.notas.push({ t: 'FUERA DE SERVICIO: no se debe utilizar el equipo', c: '#B91C1C', b: true });
+      fl.forEach(x => it.notas.push({ t: (x.critico ? 'CRÍTICO · ' : '') + x.item + (x.nota ? ': ' + x.nota : ''), c: x.critico ? '#B91C1C' : '#B45309' }));
+      if (c.observaciones) it.notas.push({ t: 'Observación: ' + c.observaciones, c: '#374151' });
+      if (!fl.length && !c.observaciones) it.notas.push({ t: 'Sin observaciones: todo en orden', c: '#16A34A' });
+    }
+    it.rows.push([['Responsable', sinAs(f.resp), f.resp ? '' : '#B45309'], ['Equipo asignado', equipoTxt]]);
+    it.rows.push([['Check realizado', checkTxt, checkCol]]);
+    return it;
+  });
+  const hechos = filas.filter(f => f.hecho && !f.fs).length;
+  const pend = filas.filter(f => !f.hecho && !f.fs).length;
+  const fsN = filas.filter(f => f.fs).length;
+  const obs = filas.filter(f => f.hecho && !f.fs && f.c.resultado === 'Con observaciones').length;
+  const partes = [];
+  if (pend) partes.push(pend + (pend === 1 ? ' equipo sin check-in' : ' equipos sin check-in'));
+  if (fsN) partes.push(fsN + (fsN === 1 ? ' equipo fuera de servicio' : ' equipos fuera de servicio'));
+  if (obs) partes.push(obs + (obs === 1 ? ' con observaciones' : ' con observaciones'));
+  const cfg = {
+    tono: (pend || fsN) ? 'red' : obs ? 'amber' : 'green',
+    titulo: 'AVISO CHECKLIST EQUIPOS DE MANIPULEO',
+    fechaTxt: alDiaTxt(dia),
+    mensaje: !filas.length ? 'No hay equipos de manipuleo cargados' : partes.length ? 'ATENCIÓN: ' + partes.join(' · ') : 'TODOS LOS CHECKLISTS REALIZADOS Y SIN OBSERVACIONES',
+    chips: [
+      { n: filas.length, label: 'Equipos activos', color: '#111827' },
+      { n: hechos, label: 'Check realizado', color: '#16A34A' },
+      { n: pend, label: 'No realizó check', color: pend ? '#DC2626' : '#9CA3AF' },
+      { n: fsN, label: 'Fuera de servicio', color: fsN ? '#B91C1C' : '#9CA3AF' }
+    ],
+    seccion: 'DETALLE POR EQUIPO',
+    items, vacio: 'Cargá los equipos en “Equipos de Manipuleo”'
+  };
+  const cv = await alListaCanvas(cfg);
+  alPreviewCanvas(cv, 'aviso_checklist_equipos_' + dia + '.png');
 }
 </script>
 </body>
