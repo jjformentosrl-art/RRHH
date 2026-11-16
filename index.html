@@ -734,6 +734,15 @@
   .sg-fotoin .st { font-size: 12px; color: var(--text3); margin-top: 6px; }
   @media (max-width: 560px) { .sg-fotos { grid-template-columns: 1fr; } }
 
+  /* Documentación de vehículos */
+  .vd-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 150px; }
+  .vd-cell .vd-f { font-size: 12px; color: var(--text3); }
+  .vd-doc-box { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); margin-bottom: 12px; }
+  .vd-doc-box h4 { margin: 0 0 10px; font-size: 14px; }
+  .vd-doc-box .sg-fotoin { background: var(--surface); }
+  .vd-actual { font-size: 12.5px; color: var(--text2); margin-bottom: 8px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #vdFotoBody img { width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; }
+
   /* ═══ AUDITORÍA CRUZADA 5S ═══ */
   #audScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
   #audScreen.active { display: flex; }
@@ -830,6 +839,7 @@
 #panel-equipos::before{content:"Equipos de manipuleo"}
 #panel-camiones::before{content:"Checklist de camiones"}
 #panel-velocidad::before{content:"Reportes de velocidad"}
+#panel-vehdocs::before{content:"Documentación de vehículos"}
 #panel-organigrama::before{content:"Organigrama"}
 
   .tabs { grid-area: nav; flex-direction: column; gap: 2px; padding: 14px 12px 20px; background: var(--ink); border-bottom: 0; overflow-x: hidden; overflow-y: auto; min-height: 0; }
@@ -1098,6 +1108,7 @@
     <button class="tab" onclick="showTab('equipos')">🚜 Equipos de Manipuleo</button>
     <button class="tab" onclick="showTab('camiones')">🚚 Checklist Camiones</button>
     <button class="tab" onclick="showTab('velocidad')">⚡ Reportes de Velocidad</button>
+    <button class="tab" onclick="showTab('vehdocs')">📄 Documentación Vehículos</button>
     <div class="tabs-label">Gestión interna</div>
     <button class="tab" onclick="showTab('capacitaciones')">🎓 Capacitaciones</button>
     <button class="tab" onclick="showTab('auditorias')">🔍 Auditoría Cruzada</button>
@@ -2468,6 +2479,32 @@
       </div>
     </div>
 
+    <!-- DOCUMENTACIÓN DE VEHÍCULOS -->
+    <div class="panel" id="panel-vehdocs">
+      <div class="aud-scroll">
+        <div class="link-box" style="font-family:inherit">📄 Vigencia del <b>Seguro</b>, la <b>VTV</b> y el <b>Senasa</b> de cada vehículo cargado en “Checklist Camiones”. Con “Editar” cargás el vencimiento nuevo y reemplazás la foto del documento anterior.</div>
+        <div class="stats" id="vdStats"></div>
+        <div class="toolbar" style="padding-left:0">
+          <div class="search-box" style="flex:1">
+            <span>🔍</span>
+            <input type="text" id="vdSearch" placeholder="Buscar por N° de vehículo o patente..." oninput="dbn(renderVehDocs)">
+          </div>
+          <select class="filter-select" id="vdFiltro" onchange="renderVehDocs()">
+            <option value="">Todos los vehículos</option>
+            <option value="venc">Con documentos vencidos</option>
+            <option value="pronto">Con documentos por vencer (30 días o menos)</option>
+            <option value="falta">Con documentos sin cargar</option>
+            <option value="ok">Todo vigente</option>
+          </select>
+          <button class="btn btn-secondary" onclick="exportVehDocsCSV()">⬇ CSV</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Vehículo</th><th>🛡️ Seguro</th><th>🔍 VTV</th><th>📋 Senasa</th><th>Acciones</th></tr></thead>
+          <tbody id="vdTbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- ORGANIGRAMA -->
     <div class="panel" id="panel-organigrama">
       <div class="org-toolbar">
@@ -3646,6 +3683,32 @@
   </div>
 </div>
 
+<!-- DOCUMENTACIÓN DE VEHÍCULOS: MODAL DE EDICIÓN -->
+<div class="modal-overlay" id="vdModal">
+  <div class="modal" style="width:620px">
+    <div class="modal-header">
+      <span class="modal-title" id="vdModalTitle">📄 Documentación del vehículo</span>
+      <button class="modal-close" onclick="closeVehDoc()">✕</button>
+    </div>
+    <div class="modal-body" id="vdModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeVehDoc()">Cancelar</button>
+      <button class="btn btn-primary" id="vdSaveBtn" onclick="saveVehDoc()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOCUMENTACIÓN DE VEHÍCULOS: VISOR DE FOTO -->
+<div class="modal-overlay" id="vdFotoModal">
+  <div class="modal" style="width:760px">
+    <div class="modal-header">
+      <span class="modal-title" id="vdFotoTitle">🖼️ Documento</span>
+      <button class="modal-close" onclick="document.getElementById('vdFotoModal').classList.remove('open')">✕</button>
+    </div>
+    <div class="modal-body"><div id="vdFotoBody" style="font-size:13px;color:var(--text3)"></div></div>
+  </div>
+</div>
+
 <!-- REPORTES DE VELOCIDAD: MODAL -->
 <div class="modal-overlay" id="velModal">
   <div class="modal" style="width:520px">
@@ -4383,6 +4446,7 @@ const WRITE_ACTIONS = [
   'addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos',
   'addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones',
   'addVelocidad','deleteVelocidad',
+  'saveVehiculoDocs','getVehiculoDocFoto',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -4547,7 +4611,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones','addVelocidad','deleteVelocidad'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones','addVelocidad','deleteVelocidad','saveVehiculoDocs','getVehiculoDocFoto'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -4640,6 +4704,8 @@ function handleRequest(e) {
     else if (action === 'setCamionAsignaciones') result = setCamionAsignaciones(body.data);
     else if (action === 'addVelocidad')        result = sgAddRow('VELOCIDAD_REPORTES', VEL_HEADERS, body.data);
     else if (action === 'deleteVelocidad')     result = deleteRow('VELOCIDAD_REPORTES', body.id);
+    else if (action === 'saveVehiculoDocs')    result = saveVehiculoDocs(body.data);
+    else if (action === 'getVehiculoDocFoto')  result = getVehiculoDocFoto(body.data);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -4705,6 +4771,7 @@ function getAllData() {
   var camCtrlSheet = sgSheet('CAMIONES_CONTROLES', CAM_CTRL_HEADERS);
   var camAsignSheet = sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS);
   var velSheet = sgSheet('VELOCIDAD_REPORTES', VEL_HEADERS);
+  var vehDocSheet = sgSheet('VEHICULOS_DOCS', VEHDOC_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -4739,6 +4806,7 @@ function getAllData() {
     camionesControles: sheetToJson(camCtrlSheet),
     camionesAsign: sheetToJson(camAsignSheet),
     velocidad: sheetToJson(velSheet),
+    vehiculosDocs: sheetToJson(vehDocSheet),
     config:       getConfig()
   };
 }
@@ -4902,7 +4970,8 @@ function autorizarDrive() {
   var f = getCertFolder();
   var g = getAlertasFolder();
   var h = sgFolder();
-  Logger.log('Drive autorizado. Carpetas: ' + f.getName() + ' / ' + g.getName() + ' / ' + h.getName());
+  var v = vehDocFolder();
+  Logger.log('Drive autorizado. Carpetas: ' + f.getName() + ' / ' + g.getName() + ' / ' + h.getName() + ' / ' + v.getName());
 }
 // Guarda la foto del certificado en una carpeta PRIVADA de Drive y devuelve su URL
 function guardarCertificado(base64, mime, empleado, desde) {
@@ -5688,6 +5757,69 @@ var CAM_CTRL_HEADERS = ['fecha','hora','camion_id','numero','patente','quien','r
 
 var VEL_HEADERS = ['fecha','camion_id','numero','patente','responsable','cantidad','observaciones'];
 
+// ── Documentación de vehículos: Seguro, VTV y Senasa (una fila por camión) ──
+var VEHDOC_HEADERS = ['camion_id','seguro_vence','seguro_foto_url','vtv_vence','vtv_foto_url','senasa_vence','senasa_foto_url'];
+var VEHDOC_TIPOS = ['seguro','vtv','senasa'];
+var VEHDOC_FOLDER_NAME = 'Documentacion Vehiculos RRHH';
+function vehDocFolder() {
+  var it = DriveApp.getFoldersByName(VEHDOC_FOLDER_NAME);
+  return it.hasNext() ? it.next() : DriveApp.createFolder(VEHDOC_FOLDER_NAME);
+}
+// Manda a la papelera la foto anterior de Drive (si hay) al reemplazarla o quitarla
+function vehDocBorrarFoto(url) {
+  url = String(url || '');
+  if (url.indexOf('/d/') === -1) return;
+  try { DriveApp.getFileById(url.split('/d/')[1].split('/')[0]).setTrashed(true); } catch (err) {}
+}
+function saveVehiculoDocs(data) {
+  if (!data || !data.camion_id || !data.docs) return { error: 'Sin datos' };
+  var cid = audTexto(data.camion_id, 40);
+  var sheet = sgSheet('VEHICULOS_DOCS', VEHDOC_HEADERS);
+  var prev = null;
+  sheetToJson(sheet).forEach(function(r) { if (String(r.camion_id) === cid) prev = r; });
+  var cam = null;
+  sheetToJson(sgSheet('CAMIONES_LISTA', CAM_LISTA_HEADERS)).forEach(function(c) { if (String(c.__ID__) === cid) cam = c; });
+  var nom = cam ? String(cam.numero || '') + '_' + String(cam.patente || '') : cid;
+  nom = nom.replace(/[^A-Za-z0-9_]/g, '');
+  var fila = { camion_id: cid };
+  for (var i = 0; i < VEHDOC_TIPOS.length; i++) {
+    var tipo = VEHDOC_TIPOS[i];
+    var d = data.docs[tipo] || {};
+    var vence = String(d.vence || '').substring(0, 10);
+    if (vence && !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(vence)) return { error: 'Fecha de vencimiento inválida (' + tipo + ')' };
+    var urlPrev = prev ? String(prev[tipo + '_foto_url'] || '') : '';
+    var url = urlPrev;
+    if (d.foto_base64) {
+      try {
+        var blob = Utilities.newBlob(Utilities.base64Decode(d.foto_base64), 'image/jpeg', tipo + '_' + nom + '_' + Date.now() + '.jpg');
+        url = vehDocFolder().createFile(blob).getUrl();
+      } catch (err) {
+        return { error: 'No se pudo guardar la foto en Drive: ' + err.message };
+      }
+      if (urlPrev) vehDocBorrarFoto(urlPrev);
+    } else if (d.quitar_foto && urlPrev) {
+      vehDocBorrarFoto(urlPrev);
+      url = '';
+    }
+    fila[tipo + '_vence'] = vence;
+    fila[tipo + '_foto_url'] = url;
+  }
+  var res = prev ? updateRow('VEHICULOS_DOCS', prev.__ID__, fila) : addRow('VEHICULOS_DOCS', fila);
+  if (res && res.success) { fila.__ID__ = prev ? prev.__ID__ : res.id; res.row = fila; }
+  return res;
+}
+// Devuelve la foto de un documento como imagen lista para mostrar
+function getVehiculoDocFoto(data) {
+  if (!data || !data.camion_id || VEHDOC_TIPOS.indexOf(data.tipo) === -1) return { error: 'Sin datos' };
+  var rows = sheetToJson(sgSheet('VEHICULOS_DOCS', VEHDOC_HEADERS));
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i].camion_id) === String(data.camion_id)) {
+      return { success: true, dataUrl: sgUrlADataUrl(rows[i][data.tipo + '_foto_url']) };
+    }
+  }
+  return { success: true, dataUrl: '' };
+}
+
 function getCamionesKiosk() {
   var hoy = sgHoy();
   var asign = sheetToJson(sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS)).filter(function(a) { return a.fecha === hoy; });
@@ -6023,6 +6155,7 @@ function loadLocalData() {
   camListaData = JSON.parse(localStorage.getItem('rrhh_cam_lista') || '[]');
   camControlesData = JSON.parse(localStorage.getItem('rrhh_cam_controles') || '[]');
   camAsignData = JSON.parse(localStorage.getItem('rrhh_cam_asign') || '[]');
+  vehDocsData = JSON.parse(localStorage.getItem('rrhh_veh_docs') || '[]');
   velocidadData = JSON.parse(localStorage.getItem('rrhh_velocidad') || '[]');
   const storedLimp = localStorage.getItem('rrhh_limpieza');
   limpiezaData = storedLimp ? JSON.parse(storedLimp) : [];
@@ -6129,6 +6262,7 @@ async function loadAllData() {
   camListaData = data.camionesLista || [];
   camControlesData = data.camionesControles || [];
   camAsignData = data.camionesAsign || [];
+  vehDocsData = data.vehiculosDocs || [];
   velocidadData = data.velocidad || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   orgData = null;
@@ -13966,6 +14100,7 @@ function sgSave() {
     localStorage.setItem('rrhh_cam_lista', JSON.stringify(camListaData));
     localStorage.setItem('rrhh_cam_controles', JSON.stringify(camControlesData));
     localStorage.setItem('rrhh_cam_asign', JSON.stringify(camAsignData));
+    localStorage.setItem('rrhh_veh_docs', JSON.stringify(vehDocsData));
     localStorage.setItem('rrhh_velocidad', JSON.stringify(velocidadData));
   } catch (e) {}
 }
@@ -15389,6 +15524,181 @@ async function deleteCamCamion(id) {
   sgSave(); renderCamiones(); showToast('Camión eliminado ✓', 'success');
 }
 
+// ═══════════════════════ DOCUMENTACIÓN DE VEHÍCULOS (Seguro · VTV · Senasa) ═══════════════════════
+let vehDocsData = [];
+const VD_AVISO = 30; // días: desde acá el documento figura "por vencer"
+const VD_DOCS = [
+  { k: 'seguro', n: 'Seguro', ico: '🛡️' },
+  { k: 'vtv',    n: 'VTV',    ico: '🔍' },
+  { k: 'senasa', n: 'Senasa', ico: '📋' }
+];
+function vehDocDe(camId) { return vehDocsData.find(r => String(r.camion_id) === String(camId)) || {}; }
+// Estado de un documento: días que faltan para el vencimiento (negativo = vencido)
+function vdEstado(vence) {
+  const v = licDia(vence);
+  if (!v) return { k: 'falta', dias: null, cls: 'badge-gray', txt: 'Sin cargar', rank: 2 };
+  const dias = -sgDias(v);
+  if (dias < 0) return { k: 'venc', dias, cls: 'badge-red', txt: 'Vencido hace ' + (-dias) + (dias === -1 ? ' día' : ' días'), rank: 0 };
+  if (dias === 0) return { k: 'pronto', dias, cls: 'badge-yellow', txt: 'Vence hoy', rank: 1 };
+  if (dias <= VD_AVISO) return { k: 'pronto', dias, cls: 'badge-yellow', txt: dias + (dias === 1 ? ' día' : ' días'), rank: 1 };
+  return { k: 'ok', dias, cls: 'badge-green', txt: dias + ' días', rank: 3 };
+}
+function vdFilas() {
+  const q = ($a('vdSearch') ? $a('vdSearch').value : '').trim().toLowerCase();
+  const f = $a('vdFiltro') ? $a('vdFiltro').value : '';
+  const filas = camOrden(camListaData.filter(c => c.activo !== 'No')).map(c => {
+    const r = vehDocDe(c.__ID__);
+    const docs = {}; let peor = 3;
+    VD_DOCS.forEach(d => { docs[d.k] = vdEstado(r[d.k + '_vence']); peor = Math.min(peor, docs[d.k].rank); });
+    return { c, r, docs, peor, ests: VD_DOCS.map(d => docs[d.k].k) };
+  });
+  filas.sort((x, y) => x.peor - y.peor);   // lo más urgente arriba (el orden por N° se mantiene dentro de cada grupo)
+  const vista = filas.filter(x => {
+    if (q && !(String(x.c.numero).toLowerCase().includes(q) || String(x.c.patente || '').toLowerCase().includes(q))) return false;
+    if (f === 'venc') return x.ests.includes('venc');
+    if (f === 'pronto') return x.ests.includes('pronto');
+    if (f === 'falta') return x.ests.includes('falta');
+    if (f === 'ok') return x.ests.every(e => e === 'ok');
+    return true;
+  });
+  return { filas, vista };
+}
+function renderVehDocs() {
+  const tb = $a('vdTbody'); if (!tb) return;
+  const { filas, vista } = vdFilas();
+  let venc = 0, pronto = 0, falta = 0;
+  filas.forEach(x => x.ests.forEach(e => { if (e === 'venc') venc++; else if (e === 'pronto') pronto++; else if (e === 'falta') falta++; }));
+  $a('vdStats').innerHTML = sgCard('🚚', filas.length, 'Vehículos activos') +
+    sgCard('⛔', venc, 'Documentos vencidos', venc ? '#B91C1C' : '') +
+    sgCard('⏳', pronto, 'Vencen en ' + VD_AVISO + ' días o menos', pronto ? '#B45309' : '') +
+    sgCard('📂', falta, 'Documentos sin cargar');
+  if (!camListaData.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">🚚</div><p>Primero cargá los vehículos en “Checklist Camiones”</p></div></td></tr>'; return; }
+  if (!vista.length) { tb.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="icon">🔍</div><p>No hay vehículos para ese filtro</p></div></td></tr>'; return; }
+  tb.innerHTML = vista.map(x => {
+    const celdas = VD_DOCS.map(d => {
+      const e = x.docs[d.k], v = licDia(x.r[d.k + '_vence']), tiene = !!x.r[d.k + '_foto_url'];
+      return `<td><div class="vd-cell"><span class="badge ${e.cls}">${licEsc(e.txt)}</span>` +
+        (v ? `<span class="vd-f">Vence: ${fmtDate(v)}</span>` : '') +
+        (tiene ? `<button class="btn btn-secondary btn-sm" onclick="verVehDocFoto('${x.c.__ID__}','${d.k}')">📷 Ver foto</button>` : `<span class="vd-f">Sin foto</span>`) +
+        `</div></td>`;
+    }).join('');
+    return `<tr><td><strong>N° ${licEsc(x.c.numero)}</strong><div class="vd-f" style="font-size:12px;color:var(--text3)">${licEsc(x.c.patente || '')}</div></td>${celdas}` +
+      `<td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="openVehDoc('${x.c.__ID__}')">✏️ Editar</button></td></tr>`;
+  }).join('');
+}
+function exportVehDocsCSV() {
+  const { vista } = vdFilas();
+  const heads = ['N° vehículo', 'Patente'];
+  VD_DOCS.forEach(d => heads.push(d.n + ' vence', d.n + ' días', d.n + ' foto'));
+  sgCSV('documentacion_vehiculos.csv', heads, vista.map(x => {
+    const row = [x.c.numero, x.c.patente || ''];
+    VD_DOCS.forEach(d => { const e = x.docs[d.k]; row.push(fmtDate(licDia(x.r[d.k + '_vence'])), e.dias == null ? '' : e.dias, x.r[d.k + '_foto_url'] ? 'Sí' : 'No'); });
+    return row;
+  }));
+}
+
+// ── Editar: vencimiento + foto de cada documento ──
+let vdEditId = null, vdFotos = {}, vdQuitar = {};
+function openVehDoc(id) {
+  const c = camListaData.find(x => String(x.__ID__) === String(id)); if (!c) return;
+  vdEditId = id; vdFotos = {}; vdQuitar = {};
+  const r = vehDocDe(id);
+  $a('vdModalTitle').textContent = '📄 Documentación · ' + camNom(c);
+  $a('vdModalBody').innerHTML = VD_DOCS.map(d => {
+    const tiene = !!r[d.k + '_foto_url'];
+    return `<div class="vd-doc-box"><h4>${d.ico} ${d.n}</h4>
+      <div class="form-group"><label>Fecha de vencimiento</label><input type="date" id="vd_${d.k}_vence" value="${licEsc(licDia(r[d.k + '_vence']))}"></div>
+      <div class="form-group" style="margin-top:10px"><label>📷 Foto del documento</label>
+        <div class="vd-actual" id="vd_a_${d.k}" style="${tiene ? '' : 'display:none'}">Ya hay una foto cargada. Si elegís otra, reemplaza a la actual.
+          <button type="button" class="btn btn-secondary btn-sm" onclick="verVehDocFoto('${id}','${d.k}')">Ver actual</button></div>
+        <div class="sg-fotoin">
+          <input type="file" accept="image/*" id="vd_f_${d.k}" onchange="vdFotoElegida('${d.k}',this)">
+          <img id="vd_i_${d.k}" alt="">
+          <div class="st" id="vd_s_${d.k}"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="vd_q_${d.k}" style="margin-top:6px;${tiene ? '' : 'display:none'}" onclick="vdFotoQuitar('${d.k}')">Quitar foto</button>
+        </div></div></div>`;
+  }).join('');
+  $a('vdSaveBtn').disabled = false; $a('vdSaveBtn').textContent = '💾 Guardar';
+  $a('vdModal').classList.add('open');
+}
+function closeVehDoc() { $a('vdModal').classList.remove('open'); }
+// Reduce la foto (máx. 1600 px, JPEG) para que suba rápido desde el celular
+function vdFotoElegida(k, input) {
+  const file = input.files && input.files[0]; if (!file) return;
+  if (!file.type.startsWith('image/')) { showToast('Elegí un archivo de imagen', 'error'); input.value = ''; return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const f = Math.min(1, 1600 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      vdFotos[k] = c.toDataURL('image/jpeg', 0.75); vdQuitar[k] = false;
+      const im = $a('vd_i_' + k); im.src = vdFotos[k]; im.style.display = 'block';
+      $a('vd_s_' + k).textContent = '✔ Foto nueva lista: reemplazará a la anterior al guardar';
+      $a('vd_q_' + k).style.display = '';
+    };
+    img.onerror = () => { showToast('No se pudo leer la imagen', 'error'); input.value = ''; };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+function vdFotoQuitar(k) {
+  const tenia = !!vehDocDe(vdEditId)[k + '_foto_url'];
+  vdFotos[k] = null; vdQuitar[k] = tenia;
+  $a('vd_f_' + k).value = ''; $a('vd_i_' + k).style.display = 'none';
+  $a('vd_s_' + k).textContent = tenia ? '🗑️ La foto actual se quitará al guardar' : '';
+  $a('vd_q_' + k).style.display = 'none';
+}
+async function saveVehDoc() {
+  const id = vdEditId; if (!id) return;
+  const docs = {}; let hayFoto = false;
+  VD_DOCS.forEach(d => {
+    const o = { vence: $a('vd_' + d.k + '_vence').value || '' };
+    if (vdFotos[d.k]) { o.foto_base64 = vdFotos[d.k].split(',')[1]; hayFoto = true; }
+    else if (vdQuitar[d.k]) o.quitar_foto = true;
+    docs[d.k] = o;
+  });
+  const btn = $a('vdSaveBtn'); btn.disabled = true; btn.textContent = hayFoto ? '⏳ Subiendo fotos...' : '⏳ Guardando...';
+  try {
+    let fila;
+    if (API_URL) {
+      const res = await apiCall('saveVehiculoDocs', { data: { camion_id: id, docs } });
+      if (!res || res.error || !res.success) {
+        const err = (res && res.error) || 'sin conexión';
+        showToast(/permiso|permission|DriveApp|auth\/drive/i.test(err) ? 'Falta autorizar Drive en Apps Script (ejecutá autorizarDrive y publicá una nueva versión).' : 'Error: ' + err, 'error');
+        return;
+      }
+      fila = res.row;
+    } else {
+      const prev = vehDocDe(id);
+      fila = { __ID__: prev.__ID__ || sgLocalId(), camion_id: String(id) };
+      VD_DOCS.forEach(d => {
+        fila[d.k + '_vence'] = docs[d.k].vence;
+        fila[d.k + '_foto_url'] = vdFotos[d.k] ? vdFotos[d.k] : (vdQuitar[d.k] ? '' : (prev[d.k + '_foto_url'] || ''));
+      });
+    }
+    const ix = vehDocsData.findIndex(r => String(r.camion_id) === String(id));
+    if (ix > -1) vehDocsData[ix] = fila; else vehDocsData.push(fila);
+    sgSave(); closeVehDoc(); renderVehDocs(); showToast('Documentación guardada ✓', 'success');
+  } finally { btn.disabled = false; btn.textContent = '💾 Guardar'; }
+}
+async function verVehDocFoto(camId, k) {
+  const c = camListaData.find(x => String(x.__ID__) === String(camId)); if (!c) return;
+  const d = VD_DOCS.find(x => x.k === k), r = vehDocDe(camId);
+  $a('vdFotoTitle').textContent = '🖼️ ' + d.n + ' · ' + camNom(c);
+  const body = $a('vdFotoBody');
+  const pinta = url => { body.innerHTML = url ? '<img src="' + url + '" alt="">' : 'Sin foto'; };
+  $a('vdFotoModal').classList.add('open');
+  if (API_URL) {
+    body.textContent = 'Cargando...';
+    const res = await apiCall('getVehiculoDocFoto', { camion_id: camId, tipo: k });
+    if (!res || res.error) { body.textContent = 'No se pudo cargar la foto: ' + ((res && res.error) || 'sin conexión'); return; }
+    pinta(res.dataUrl);
+  } else pinta(r[k + '_foto_url']);
+}
+
 // ═══════════════════════ ENLACE PÚBLICO: CHECKLIST DE CAMIONES ═══════════════════════
 const camPub = { emps: [], camiones: [], sel: null, resp: [], notas: [], busy: false, lista: [], fijo: false };
 function camPubMsg(tipo, txt) {
@@ -15655,10 +15965,10 @@ function distAutocompletar() {
 // ═══════════════════════════════════════════════════
 // RENDIMIENTO: render por pestaña, listas limitadas, buscadores con espera
 // ═══════════════════════════════════════════════════
-var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','camiones','velocidad','organigrama'];
+var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','camiones','velocidad','vehdocs','organigrama'];
 var _tabsDirty = new Set();
 // Pestañas que se vuelven a dibujar cada vez que se abren (igual que antes)
-var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, camiones:1, velocidad:1, organigrama:1, ropa:1 };
+var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, camiones:1, velocidad:1, vehdocs:1, organigrama:1, ropa:1 };
 var TAB_RENDER = {
   nomina:        function () { renderNomina(); renderStats(); renderFilters(); },
   analisis:      function () { renderAnalysis(); },
@@ -15678,6 +15988,7 @@ var TAB_RENDER = {
   equipos:       function () { renderEquipos(); },
   camiones:      function () { renderCamiones(); },
   velocidad:     function () { renderVelocidad(); },
+  vehdocs:       function () { renderVehDocs(); },
   organigrama:   function () { renderOrganigrama(); }
 };
 function renderTab(tab) {
