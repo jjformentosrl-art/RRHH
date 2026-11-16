@@ -15693,7 +15693,7 @@ async function verVehDocFoto(camId, k) {
   $a('vdFotoModal').classList.add('open');
   if (API_URL) {
     body.textContent = 'Cargando...';
-    const res = await apiCall('getVehiculoDocFoto', { camion_id: camId, tipo: k });
+    const res = await apiCall('getVehiculoDocFoto', { data: { camion_id: camId, tipo: k } });
     if (!res || res.error) { body.textContent = 'No se pudo cargar la foto: ' + ((res && res.error) || 'sin conexión'); return; }
     pinta(res.dataUrl);
   } else pinta(r[k + '_foto_url']);
