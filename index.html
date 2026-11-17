@@ -4487,8 +4487,8 @@ const WRITE_ACTIONS = [
   'addExcepcion','deleteExcepcion',
   'addVacacion','deleteVacacion',
   'addLicencia','deleteLicencia',
-  'addRopaEntrega','deleteRopaEntrega',
-  'addRopaIngreso','deleteRopaIngreso',
+  'addRopaEntrega','updateRopaEntrega','deleteRopaEntrega',
+  'addRopaIngreso','updateRopaIngreso','deleteRopaIngreso',
   'addLimpiezaManual','deleteLimpieza',
   'addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia',
   'addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan',
@@ -4661,7 +4661,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','deleteRopaEntrega','addRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones','addVelocidad','deleteVelocidad','saveVehiculoDocs','getVehiculoDocFoto'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','updateRopaEntrega','deleteRopaEntrega','addRopaIngreso','updateRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones','addVelocidad','deleteVelocidad','saveVehiculoDocs','getVehiculoDocFoto'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -4704,8 +4704,10 @@ function handleRequest(e) {
     else if (action === 'addLicencia')         result = addLicencia(body.data);
     else if (action === 'deleteLicencia')      result = deleteRow('LICENCIAS', body.id);
     else if (action === 'addRopaEntrega')      result = addRow('ROPA_ENTREGAS', body.data);
+    else if (action === 'updateRopaEntrega')   result = updateRow('ROPA_ENTREGAS', body.id, body.data);
     else if (action === 'deleteRopaEntrega')   result = deleteRow('ROPA_ENTREGAS', body.id);
     else if (action === 'addRopaIngreso')      result = addRow('ROPA_INGRESOS', body.data);
+    else if (action === 'updateRopaIngreso')   result = updateRow('ROPA_INGRESOS', body.id, body.data);
     else if (action === 'deleteRopaIngreso')   result = deleteRow('ROPA_INGRESOS', body.id);
     else if (action === 'getLimpiezaKiosk')    result = getLimpiezaKiosk(body.data);
     else if (action === 'addLimpieza')         result = addLimpieza(body.data);
