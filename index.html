@@ -2255,6 +2255,7 @@
       <div class="desempeño-tabs" id="eqTabs" style="flex-shrink:0">
         <button class="dtab active" onclick="sgTab('eq','estado',this)">📊 Estado hoy</button>
         <button class="dtab" onclick="sgTab('eq','resp',this)">👥 Responsables</button>
+        <button class="dtab" onclick="sgTab('eq','cump',this)">📈 Cumplimiento</button>
         <button class="dtab" onclick="sgTab('eq','controles',this)">📋 Controles</button>
         <button class="dtab" onclick="sgTab('eq','plan',this)">🎯 Plan de Acción</button>
         <button class="dtab" onclick="sgTab('eq','lista',this)">🚜 Equipos</button>
@@ -2287,6 +2288,35 @@
               <thead><tr><th>Responsable</th><th>Equipo</th><th>Check-in del día</th><th>Hora</th><th>Resultado</th><th>Cambiar responsable</th></tr></thead>
               <tbody id="eqRTbody"></tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="dpanel eq-p" id="eqp-cump">
+        <div class="aud-scroll">
+          <div class="link-box" style="font-family:inherit;margin-bottom:12px">📈 % de cumplimiento del checklist diario por responsable. Se cuentan solo los <b>días hábiles</b> (lunes a viernes, sin feriados). No se descuentan al empleado: los días en que el equipo estuvo <b>fuera de servicio</b> ni los días en que el empleado estuvo de <b>vacaciones o licencia</b>. Hoy no cuenta como falta hasta que se haga el check.</div>
+          <div class="toolbar" style="padding-left:0">
+            <label style="font-size:13px;color:var(--text2);font-weight:600">📅 Mes:</label>
+            <input type="month" class="filter-select" id="eqCMes" onchange="renderEqCump()" style="max-width:170px">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('eqCMes').value=licHoyISO().slice(0,7);renderEqCump()">Este mes</button>
+            <button class="btn btn-secondary" style="margin-left:auto" onclick="exportEqCumpCSV()">⬇ CSV</button>
+          </div>
+          <div class="stats" id="eqCuStats"></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Responsable</th><th>Equipo(s)</th><th>Días hábiles</th><th>Fuera de servicio (no cuentan)</th><th>Días a controlar</th><th>Check realizado</th><th>Sin check</th><th>% Cumplimiento</th><th>Días sin check</th></tr></thead>
+              <tbody id="eqCuTbody"></tbody>
+            </table>
+          </div>
+          <div class="link-box" style="font-family:inherit;margin-top:12px">
+            <div style="font-weight:700;margin-bottom:6px">🗓️ Feriados / días no laborables</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Fechas AAAA-MM-DD separadas por coma. También se tienen en cuenta los feriados cargados en el Plan de Limpieza.</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <input type="text" id="eqCuFeriados" class="filter-select" style="flex:1;min-width:220px" placeholder="Ej: 2026-11-23, 2026-12-08, 2026-12-25">
+              <button class="btn btn-primary btn-sm" onclick="eqFeriadosGuardar()">Guardar</button>
+              <button class="btn btn-secondary btn-sm" onclick="eqFeriadosCargar2026()">Cargar feriados nacionales 2026</button>
+            </div>
+            <div style="font-size:11.5px;color:var(--text3);margin-top:6px">El botón carga los feriados nacionales de 2026 (sin los 3 “puentes” turísticos: 23/3, 10/7 y 7/12). Si en la empresa esos días no se trabajan, agregalos a mano.</div>
           </div>
         </div>
       </div>
@@ -14686,6 +14716,7 @@ function renderEquipos() {
   audFillSelect('eqCFEquipo', 'Todos los equipos', [...new Set(equiposListaData.map(e => e.nombre).filter(Boolean))].sort());
   renderEqEstado();
   renderEqResp();
+  renderEqCump();
   renderEqControles();
   renderSgPlan('eq');
   renderEqLista();
@@ -14808,6 +14839,10 @@ async function eqResolucion(id, estado) {
     if (res?.error) { showToast('Error: ' + res.error, 'error'); return; }
   }
   c.resolucion = estado; sgSave();
+  // Se guarda la fecha en que se resolvió, para saber hasta cuándo el equipo estuvo fuera de servicio (cálculo de cumplimiento)
+  const fsm = eqFsResueltoMap();
+  if (estado === 'Resuelto') fsm[String(c.__ID__)] = licHoyISO(); else delete fsm[String(c.__ID__)];
+  await eqCfgGuardar('eq_fs_resuelto', JSON.stringify(fsm));
   $a('eqDetailModal').classList.remove('open');
   renderEquipos();
   showToast(estado === 'Resuelto' ? 'Falla marcada como resuelta ✓' : 'Falla reabierta ✓', 'success');
@@ -14902,6 +14937,137 @@ function exportEqRespCSV() {
   const { dia, vista } = eqRespFilas();
   sgCSV('responsables_checklist_' + dia + '.csv', ['Fecha', 'Responsable', 'Equipo', 'Tipo', 'Check-in', 'Hora', 'Resultado', 'Lo hizo'],
     vista.map(f => [dia, f.resp || 'Sin asignar', f.e.nombre, f.e.tipo || '', f.fs && !f.hecho ? 'Equipo en mal estado (fuera de servicio)' : f.hecho ? 'Check-in realizado' : 'No realizó check-in', f.c ? f.c.hora : '', f.c ? f.c.resultado : '', f.c ? f.c.operario : '']));
+}
+
+// ── Cumplimiento del checklist por responsable ──
+async function eqCfgGuardar(key, valor) {
+  if (API_URL) {
+    const res = await apiCall('saveConfig', { data: { [key]: valor } });
+    if (res?.error) { showToast('Error: ' + res.error, 'error'); return false; }
+  }
+  configData = { ...configData, [key]: valor };
+  if (!API_URL) { try { localStorage.setItem('rrhh_config', JSON.stringify(configData)); } catch (e) {} }
+  return true;
+}
+function eqFsResueltoMap() {
+  try { const m = JSON.parse((configData && configData.eq_fs_resuelto) || '{}'); return (m && typeof m === 'object') ? m : {}; } catch (e) { return {}; }
+}
+function eqFeriadosSet() {
+  const txt = ((configData && configData.eq_feriados) || '') + ',' + ((configData && configData.limpieza_feriados) || '');
+  return new Set(txt.split(/[\s,;]+/).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)));
+}
+async function eqFeriadosGuardar() {
+  const lista = ($a('eqCuFeriados').value || '').split(/[\s,;]+/).filter(Boolean);
+  if (lista.some(x => !/^\d{4}-\d{2}-\d{2}$/.test(x))) { showToast('Los feriados deben tener formato AAAA-MM-DD', 'error'); return; }
+  if (await eqCfgGuardar('eq_feriados', [...new Set(lista)].sort().join(','))) { showToast('Feriados guardados ✓', 'success'); renderEqCump(); }
+}
+function eqFeriadosCargar2026() {
+  const base = ['2026-01-01','2026-02-16','2026-02-17','2026-03-24','2026-04-02','2026-04-03','2026-05-01','2026-05-25','2026-06-15','2026-07-09','2026-08-17','2026-10-12','2026-11-23','2026-12-08','2026-12-25'];
+  const actual = ($a('eqCuFeriados').value || '').split(/[\s,;]+/).filter(Boolean);
+  $a('eqCuFeriados').value = [...new Set([...actual, ...base])].sort().join(', ');
+  showToast('Feriados cargados: revisalos y tocá “Guardar”', 'success');
+}
+function eqSumDia(iso, n) {
+  const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + licPad(d.getMonth() + 1) + '-' + licPad(d.getDate());
+}
+// Períodos en que un equipo estuvo fuera de servicio: desde el día siguiente a un control "Fuera de servicio"
+// hasta que (a) hay un control posterior que no es fuera de servicio, (b) se marcó "Resuelto" (fecha guardada) o
+// (c) se cerró su plan de acción. Si no hay ninguna de esas fechas, sigue fuera de servicio (no se penaliza al empleado).
+function eqFsPeriodos(equipoId) {
+  const ctrls = equipoControlesData.filter(c => String(c.equipo_id) === String(equipoId))
+    .sort((a, b) => (licDia(a.fecha) + ' ' + String(a.hora || '')).localeCompare(licDia(b.fecha) + ' ' + String(b.hora || '')));
+  const fsm = eqFsResueltoMap(), out = [];
+  ctrls.forEach((c, i) => {
+    if (c.resultado !== 'Fuera de servicio') return;
+    const desde = licDia(c.fecha);
+    const cand = [];
+    const sig = ctrls.slice(i + 1).find(x => x.resultado !== 'Fuera de servicio' && licDia(x.fecha) > desde);
+    if (sig) cand.push(licDia(sig.fecha));                       // ese día ya vuelve a controlarse
+    if (c.resolucion === 'Resuelto') {
+      if (fsm[String(c.__ID__)]) cand.push(eqSumDia(licDia(fsm[String(c.__ID__)]), 1));   // se cuenta hasta el día de resolución inclusive
+      const pl = eqPlanDe(c);
+      if (pl && pl.fecha_cierre) cand.push(eqSumDia(licDia(pl.fecha_cierre), 1));
+    }
+    out.push({ desde, hasta: cand.length ? cand.sort()[0] : null });   // días con desde < día < hasta
+  });
+  return out;
+}
+function eqCumpCalc(mes) {
+  const hoy = licHoyISO(), fer = eqFeriadosSet();
+  const [Y, M] = mes.split('-').map(Number);
+  const ultimo = new Date(Y, M, 0).getDate();
+  const dias = [];
+  for (let d = 1; d <= ultimo; d++) {
+    const iso = Y + '-' + licPad(M) + '-' + licPad(d), dow = new Date(Y, M - 1, d).getDay();
+    if (dow === 0 || dow === 6 || fer.has(iso) || iso > hoy) continue;
+    dias.push(iso);
+  }
+  const ausente = (nombre, dia) => {
+    const n = kioskNormalizar(nombre);
+    return vacacionesData.some(v => kioskNormalizar(v.empleado) === n && licDia(v.fecha_desde) <= dia && licDia(v.fecha_hasta) >= dia)
+        || licenciasData.some(l => kioskNormalizar(l.empleado) === n && licDia(l.fecha_desde) <= dia && licDia(l.fecha_hasta) >= dia);
+  };
+  const porResp = {};
+  equiposListaData.filter(e => e.activo !== 'No').forEach(e => {
+    const resp = eqRespOf(e.__ID__); if (!resp) return;
+    const hechos = new Set(equipoControlesData.filter(c => String(c.equipo_id) === String(e.__ID__)).map(c => licDia(c.fecha)));
+    const per = eqFsPeriodos(e.__ID__);
+    const r = porResp[resp] || (porResp[resp] = { resp, equipos: [], habiles: dias.length, aCont: 0, hechos: 0, fs: 0, aus: 0, faltan: [] });
+    r.equipos.push(e.nombre);
+    dias.forEach(dia => {
+      if (hechos.has(dia)) { r.aCont++; r.hechos++; return; }        // se hizo el check ese día
+      if (dia === hoy) return;                                       // hoy todavía no es falta
+      if (per.some(p => dia > p.desde && (!p.hasta || dia < p.hasta))) { r.fs++; return; }   // equipo fuera de servicio: no cuenta
+      if (ausente(resp, dia)) { r.aus++; return; }                   // vacaciones / licencia: no cuenta
+      r.aCont++; r.faltan.push(dia);
+    });
+  });
+  const filas = Object.values(porResp).map(r => ({ ...r, pct: r.aCont ? Math.round(r.hechos / r.aCont * 1000) / 10 : null }));
+  filas.sort((a, b) => (a.pct === null) - (b.pct === null) || (a.pct - b.pct) || a.resp.localeCompare(b.resp));
+  return { mes, dias, filas };
+}
+function renderEqCump() {
+  const tb = $a('eqCuTbody'); if (!tb) return;
+  const inp = $a('eqCMes');
+  if (inp && !inp.value) inp.value = licHoyISO().slice(0, 7);
+  const fi = $a('eqCuFeriados');
+  if (fi && document.activeElement !== fi) fi.value = ((configData && configData.eq_feriados) || '').split(/[\s,;]+/).filter(Boolean).join(', ');
+  const { dias, filas } = eqCumpCalc((inp && inp.value) || licHoyISO().slice(0, 7));
+  const tot = filas.reduce((a, f) => ({ h: a.h + f.hechos, c: a.c + f.aCont }), { h: 0, c: 0 });
+  const prom = tot.c ? Math.round(tot.h / tot.c * 1000) / 10 : null;
+  const cien = filas.filter(f => f.pct === 100).length, bajos = filas.filter(f => f.pct !== null && f.pct < 80).length;
+  $a('eqCuStats').innerHTML =
+    sgCard('📈', prom === null ? '—' : prom.toString().replace('.', ',') + '%', 'Cumplimiento general', prom === null ? '' : prom >= 90 ? 'var(--success)' : prom >= 70 ? 'var(--warning)' : 'var(--danger)') +
+    sgCard('👤', filas.length, 'Responsables evaluados') +
+    sgCard('🏆', cien, 'Con 100%', cien ? 'var(--success)' : '') +
+    sgCard('⚠️', bajos, 'Por debajo del 80%', bajos ? 'var(--danger)' : '') +
+    sgCard('🗓️', dias.length, 'Días hábiles considerados');
+  if (!filas.length) { tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="icon">👥</div><p>Todavía no hay responsables asignados. Asignalos en la pestaña “Responsables”.</p></div></td></tr>'; return; }
+  const fmtD = d => d.slice(8, 10) + '/' + d.slice(5, 7);
+  tb.innerHTML = filas.map(f => {
+    const cls = f.pct === null ? 'badge-gray' : f.pct >= 90 ? 'badge-green' : f.pct >= 70 ? 'badge-yellow' : 'badge-red';
+    const fu = [...new Set(f.faltan)].sort();
+    const falt = fu.length ? fu.slice(0, 10).map(fmtD).join(', ') + (fu.length > 10 ? ' (+' + (fu.length - 10) + ')' : '') : '—';
+    return `<tr>
+      <td><strong>${licEsc(f.resp)}</strong>${f.aus ? `<div style="font-size:11px;color:var(--text3)">${f.aus} día(s) de vacaciones/licencia no cuentan</div>` : ''}</td>
+      <td>${f.equipos.map(licEsc).join('<br>')}</td>
+      <td>${f.habiles}</td>
+      <td>${f.fs ? `<span class="badge badge-red">⛔ ${f.fs}</span>` : '0'}</td>
+      <td>${f.aCont}</td>
+      <td>${f.hechos}</td>
+      <td>${f.faltan.length}</td>
+      <td><span class="badge ${cls}">${f.pct === null ? 'Sin días a controlar' : String(f.pct).replace('.', ',') + '%'}</span></td>
+      <td style="font-size:12px;color:var(--text2);max-width:240px">${falt}</td>
+    </tr>`;
+  }).join('') + `<tr><td colspan="9" style="font-size:11.5px;color:var(--text3)">% = checks realizados ÷ días a controlar (días hábiles − días con el equipo fuera de servicio − vacaciones/licencia). Un check hecho por cualquier operario cuenta para el responsable del equipo. Si un responsable tiene varios equipos, los días se suman.</td></tr>`;
+}
+function exportEqCumpCSV() {
+  const mes = ($a('eqCMes') && $a('eqCMes').value) || licHoyISO().slice(0, 7);
+  const { filas } = eqCumpCalc(mes);
+  sgCSV('cumplimiento_checklist_equipos_' + mes + '.csv',
+    ['Mes', 'Responsable', 'Equipos', 'Días hábiles', 'Días fuera de servicio (no cuentan)', 'Días vacaciones/licencia (no cuentan)', 'Días a controlar', 'Check realizado', 'Sin check', '% Cumplimiento', 'Días sin check'],
+    filas.map(f => [mes, f.resp, f.equipos.join(' / '), f.habiles, f.fs, f.aus, f.aCont, f.hechos, f.faltan.length, f.pct === null ? '' : String(f.pct).replace('.', ','), [...new Set(f.faltan)].sort().join(' ')]));
 }
 
 // ── Lista de equipos ──
