@@ -15037,12 +15037,14 @@ function eqCumpCalc(mes) {
     const resp = eqRespOf(e.__ID__); if (!resp) return;
     const hechos = new Set(equipoControlesData.filter(c => String(c.equipo_id) === String(e.__ID__)).map(c => licDia(c.fecha)));
     const per = eqFsPeriodos(e.__ID__);
-    const r = porResp[resp] || (porResp[resp] = { resp, equipos: [], habiles: dias.length, aCont: 0, hechos: 0, fs: 0, su: 0, aus: 0, faltan: [] });
+    const r = porResp[resp] || (porResp[resp] = { resp, equipos: [], habiles: dias.length, aCont: 0, hechos: 0, fs: 0, su: 0, aus: 0, faltan: [], fsAct: [] });
     r.equipos.push(e.nombre);
+    if (mes === hoy.slice(0, 7) && per.some(p => hoy > p.desde && (!p.hasta || hoy < p.hasta))) r.fsAct.push(e.nombre);   // fuera de servicio actualmente
     dias.forEach(dia => {
       if (hechos.has(dia)) { r.aCont++; r.hechos++; return; }        // se hizo el check ese día
-      if (dia === hoy) return;                                       // hoy todavía no es falta
-      if (per.some(p => dia > p.desde && (!p.hasta || dia < p.hasta))) { r.fs++; return; }   // equipo fuera de servicio: no cuenta
+      const enFS = per.some(p => dia > p.desde && (!p.hasta || dia < p.hasta));
+      if (dia === hoy) { if (enFS) r.fs++; return; }                 // hoy todavía no es falta (pero si está fuera de servicio se muestra)
+      if (enFS) { r.fs++; return; }                                  // equipo fuera de servicio: no cuenta
       if (eqSinUso(e.__ID__, dia)) { r.su++; return; }                // equipo sin uso esa jornada: no cuenta
       if (ausente(resp, dia)) { r.aus++; return; }                   // vacaciones / licencia: no cuenta
       r.aCont++; r.faltan.push(dia);
@@ -15078,7 +15080,7 @@ function renderEqCump() {
       <td><strong>${licEsc(f.resp)}</strong>${f.su ? `<div style="font-size:11px;color:var(--text3)">${f.su} día(s) con equipo sin uso no cuentan</div>` : ''}${f.aus ? `<div style="font-size:11px;color:var(--text3)">${f.aus} día(s) de vacaciones/licencia no cuentan</div>` : ''}</td>
       <td>${f.equipos.map(licEsc).join('<br>')}</td>
       <td>${f.habiles}</td>
-      <td>${f.fs ? `<span class="badge badge-red">⛔ ${f.fs}</span>` : '0'}</td>
+      <td>${f.fs ? `<span class="badge badge-red">⛔ ${f.fs}</span>` : '0'}${f.fsAct.length ? `<div style="font-size:11px;color:var(--danger);font-weight:600;margin-top:2px">${f.fsAct.map(licEsc).join(', ')}: fuera de servicio actualmente</div>` : ''}</td>
       <td>${f.aCont}</td>
       <td>${f.hechos}</td>
       <td>${f.faltan.length}</td>
