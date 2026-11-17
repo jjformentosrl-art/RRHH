@@ -2277,7 +2277,7 @@
             <input type="date" class="filter-select" id="eqRDia" onchange="renderEqResp()" style="max-width:160px">
             <button class="btn btn-secondary btn-sm" onclick="document.getElementById('eqRDia').value=licHoyISO();renderEqResp()">Hoy</button>
             <select class="filter-select" id="eqRFEstado" onchange="renderEqResp()">
-              <option value="">Todos</option><option value="ok">Check-in realizado</option><option value="no">No realizó check-in</option><option value="fs">Fuera de servicio</option>
+              <option value="">Todos</option><option value="ok">Check-in realizado</option><option value="no">No realizó check-in</option><option value="fs">Fuera de servicio</option><option value="su">Sin uso en la jornada</option>
             </select>
             <button class="btn btn-primary" style="margin-left:auto" onclick="eqRespGenerarImagen()">🖼️ Imagen para WhatsApp</button>
             <button class="btn btn-secondary" onclick="exportEqRespCSV()">⬇ CSV</button>
@@ -2294,7 +2294,7 @@
 
       <div class="dpanel eq-p" id="eqp-cump">
         <div class="aud-scroll">
-          <div class="link-box" style="font-family:inherit;margin-bottom:12px">📈 % de cumplimiento del checklist diario por responsable. Se cuentan solo los <b>días hábiles</b> (lunes a viernes, sin feriados). No se descuentan al empleado: los días en que el equipo estuvo <b>fuera de servicio</b> ni los días en que el empleado estuvo de <b>vacaciones o licencia</b>. Hoy no cuenta como falta hasta que se haga el check.</div>
+          <div class="link-box" style="font-family:inherit;margin-bottom:12px">📈 % de cumplimiento del checklist diario por responsable. Se cuentan solo los <b>días hábiles</b> (lunes a viernes, sin feriados). No se descuentan al empleado: los días en que el equipo estuvo <b>fuera de servicio</b>, los días marcados como <b>sin uso</b> (desde la pestaña Responsables) ni los días en que el empleado estuvo de <b>vacaciones o licencia</b>. Hoy no cuenta como falta hasta que se haga el check.</div>
           <div class="toolbar" style="padding-left:0">
             <label style="font-size:13px;color:var(--text2);font-weight:600">📅 Mes:</label>
             <input type="month" class="filter-select" id="eqCMes" onchange="renderEqCump()" style="max-width:170px">
@@ -14730,10 +14730,11 @@ function renderEqEstado() {
   const activos = equiposListaData.filter(e => e.activo !== 'No');
   const info = activos.map(e => {
     const ult = eqUltimo(e.__ID__);
-    return { e, ult, est: eqEstadoActual(ult), hoy: equipoControlesData.some(c => String(c.equipo_id) === String(e.__ID__) && licDia(c.fecha) === hoy) };
+    const hechoHoy = equipoControlesData.some(c => String(c.equipo_id) === String(e.__ID__) && licDia(c.fecha) === hoy);
+    return { e, ult, est: eqEstadoActual(ult), hoy: hechoHoy, su: !hechoHoy && eqSinUso(e.__ID__, hoy) };
   });
   const abiertas = equipoControlesData.filter(c => c.resolucion === 'Abierto').length;
-  const sinHoy = info.filter(i => !i.hoy && i.est.k !== 'fs').length, fs = info.filter(i => i.est.k === 'fs').length;
+  const sinHoy = info.filter(i => !i.hoy && i.est.k !== 'fs' && !i.su).length, fs = info.filter(i => i.est.k === 'fs').length;
   $a('eqStats').innerHTML =
     sgCard('🚜', activos.length, 'Equipos activos') +
     sgCard('✅', info.filter(i => i.hoy).length + ' / ' + activos.length, 'Controlados hoy') +
@@ -14748,7 +14749,7 @@ function renderEqEstado() {
     <h4>${i.est.ico} ${licEsc(i.e.nombre)}</h4>
     <div class="sub">${licEsc(i.e.tipo || '')} · <b>${i.est.txt}</b></div>
     <div class="sub">👤 Responsable: ${eqRespOf(i.e.__ID__) ? licEsc(eqRespOf(i.e.__ID__)) : '<i>sin asignar</i>'}</div>
-    <div class="sub">${i.hoy ? '✅ Check-in realizado hoy' : i.est.k === 'fs' ? '⛔ Equipo en mal estado (fuera de servicio)' : '❌ No realizó check-in hoy'}${i.ult ? '<br>Último: ' + fmtDate(i.ult.fecha) + ' ' + licEsc(i.ult.hora || '') + ' · ' + licEsc(i.ult.operario) : ''}</div>
+    <div class="sub">${i.hoy ? '✅ Check-in realizado hoy' : i.est.k === 'fs' ? '⛔ Equipo en mal estado (fuera de servicio)' : i.su ? '⚪ Sin uso hoy (no requiere check)' : '❌ No realizó check-in hoy'}${i.ult ? '<br>Último: ' + fmtDate(i.ult.fecha) + ' ' + licEsc(i.ult.hora || '') + ' · ' + licEsc(i.ult.operario) : ''}</div>
     <div style="margin-top:8px">${i.ult ? `<button class="btn btn-secondary btn-sm" onclick="eqVer('${i.ult.__ID__}')">👁 Último control</button> ` : ''}
       <button class="btn btn-secondary btn-sm" onclick="eqImprimirQR('${i.e.__ID__}')">🖨️ QR del equipo</button></div>
   </div>`).join('');
@@ -14897,23 +14898,25 @@ function eqRespFilas() {
     // Estado del equipo a la fecha mostrada: último control hasta ese día (si el último fue "Fuera de servicio" sin resolver, sigue roto)
     const ult = sgOrdenFecha(equipoControlesData.filter(x => String(x.equipo_id) === String(e.__ID__) && licDia(x.fecha) <= dia))[0] || null;
     const fs = eqEstadoActual(ult).k === 'fs';
-    return { e, resp: eqRespOf(e.__ID__), c, hecho: !!c, fs, fsDesde: fs ? ult.fecha : '' };
+    const su = !c && !fs && eqSinUso(e.__ID__, dia);   // sin uso en la jornada (si igual se hizo el check, vale el check)
+    return { e, resp: eqRespOf(e.__ID__), c, hecho: !!c, fs, su, fsDesde: fs ? ult.fecha : '' };
   });
-  // Los equipos fuera de servicio van al final del listado
-  filas.sort((a, b) => (a.fs - b.fs) || (a.resp || '~').localeCompare(b.resp || '~', undefined, { numeric: true }) || String(a.e.nombre).localeCompare(String(b.e.nombre), undefined, { numeric: true }));
-  return { dia, filas, vista: filas.filter(f => !fe || (fe === 'ok' ? (f.hecho && !f.fs) : fe === 'fs' ? f.fs : (!f.hecho && !f.fs))) };
+  // Al final del listado: primero los sin uso, después los fuera de servicio
+  filas.sort((a, b) => ((a.fs ? 2 : a.su ? 1 : 0) - (b.fs ? 2 : b.su ? 1 : 0)) || (a.resp || '~').localeCompare(b.resp || '~', undefined, { numeric: true }) || String(a.e.nombre).localeCompare(String(b.e.nombre), undefined, { numeric: true }));
+  return { dia, filas, vista: filas.filter(f => !fe || (fe === 'ok' ? (f.hecho && !f.fs) : fe === 'fs' ? f.fs : fe === 'su' ? f.su : (!f.hecho && !f.fs && !f.su))) };
 }
 function renderEqResp() {
   const tb = $a('eqRTbody'); if (!tb) return;
   const { dia, filas, vista } = eqRespFilas();
   const fsN = filas.filter(f => f.fs).length;
-  const hechos = filas.filter(f => f.hecho && !f.fs).length, pend = filas.filter(f => !f.hecho && !f.fs).length;
+  const hechos = filas.filter(f => f.hecho && !f.fs).length, pend = filas.filter(f => !f.hecho && !f.fs && !f.su).length, suN = filas.filter(f => f.su).length;
   const sinResp = filas.filter(f => !f.resp).length;
   $a('eqRStats').innerHTML =
     sgCard('🚜', filas.length, 'Equipos activos') +
     sgCard('✅', hechos, 'Check-in realizado', hechos ? 'var(--success)' : '') +
     sgCard('❌', pend, 'No realizó check-in', pend ? 'var(--danger)' : '') +
     sgCard('⛔', fsN, 'Fuera de servicio', fsN ? 'var(--danger)' : '') +
+    sgCard('⚪', suN, 'Sin uso en la jornada') +
     sgCard('👤', sinResp, 'Equipos sin responsable', sinResp ? 'var(--warning)' : '');
   if (!filas.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="icon">🚜</div><p>Todavía no cargaste equipos</p></div></td></tr>'; return; }
   if (!vista.length) { tb.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="icon">🔎</div><p>No hay equipos con ese filtro</p></div></td></tr>'; return; }
@@ -14922,7 +14925,9 @@ function renderEqResp() {
     const otro = f.c && f.resp && f.c.operario && kioskNormalizar(f.c.operario) !== kioskNormalizar(f.resp) ? `<div style="font-size:11px;color:var(--text3)">lo hizo: ${licEsc(f.c.operario)}</div>` : '';
     const celda = f.fs && !f.hecho
       ? `<span class="badge badge-red">⛔ Equipo en mal estado (fuera de servicio)</span><div style="font-size:11px;color:var(--text3)">Sin check-in: equipo no operativo desde ${fmtDate(f.fsDesde)}</div>`
-      : `<span class="badge ${f.hecho ? 'badge-green' : 'badge-red'}">${f.hecho ? '✅ Check-in realizado' : '❌ No realizó check-in'}</span>${otro}`;
+      : f.su
+      ? `<span class="badge badge-gray">⚪ Equipo sin uso en la jornada</span><div style="font-size:11px;color:var(--text3)">No requiere check · no afecta el cumplimiento</div><button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="eqSinUsoToggle('${licEsc(String(f.e.__ID__))}','${dia}')">↩ Quitar “sin uso”</button>`
+      : `<span class="badge ${f.hecho ? 'badge-green' : 'badge-red'}">${f.hecho ? '✅ Check-in realizado' : '❌ No realizó check-in'}</span>${otro}${f.hecho ? '' : `<div><button class="btn btn-secondary btn-sm" style="margin-top:4px" onclick="eqSinUsoToggle('${licEsc(String(f.e.__ID__))}','${dia}')">⚪ Marcar sin uso</button></div>`}`;
     return `<tr${f.fs ? ' style="background:rgba(220,38,38,.06)"' : ''}>
       <td><strong>${f.resp ? licEsc(f.resp) : '<span style="color:var(--warning)">Sin asignar</span>'}</strong></td>
       <td>${licEsc(f.e.nombre)}<div style="font-size:11px;color:var(--text3)">${licEsc(f.e.tipo || '')}</div></td>
@@ -14936,7 +14941,26 @@ function renderEqResp() {
 function exportEqRespCSV() {
   const { dia, vista } = eqRespFilas();
   sgCSV('responsables_checklist_' + dia + '.csv', ['Fecha', 'Responsable', 'Equipo', 'Tipo', 'Check-in', 'Hora', 'Resultado', 'Lo hizo'],
-    vista.map(f => [dia, f.resp || 'Sin asignar', f.e.nombre, f.e.tipo || '', f.fs && !f.hecho ? 'Equipo en mal estado (fuera de servicio)' : f.hecho ? 'Check-in realizado' : 'No realizó check-in', f.c ? f.c.hora : '', f.c ? f.c.resultado : '', f.c ? f.c.operario : '']));
+    vista.map(f => [dia, f.resp || 'Sin asignar', f.e.nombre, f.e.tipo || '', f.fs && !f.hecho ? 'Equipo en mal estado (fuera de servicio)' : f.su ? 'Equipo sin uso en la jornada' : f.hecho ? 'Check-in realizado' : 'No realizó check-in', f.c ? f.c.hora : '', f.c ? f.c.resultado : '', f.c ? f.c.operario : '']));
+}
+
+// ── Equipos "sin uso" en una jornada (no se exige check ni afecta el cumplimiento) ──
+// Se guarda en CONFIG, clave "eq_sin_uso": {"AAAA-MM-DD": [equipoId, ...]}
+function eqSinUsoMap() {
+  try { const m = JSON.parse((configData && configData.eq_sin_uso) || '{}'); return (m && typeof m === 'object') ? m : {}; } catch (e) { return {}; }
+}
+function eqSinUso(id, dia) { const a = eqSinUsoMap()[dia]; return Array.isArray(a) && a.indexOf(String(id)) !== -1; }
+async function eqSinUsoToggle(id, dia) {
+  const m = eqSinUsoMap(), arr = Array.isArray(m[dia]) ? m[dia].slice() : [], i = arr.indexOf(String(id));
+  const marcar = i === -1;
+  if (marcar) arr.push(String(id)); else arr.splice(i, 1);
+  if (arr.length) m[dia] = arr; else delete m[dia];
+  const lim = eqSumDia(licHoyISO(), -400);   // se conserva más de un año de historial
+  Object.keys(m).forEach(k => { if (k < lim) delete m[k]; });
+  if (!(await eqCfgGuardar('eq_sin_uso', JSON.stringify(m)))) return;
+  renderEquipos();
+  const e = equiposListaData.find(x => String(x.__ID__) === String(id));
+  showToast(marcar ? (e ? e.nombre : 'Equipo') + ': sin uso el ' + fmtDate(dia) + ' ✓' : 'Marca de sin uso quitada ✓', 'success');
 }
 
 // ── Cumplimiento del checklist por responsable ──
@@ -15013,12 +15037,13 @@ function eqCumpCalc(mes) {
     const resp = eqRespOf(e.__ID__); if (!resp) return;
     const hechos = new Set(equipoControlesData.filter(c => String(c.equipo_id) === String(e.__ID__)).map(c => licDia(c.fecha)));
     const per = eqFsPeriodos(e.__ID__);
-    const r = porResp[resp] || (porResp[resp] = { resp, equipos: [], habiles: dias.length, aCont: 0, hechos: 0, fs: 0, aus: 0, faltan: [] });
+    const r = porResp[resp] || (porResp[resp] = { resp, equipos: [], habiles: dias.length, aCont: 0, hechos: 0, fs: 0, su: 0, aus: 0, faltan: [] });
     r.equipos.push(e.nombre);
     dias.forEach(dia => {
       if (hechos.has(dia)) { r.aCont++; r.hechos++; return; }        // se hizo el check ese día
       if (dia === hoy) return;                                       // hoy todavía no es falta
       if (per.some(p => dia > p.desde && (!p.hasta || dia < p.hasta))) { r.fs++; return; }   // equipo fuera de servicio: no cuenta
+      if (eqSinUso(e.__ID__, dia)) { r.su++; return; }                // equipo sin uso esa jornada: no cuenta
       if (ausente(resp, dia)) { r.aus++; return; }                   // vacaciones / licencia: no cuenta
       r.aCont++; r.faltan.push(dia);
     });
@@ -15050,7 +15075,7 @@ function renderEqCump() {
     const fu = [...new Set(f.faltan)].sort();
     const falt = fu.length ? fu.slice(0, 10).map(fmtD).join(', ') + (fu.length > 10 ? ' (+' + (fu.length - 10) + ')' : '') : '—';
     return `<tr>
-      <td><strong>${licEsc(f.resp)}</strong>${f.aus ? `<div style="font-size:11px;color:var(--text3)">${f.aus} día(s) de vacaciones/licencia no cuentan</div>` : ''}</td>
+      <td><strong>${licEsc(f.resp)}</strong>${f.su ? `<div style="font-size:11px;color:var(--text3)">${f.su} día(s) con equipo sin uso no cuentan</div>` : ''}${f.aus ? `<div style="font-size:11px;color:var(--text3)">${f.aus} día(s) de vacaciones/licencia no cuentan</div>` : ''}</td>
       <td>${f.equipos.map(licEsc).join('<br>')}</td>
       <td>${f.habiles}</td>
       <td>${f.fs ? `<span class="badge badge-red">⛔ ${f.fs}</span>` : '0'}</td>
@@ -15060,14 +15085,14 @@ function renderEqCump() {
       <td><span class="badge ${cls}">${f.pct === null ? 'Sin días a controlar' : String(f.pct).replace('.', ',') + '%'}</span></td>
       <td style="font-size:12px;color:var(--text2);max-width:240px">${falt}</td>
     </tr>`;
-  }).join('') + `<tr><td colspan="9" style="font-size:11.5px;color:var(--text3)">% = checks realizados ÷ días a controlar (días hábiles − días con el equipo fuera de servicio − vacaciones/licencia). Un check hecho por cualquier operario cuenta para el responsable del equipo. Si un responsable tiene varios equipos, los días se suman.</td></tr>`;
+  }).join('') + `<tr><td colspan="9" style="font-size:11.5px;color:var(--text3)">% = checks realizados ÷ días a controlar (días hábiles − días con el equipo fuera de servicio − días marcados “sin uso” − vacaciones/licencia). Un check hecho por cualquier operario cuenta para el responsable del equipo. Si un responsable tiene varios equipos, los días se suman.</td></tr>`;
 }
 function exportEqCumpCSV() {
   const mes = ($a('eqCMes') && $a('eqCMes').value) || licHoyISO().slice(0, 7);
   const { filas } = eqCumpCalc(mes);
   sgCSV('cumplimiento_checklist_equipos_' + mes + '.csv',
-    ['Mes', 'Responsable', 'Equipos', 'Días hábiles', 'Días fuera de servicio (no cuentan)', 'Días vacaciones/licencia (no cuentan)', 'Días a controlar', 'Check realizado', 'Sin check', '% Cumplimiento', 'Días sin check'],
-    filas.map(f => [mes, f.resp, f.equipos.join(' / '), f.habiles, f.fs, f.aus, f.aCont, f.hechos, f.faltan.length, f.pct === null ? '' : String(f.pct).replace('.', ','), [...new Set(f.faltan)].sort().join(' ')]));
+    ['Mes', 'Responsable', 'Equipos', 'Días hábiles', 'Días fuera de servicio (no cuentan)', 'Días equipo sin uso (no cuentan)', 'Días vacaciones/licencia (no cuentan)', 'Días a controlar', 'Check realizado', 'Sin check', '% Cumplimiento', 'Días sin check'],
+    filas.map(f => [mes, f.resp, f.equipos.join(' / '), f.habiles, f.fs, f.su, f.aus, f.aCont, f.hechos, f.faltan.length, f.pct === null ? '' : String(f.pct).replace('.', ','), [...new Set(f.faltan)].sort().join(' ')]));
 }
 
 // ── Lista de equipos ──
@@ -16568,6 +16593,10 @@ async function eqRespGenerarImagen() {
         eqFallas(ult).forEach(x => it.notas.push({ t: (x.critico ? 'CRÍTICO · ' : '') + x.item + (x.nota ? ': ' + x.nota : ''), c: x.critico ? '#B91C1C' : '#B45309' }));
         if (ult.observaciones) it.notas.push({ t: 'Observación: ' + ult.observaciones, c: '#374151' });
       }
+    } else if (f.su && !f.hecho) {
+      it.color = '#6B7280'; it.pill = ['SIN USO', '#6B7280', '#FFFFFF'];
+      checkTxt = 'No aplica: equipo sin uso en la jornada'; checkCol = '#4B5563';
+      it.notas.push({ t: 'Equipo no utilizado en la jornada: no requiere checklist', c: '#4B5563', b: true });
     } else if (!f.hecho) {
       it.color = '#DC2626'; it.pill = ['NO REALIZÓ CHECK', '#DC2626', '#FFFFFF'];
       checkTxt = 'No'; checkCol = '#B91C1C';
@@ -16588,8 +16617,9 @@ async function eqRespGenerarImagen() {
     return it;
   });
   const hechos = filas.filter(f => f.hecho && !f.fs).length;
-  const pend = filas.filter(f => !f.hecho && !f.fs).length;
+  const pend = filas.filter(f => !f.hecho && !f.fs && !f.su).length;
   const fsN = filas.filter(f => f.fs).length;
+  const suN = filas.filter(f => f.su).length;
   const obs = filas.filter(f => f.hecho && !f.fs && f.c.resultado === 'Con observaciones').length;
   const partes = [];
   if (pend) partes.push(pend + (pend === 1 ? ' equipo sin check-in' : ' equipos sin check-in'));
@@ -16599,13 +16629,13 @@ async function eqRespGenerarImagen() {
     tono: (pend || fsN) ? 'red' : obs ? 'amber' : 'green',
     titulo: 'AVISO CHECKLIST EQUIPOS DE MANIPULEO',
     fechaTxt: alDiaTxt(dia),
-    mensaje: !filas.length ? 'No hay equipos de manipuleo cargados' : partes.length ? 'ATENCIÓN: ' + partes.join(' · ') : 'TODOS LOS CHECKLISTS REALIZADOS Y SIN OBSERVACIONES',
+    mensaje: !filas.length ? 'No hay equipos de manipuleo cargados' : (partes.length ? 'ATENCIÓN: ' + partes.join(' · ') : (suN ? 'CHECKLISTS REALIZADOS EN LOS EQUIPOS EN USO, SIN OBSERVACIONES' : 'TODOS LOS CHECKLISTS REALIZADOS Y SIN OBSERVACIONES')) + (suN ? ' · ' + suN + (suN === 1 ? ' equipo sin uso en la jornada' : ' equipos sin uso en la jornada') : ''),
     chips: [
       { n: filas.length, label: 'Equipos activos', color: '#111827' },
       { n: hechos, label: 'Check realizado', color: '#16A34A' },
       { n: pend, label: 'No realizó check', color: pend ? '#DC2626' : '#9CA3AF' },
       { n: fsN, label: 'Fuera de servicio', color: fsN ? '#B91C1C' : '#9CA3AF' }
-    ],
+    ].concat(suN ? [{ n: suN, label: 'Sin uso', color: '#6B7280' }] : []),
     seccion: 'DETALLE POR EQUIPO',
     items, vacio: 'Cargá los equipos en “Equipos de Manipuleo”'
   };
