@@ -2447,7 +2447,8 @@
       <div class="dpanel cam-p" id="camp-lista">
         <div class="toolbar">
           <span style="font-size:13px;color:var(--text2)">Cargá los camiones con su número de vehículo y patente (cada uno tiene su propio QR para pegar en la cabina).</span>
-          <button class="btn btn-primary" style="margin-left:auto" onclick="openCamCamion()">+ Nuevo camión</button>
+          <button class="btn btn-secondary" style="margin-left:auto" onclick="camImprimirTodosQR()">🖨️ Imprimir todos los QR (1 hoja)</button>
+          <button class="btn btn-primary" onclick="openCamCamion()">+ Nuevo camión</button>
         </div>
         <div class="table-wrap"><table>
           <thead><tr><th>N° de vehículo</th><th>Patente</th><th>Estado</th><th>Observaciones</th><th>Acciones</th></tr></thead>
@@ -15707,6 +15708,36 @@ function camImprimirQR(id) {
   const c = camListaData.find(x => String(x.__ID__) === String(id)); if (!c) return;
   if (!API_URL) { showToast('Conectá el sistema con Google Sheets para generar el QR', 'error'); return; }
   sgImprimirQR('Camión N° ' + c.numero, 'Checklist diario de seguridad · ' + (c.patente || ''), camLink(c.__ID__));
+}
+// Hoja única con el QR de todos los camiones activos, numerados y listos para recortar (se imprime o se guarda como PDF)
+function camImprimirTodosQR() {
+  if (!API_URL) { showToast('Conectá el sistema con Google Sheets para generar los QR', 'error'); return; }
+  const lista = camOrden(camListaData.filter(c => c.activo !== 'No'));
+  if (!lista.length) { showToast('No hay camiones activos para generar el QR', 'error'); return; }
+  const w = window.open('', '_blank');
+  if (!w) { showToast('El navegador bloqueó la ventana. Permití las ventanas emergentes e intentá de nuevo.', 'error'); return; }
+  const cards = lista.map(c => {
+    const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=4&data=' + encodeURIComponent(camLink(c.__ID__));
+    return '<div class="card"><div class="num">CAMIÓN N° ' + licEsc(c.numero) + '</div><div class="pat">' + (licEsc(c.patente || '') || '&nbsp;') + '</div><img src="' + qr + '" alt="QR camión ' + licEsc(c.numero) + '"><div class="foot">📱 Escaneá con la cámara del celular<br>Checklist diario de seguridad</div></div>';
+  }).join('');
+  const css = '@page{size:A4;margin:8mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:0;color:#111}' +
+    '.bar{position:sticky;top:0;background:#1f2937;color:#fff;padding:10px 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-size:14px}' +
+    '.bar button{background:#2563eb;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:14px;cursor:pointer;font-weight:700}.bar select{padding:7px;border-radius:6px;font-size:14px}' +
+    '.grid{display:grid;width:194mm;margin:8px auto}' +
+    '.card{border:1px dashed #555;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;page-break-inside:avoid;break-inside:avoid;overflow:hidden;padding:2mm}' +
+    '.num{font-weight:800;line-height:1.1}.pat{color:#444;margin-bottom:1.5mm}.foot{color:#333;line-height:1.25;margin-top:1.5mm}' +
+    '.m12 .grid{grid-template-columns:repeat(3,1fr);grid-auto-rows:70mm}.m12 .num{font-size:15pt}.m12 .pat{font-size:10pt}.m12 img{width:43mm;height:43mm}.m12 .foot{font-size:7.5pt}' +
+    '.m6 .grid{grid-template-columns:repeat(2,1fr);grid-auto-rows:93mm}.m6 .num{font-size:20pt}.m6 .pat{font-size:12pt}.m6 img{width:62mm;height:62mm}.m6 .foot{font-size:9pt}' +
+    '.m2 .grid{grid-template-columns:1fr;grid-auto-rows:138mm}.m2 .num{font-size:30pt}.m2 .pat{font-size:16pt}.m2 img{width:100mm;height:100mm}.m2 .foot{font-size:12pt}' +
+    '@media print{.bar{display:none}.grid{margin:0 auto}}';
+  const js = 'var imgs=[].slice.call(document.images),n=0,st=document.getElementById("st");function ok(){n++;if(n>=imgs.length)st.textContent="✅ QR listos: ya podés imprimir o guardar como PDF"}' +
+    'imgs.forEach(function(i){if(i.complete)ok();else{i.onload=ok;i.onerror=ok}});' +
+    'function tam(v){document.body.className=v}';
+  w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>QR camiones</title><style>' + css + '</style></head><body class="m12">' +
+    '<div class="bar"><button onclick="window.print()">🖨️ Imprimir / Guardar como PDF</button>' +
+    '<label>Tamaño: <select onchange="tam(this.value)"><option value="m12">Chico · 12 por hoja (entran todos)</option><option value="m6">Mediano · 6 por hoja</option><option value="m2">Grande · 2 por hoja</option></select></label>' +
+    '<span id="st">⏳ Cargando los QR…</span></div><div class="grid">' + cards + '</div><script>' + js + '<\/script></body></html>');
+  w.document.close();
 }
 function openCamCamion(id) {
   camEditId = id || null;
