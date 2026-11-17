@@ -6228,6 +6228,9 @@ async function apiCall(action, body = {}) {
       if (!ok) return { error: 'Operación cancelada: se requiere iniciar sesión' };
     }
     body = { ...body, authUser, authToken };
+  } else if (isLoggedIn() && action !== 'login') {
+    // Si hay sesión iniciada, siempre enviamos el token (evita errores si una acción nueva no está en WRITE_ACTIONS)
+    body = { ...body, authUser, authToken };
   }
 
   // Google Apps Script requiere no-cors en algunos contextos,
