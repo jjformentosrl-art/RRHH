@@ -748,6 +748,20 @@
   td.vd-n-ok     { background: rgba(16,185,129,0.10) !important; box-shadow: inset 5px 0 0 #16A34A; }
   .vd-leyenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text2); margin: 0 0 10px; }
   .vd-leyenda i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  /* MANTENIMIENTO DE VEHÍCULOS */
+  .tab-badge { display: inline-block; margin-left: 6px; min-width: 19px; padding: 1px 6px; border-radius: 10px; background: #DC2626; color: #fff; font-size: 11px; font-weight: 700; text-align: center; vertical-align: 1px; }
+  .tab-badge.amber { background: #D97706; }
+  .mt-banner { padding: 12px 14px; border-radius: 10px; margin: 0 0 12px; font-size: 13.5px; border: 1px solid; line-height: 1.5; }
+  .mt-banner.red { background: #FBE6E6; color: #7F1D1D; border-color: #F3B4B4; }
+  .mt-banner.amber { background: #FDF1D8; color: #7A4B00; border-color: #F0D08A; }
+  .mt-banner.green { background: #E3F5EC; color: #0B6B4B; border-color: #A9DEC4; }
+  .mt-banner ul { margin: 6px 0 0 18px; }
+  .mt-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-top: 4px; }
+  .mt-chk { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; cursor: pointer; }
+  .mt-chk input { width: auto; margin: 0; }
+  .mt-prox { padding: 9px 12px; border: 1px dashed var(--border-strong); border-radius: 8px; font-weight: 700; background: var(--surface2); }
+  .mt-cat { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  @media (max-width: 700px) { .mt-checks { grid-template-columns: 1fr; } }
   .vd-doc-box { border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; background: var(--surface2); margin-bottom: 12px; }
   .vd-doc-box h4 { margin: 0 0 10px; font-size: 14px; }
   .vd-doc-box .sg-fotoin { background: var(--surface); }
@@ -851,6 +865,7 @@
 #panel-camiones::before{content:"Checklist de camiones"}
 #panel-velocidad::before{content:"Reportes de velocidad"}
 #panel-vehdocs::before{content:"Documentación de vehículos"}
+#panel-mantenimiento::before{content:"Mantenimiento de vehículos"}
 #panel-organigrama::before{content:"Organigrama"}
 
   .tabs { grid-area: nav; flex-direction: column; gap: 2px; padding: 14px 12px 20px; background: var(--ink); border-bottom: 0; overflow-x: hidden; overflow-y: auto; min-height: 0; }
@@ -1120,6 +1135,7 @@
     <button class="tab" onclick="showTab('camiones')">🚚 Checklist Camiones</button>
     <button class="tab" onclick="showTab('velocidad')">⚡ Reportes de Velocidad</button>
     <button class="tab" onclick="showTab('vehdocs')">📄 Documentación Vehículos</button>
+    <button class="tab" onclick="showTab('mantenimiento')">🔧 Mantenimiento Vehículos<span class="tab-badge" id="mtTabBadge" style="display:none"></span></button>
     <div class="tabs-label">Gestión interna</div>
     <button class="tab" onclick="showTab('capacitaciones')">🎓 Capacitaciones</button>
     <button class="tab" onclick="showTab('auditorias')">🔍 Auditoría Cruzada</button>
@@ -2555,6 +2571,70 @@
       </div>
     </div>
 
+    <!-- MANTENIMIENTO DE VEHÍCULOS -->
+    <div class="panel" id="panel-mantenimiento">
+      <div class="desempeño-tabs" id="mtTabs" style="flex-shrink:0">
+        <button class="dtab active" onclick="mtTab('aceite',this)">🛢️ Aceite y filtros (alertas)</button>
+        <button class="dtab" onclick="mtTab('reg',this)">📋 Registro de trabajos</button>
+      </div>
+      <div class="dpanel mt-p active" id="mtp-aceite">
+        <div class="aud-scroll">
+          <div class="link-box" style="font-family:inherit">🛢️ Vigencia del último <b>cambio de aceite y filtros</b> de cada camión y del autoelevador. Al registrar un cambio indicás los <b>días de vigencia</b> y el sistema calcula el próximo cambio y avisa cuando está por vencer o vencido. El autoelevador aparece si está cargado en “Equipos de Manipuleo” con tipo <b>Autoelevador</b>.</div>
+          <div id="mtBanner"></div>
+          <div class="stats" id="mtAStats"></div>
+          <div class="toolbar" style="padding-left:0">
+            <div class="search-box" style="flex:1">
+              <span>🔍</span>
+              <input type="text" id="mtASearch" placeholder="Buscar por N° de camión, patente o equipo..." oninput="dbn(renderMtAceite)">
+            </div>
+            <select class="filter-select" id="mtAOrden" onchange="renderMtAceite()" title="Ordenar">
+              <option value="urg">Ordenar: más urgentes primero</option>
+              <option value="num">Ordenar: por N° de camión</option>
+            </select>
+            <select class="filter-select" id="mtAFiltro" onchange="renderMtAceite()">
+              <option value="">Todas las unidades</option>
+              <option value="venc">Vencidos</option>
+              <option value="pronto">Por vencer</option>
+              <option value="falta">Sin cambio registrado</option>
+              <option value="ok">Vigentes</option>
+            </select>
+            <select class="filter-select" id="mtAviso" onchange="mtSetAviso(this.value)" title="Con cuántos días de anticipación se avisa">
+              <option value="7">Avisar con 7 días</option>
+              <option value="15">Avisar con 15 días</option>
+              <option value="30">Avisar con 30 días</option>
+              <option value="45">Avisar con 45 días</option>
+            </select>
+            <button class="btn btn-primary" onclick="mtAbrir('','','Aceite y filtros')">+ Registrar cambio</button>
+            <button class="btn btn-secondary" onclick="mtGenerarImagen()">🖼️ Imagen para WhatsApp</button>
+            <button class="btn btn-secondary" onclick="mtExportAceiteCSV()">⬇ CSV</button>
+          </div>
+          <div class="vd-leyenda"><span><i style="background:#DC2626"></i>Vencido</span><span><i style="background:#F97316"></i>Por vencer</span><span><i style="background:#EAB308"></i>Sin cambio registrado</span><span><i style="background:#16A34A"></i>Vigente</span></div>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Unidad</th><th>Último cambio</th><th>Qué se cambió</th><th>Vigencia</th><th>Próximo cambio</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="mtATbody"></tbody>
+          </table></div>
+        </div>
+      </div>
+      <div class="dpanel mt-p" id="mtp-reg">
+        <div class="toolbar">
+          <select class="filter-select" id="mtRFUnidad" onchange="renderMtReg()"></select>
+          <select class="filter-select" id="mtRFCat" onchange="renderMtReg()"></select>
+          <input type="text" class="filter-select" id="mtRFTexto" placeholder="🔍 Buscar trabajo, detalle o taller..." oninput="dbn(renderMtReg)" style="max-width:240px">
+          <label style="font-size:13px;color:var(--text2)">Desde</label>
+          <input type="date" class="filter-select" id="mtRFDesde" onchange="renderMtReg()" style="max-width:150px">
+          <label style="font-size:13px;color:var(--text2)">Hasta</label>
+          <input type="date" class="filter-select" id="mtRFHasta" onchange="renderMtReg()" style="max-width:150px">
+          <button class="btn btn-primary" style="margin-left:auto" onclick="mtAbrir('','','')">+ Registrar trabajo</button>
+          <button class="btn btn-secondary" onclick="mtExportRegCSV()">⬇ CSV</button>
+        </div>
+        <div class="stats" id="mtRStats" style="padding:0 24px"></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Fecha</th><th>Unidad</th><th>Tipo</th><th>Trabajo realizado</th><th>Detalle</th><th>Km / hs</th><th>Taller</th><th></th></tr></thead>
+          <tbody id="mtRTbody"></tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- ORGANIGRAMA -->
     <div class="panel" id="panel-organigrama">
       <div class="org-toolbar">
@@ -3784,6 +3864,37 @@
   </div>
 </div>
 
+<!-- MANTENIMIENTO DE VEHÍCULOS: MODAL -->
+<div class="modal-overlay" id="mtModal">
+  <div class="modal" style="width:660px">
+    <div class="modal-header">
+      <span class="modal-title" id="mtModalTitle">🔧 Registrar trabajo de mantenimiento</span>
+      <button class="modal-close" onclick="mtCerrar()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group"><label>Fecha *</label><input type="date" id="mt_fecha" onchange="mtCalcProx()"></div>
+        <div class="form-group"><label>Unidad *</label><select id="mt_unidad" onchange="mtCambioUnidad()"></select></div>
+        <div class="form-group full"><label>Tipo de trabajo *</label>
+          <select id="mt_cat" onchange="mtCambioCat()">
+            <option value="Aceite y filtros">🛢️ Cambio de aceite y filtros</option>
+            <option value="Rotura / reparación">🛠️ Rotura / reparación</option>
+            <option value="Cubiertas">🛞 Cubiertas</option>
+            <option value="Mantenimiento general">🧰 Mantenimiento general</option>
+          </select></div>
+        <div class="form-group full" id="mt_dyn"></div>
+        <div class="form-group"><label id="mt_km_lbl">Kilometraje (opcional)</label><input type="number" id="mt_km" min="0" placeholder="Opcional"></div>
+        <div class="form-group"><label>Taller / quién lo hizo</label><input type="text" id="mt_taller" placeholder="Opcional"></div>
+        <div class="form-group full"><label id="mt_det_lbl">Detalle</label><input type="text" id="mt_detalle" placeholder="Opcional"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="mtCerrar()">Cancelar</button>
+      <button class="btn btn-primary" id="mtSaveBtn" onclick="mtGuardar()">💾 Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- AUDITORÍA CRUZADA: MODALES -->
 <div class="modal-overlay" id="audModal">
   <div class="modal" style="width:760px">
@@ -4497,6 +4608,7 @@ const WRITE_ACTIONS = [
   'addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones',
   'addVelocidad','deleteVelocidad',
   'saveVehiculoDocs','getVehiculoDocFoto',
+  'addMantenimiento','updateMantenimiento','deleteMantenimiento',
   'saveConfig','saveHorario','savePin','deletePin'
 ];
 
@@ -4661,7 +4773,7 @@ function handleRequest(e) {
     if (e.parameter.data) { try { body.data = JSON.parse(e.parameter.data); } catch(err) {} }
     if (e.parameter.id) body.id = e.parameter.id;
   }
-  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','updateRopaEntrega','deleteRopaEntrega','addRopaIngreso','updateRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones','addVelocidad','deleteVelocidad','saveVehiculoDocs','getVehiculoDocFoto'];
+  var AUTH_REQUIRED = ['addEmployee','updateEmployee','deleteEmployee','addConducta','updateConducta','deleteConducta','addAlerta','updateAlerta','deleteAlerta','getAlertaFoto','addDeposito','deleteDeposito','addDistribucion','deleteDistribucion','addReclamo','updateReclamo','deleteReclamo','addEncuesta','updateEncuesta','deleteEncuesta','addPlanAccion','updatePlanAccion','deletePlanAccion','deleteFichada','updateFichada','addFichadaManual','addExcepcion','deleteExcepcion','addVacacion','deleteVacacion','addLicencia','deleteLicencia','addRopaEntrega','updateRopaEntrega','deleteRopaEntrega','addRopaIngreso','updateRopaIngreso','deleteRopaIngreso','addLimpiezaManual','deleteLimpieza','addCapacitacion','updateCapacitacion','deleteCapacitacion','addCapAsistenciaManual','deleteCapAsistencia','addAuditoria','deleteAuditoria','addAuditoriaPlan','updateAuditoriaPlan','deleteAuditoriaPlan','saveConfig','saveHorario','savePin','deletePin','deleteRackControl','updateRackHallazgo','addRackPlan','updateRackPlan','deleteRackPlan','getRackPlanFotos','addEquipo','updateEquipo','deleteEquipo','deleteEquipoControl','updateEquipoControl','addEquipoPlan','updateEquipoPlan','deleteEquipoPlan','getEquipoPlanFotos','addCamion','updateCamion','deleteCamion','deleteCamionControl','updateCamionControl','setCamionAsignaciones','addVelocidad','deleteVelocidad','saveVehiculoDocs','getVehiculoDocFoto','addMantenimiento','updateMantenimiento','deleteMantenimiento'];
   var result;
   try {
     if (AUTH_REQUIRED.indexOf(action) !== -1 && !validateToken(body.authToken, body.authUser)) {
@@ -4758,6 +4870,9 @@ function handleRequest(e) {
     else if (action === 'deleteVelocidad')     result = deleteRow('VELOCIDAD_REPORTES', body.id);
     else if (action === 'saveVehiculoDocs')    result = saveVehiculoDocs(body.data);
     else if (action === 'getVehiculoDocFoto')  result = getVehiculoDocFoto(body.data);
+    else if (action === 'addMantenimiento')    result = sgAddRow('MANTENIMIENTO', MANT_HEADERS, body.data);
+    else if (action === 'updateMantenimiento') result = updateRow('MANTENIMIENTO', body.id, body.data);
+    else if (action === 'deleteMantenimiento') result = deleteRow('MANTENIMIENTO', body.id);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -4824,6 +4939,7 @@ function getAllData() {
   var camAsignSheet = sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS);
   var velSheet = sgSheet('VELOCIDAD_REPORTES', VEL_HEADERS);
   var vehDocSheet = sgSheet('VEHICULOS_DOCS', VEHDOC_HEADERS);
+  var mantSheet = sgSheet('MANTENIMIENTO', MANT_HEADERS);
   getOrCreateConfigSheet();
   getOrCreateUsersSheet();
   return {
@@ -4859,6 +4975,7 @@ function getAllData() {
     camionesAsign: sheetToJson(camAsignSheet),
     velocidad: sheetToJson(velSheet),
     vehiculosDocs: sheetToJson(vehDocSheet),
+    mantenimiento: sheetToJson(mantSheet),
     config:       getConfig()
   };
 }
@@ -5811,6 +5928,9 @@ var VEL_HEADERS = ['fecha','camion_id','numero','patente','responsable','cantida
 
 // ── Documentación de vehículos: Seguro, VTV y Senasa (una fila por camión) ──
 var VEHDOC_HEADERS = ['camion_id','seguro_vence','seguro_foto_url','vtv_vence','vtv_foto_url','senasa_vence','senasa_foto_url'];
+
+// ── Mantenimiento de vehículos (camiones y autoelevador) ──
+var MANT_HEADERS = ['fecha','unidad_id','unidad','categoria','trabajo','detalle','km_horas','filtros','vigencia_dias','proximo','taller'];
 var VEHDOC_TIPOS = ['seguro','vtv','senasa'];
 var VEHDOC_FOLDER_NAME = 'Documentacion Vehiculos RRHH';
 function vehDocFolder() {
@@ -6208,6 +6328,7 @@ function loadLocalData() {
   camControlesData = JSON.parse(localStorage.getItem('rrhh_cam_controles') || '[]');
   camAsignData = JSON.parse(localStorage.getItem('rrhh_cam_asign') || '[]');
   vehDocsData = JSON.parse(localStorage.getItem('rrhh_veh_docs') || '[]');
+  mantenimientoData = JSON.parse(localStorage.getItem('rrhh_mantenimiento') || '[]');
   velocidadData = JSON.parse(localStorage.getItem('rrhh_velocidad') || '[]');
   const storedLimp = localStorage.getItem('rrhh_limpieza');
   limpiezaData = storedLimp ? JSON.parse(storedLimp) : [];
@@ -6318,6 +6439,7 @@ async function loadAllData() {
   camControlesData = data.camionesControles || [];
   camAsignData = data.camionesAsign || [];
   vehDocsData = data.vehiculosDocs || [];
+  mantenimientoData = data.mantenimiento || [];
   velocidadData = data.velocidad || [];
   if (data.config && Object.keys(data.config).length) configData = { ...configData, ...data.config };
   orgData = null;
@@ -6335,7 +6457,7 @@ function renderAll() {
   populateFichEmpleadoFilter();
   populateRopaEmpleadoSelect();
   if (!orgData) orgLoad();
-  // Las pestañas pesadas se dibujan solo cuando se abren (o ahora, si es la visible)
+  mtActualizarAvisos();
   _tabsDirty = new Set(TAB_NAMES);
   const act = document.querySelector('.panel.active');
   renderTab(act ? act.id.replace('panel-', '') : 'nomina');
@@ -14156,6 +14278,7 @@ function sgSave() {
     localStorage.setItem('rrhh_cam_controles', JSON.stringify(camControlesData));
     localStorage.setItem('rrhh_cam_asign', JSON.stringify(camAsignData));
     localStorage.setItem('rrhh_veh_docs', JSON.stringify(vehDocsData));
+    localStorage.setItem('rrhh_mantenimiento', JSON.stringify(mantenimientoData));
     localStorage.setItem('rrhh_velocidad', JSON.stringify(velocidadData));
   } catch (e) {}
 }
@@ -16261,10 +16384,10 @@ function distAutocompletar() {
 // ═══════════════════════════════════════════════════
 // RENDIMIENTO: render por pestaña, listas limitadas, buscadores con espera
 // ═══════════════════════════════════════════════════
-var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','camiones','velocidad','vehdocs','organigrama'];
+var TAB_NAMES = ['nomina','analisis','conducta','deposito','distribucion','vacaciones','licencias','reclamos','encuestas','fichadas','ropa','limpieza','capacitaciones','auditorias','racks','equipos','camiones','velocidad','vehdocs','mantenimiento','organigrama'];
 var _tabsDirty = new Set();
 // Pestañas que se vuelven a dibujar cada vez que se abren (igual que antes)
-var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, camiones:1, velocidad:1, vehdocs:1, organigrama:1, ropa:1 };
+var TAB_ALWAYS = { analisis:1, licencias:1, distribucion:1, reclamos:1, encuestas:1, fichadas:1, limpieza:1, capacitaciones:1, auditorias:1, racks:1, equipos:1, camiones:1, velocidad:1, vehdocs:1, mantenimiento:1, organigrama:1, ropa:1 };
 var TAB_RENDER = {
   nomina:        function () { renderNomina(); renderStats(); renderFilters(); },
   analisis:      function () { renderAnalysis(); },
@@ -16285,6 +16408,7 @@ var TAB_RENDER = {
   camiones:      function () { renderCamiones(); },
   velocidad:     function () { renderVelocidad(); },
   vehdocs:       function () { renderVehDocs(); },
+  mantenimiento: function () { renderMantenimiento(); },
   organigrama:   function () { renderOrganigrama(); }
 };
 function renderTab(tab) {
@@ -16369,7 +16493,7 @@ function alListaRender(ctx, cfg) {
     ctx.fillText('!', P + 56, 118); ctx.textAlign = 'left';
   }
   ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = '600 22px ' + AL_FONT;
-  ctx.fillText('AVISO INTERNO DE SEGURIDAD E HIGIENE', P + 140, 78);
+  ctx.fillText(cfg.sub || 'AVISO INTERNO DE SEGURIDAD E HIGIENE', P + 140, 78);
   let fs = 54; ctx.font = '800 ' + fs + 'px ' + AL_FONT;
   const maxT = W - (P + 140) - P;
   while (ctx.measureText(cfg.titulo).width > maxT && fs > 28) { fs -= 2; ctx.font = '800 ' + fs + 'px ' + AL_FONT; }
@@ -16483,7 +16607,7 @@ function alListaRender(ctx, cfg) {
   ctx.fillStyle = '#111827'; ctx.fillRect(0, y, W, 104);
   ctx.textAlign = 'center';
   ctx.fillStyle = '#FFFFFF'; ctx.font = '700 22px ' + AL_FONT;
-  ctx.fillText('Comunicar cualquier novedad al área de Seguridad e Higiene / RRHH', W / 2, y + 42);
+  ctx.fillText(cfg.pie || 'Comunicar cualquier novedad al área de Seguridad e Higiene / RRHH', W / 2, y + 42);
   ctx.fillStyle = '#9CA3AF'; ctx.font = '500 19px ' + AL_FONT;
   ctx.fillText('Generada el ' + stamp, W / 2, y + 76);
   ctx.textAlign = 'left';
@@ -16679,6 +16803,367 @@ async function eqRespGenerarImagen() {
   };
   const cv = await alListaCanvas(cfg);
   alPreviewCanvas(cv, 'aviso_checklist_equipos_' + dia + '.png');
+}
+
+// ═══════════════════════════════════════════════════
+// MANTENIMIENTO DE VEHÍCULOS (camiones y autoelevador)
+// ═══════════════════════════════════════════════════
+let mantenimientoData = [];
+const MT_CATS = {
+  'Aceite y filtros':      { ico: '🛢️', bg: '#FDF1D8', fg: '#8A5A00' },
+  'Rotura / reparación':   { ico: '🛠️', bg: '#FBE6E6', fg: '#A12B2B' },
+  'Cubiertas':             { ico: '🛞', bg: '#E0EAFB', fg: '#1D4ED8' },
+  'Mantenimiento general': { ico: '🧰', bg: '#E3F5EC', fg: '#0B6B4B' }
+};
+const MT_ROTURAS = ['Motor', 'Caja de cambios / embrague', 'Frenos', 'Suspensión / amortiguadores', 'Dirección', 'Sistema eléctrico / luces', 'Batería', 'Refrigeración / radiador', 'Escape', 'Carrocería / caja / puertas', 'Equipo de frío', 'Hidráulico / mástil / cadenas', 'Otro'];
+const MT_CUBIERTAS = ['Cambio de cubierta', 'Reparación de pinchadura', 'Rotación de cubiertas', 'Alineación y balanceo', 'Cambio de cámara / válvula', 'Otro'];
+const MT_GENERAL = {
+  camion: ['Service general', 'Engrase general', 'Revisión de frenos', 'Cambio de pastillas / cintas de freno', 'Revisión de luces', 'Cambio de batería', 'Cambio de correas', 'Cambio de líquido refrigerante', 'Cambio de líquido de frenos', 'Revisión de suspensión', 'Revisión del equipo de frío', 'Revisión de niveles', 'Lavado y limpieza general', 'Pintura / carrocería'],
+  equipo: ['Service general', 'Engrase general', 'Revisión de frenos', 'Revisión de horquillas y cadenas', 'Revisión del mástil', 'Revisión de batería / gas', 'Cambio de ruedas', 'Cambio de correas', 'Cambio de líquido refrigerante', 'Revisión de luces y alarma de retroceso', 'Revisión de niveles', 'Lavado y limpieza general']
+};
+const MT_FILTROS = {
+  camion: ['Aceite de motor', 'Filtro de aceite', 'Filtro de aire', 'Filtro de combustible', 'Filtro separador de agua', 'Aceite de caja', 'Aceite de diferencial'],
+  equipo: ['Aceite de motor', 'Filtro de aceite', 'Filtro de aire', 'Filtro de combustible', 'Aceite hidráulico', 'Filtro hidráulico']
+};
+const MT_VIG_DEF = 90;   // días de vigencia sugeridos si la unidad todavía no tiene un cambio cargado
+let mtEditId = null, mtTipoActual = '', mtToastHecho = false;
+
+// ── Unidades: camiones activos + autoelevador (de Equipos de Manipuleo) ──
+function mtUnidades() {
+  const cams = camOrden(camListaData.filter(c => c.activo !== 'No')).map(c => ({
+    id: 'cam-' + c.__ID__, tipo: 'camion', nombre: 'Camión ' + camNom(c), corto: 'N° ' + c.numero, numero: c.numero, patente: c.patente || ''
+  }));
+  const eqs = equiposListaData.filter(e => e.activo !== 'No' && e.tipo === 'Autoelevador').map(e => ({
+    id: 'eq-' + e.__ID__, tipo: 'equipo', nombre: e.nombre || 'Autoelevador', corto: e.nombre || 'Autoelevador', numero: '', patente: ''
+  }));
+  return cams.concat(eqs);
+}
+function mtUnidadPorId(id) {
+  const u = mtUnidades().find(x => x.id === id);
+  if (u) return u;
+  const r = mantenimientoData.find(x => x.unidad_id === id);   // unidad dada de baja: queda su historial
+  return r ? { id, tipo: String(id).indexOf('eq-') === 0 ? 'equipo' : 'camion', nombre: r.unidad, corto: r.unidad, numero: '', patente: '' } : null;
+}
+function mtSumarDias(iso, n) {
+  const d = new Date(licDia(iso) + 'T12:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + licPad(d.getMonth() + 1) + '-' + licPad(d.getDate());
+}
+function mtDiasHasta(iso) {   // negativo = ya venció
+  const a = new Date(licDia(iso) + 'T12:00:00'), b = new Date(licHoyISO() + 'T12:00:00');
+  return Math.round((a - b) / 86400000);
+}
+function mtAviso() { const v = parseInt(localStorage.getItem('rrhh_mant_aviso'), 10); return v > 0 ? v : 15; }
+function mtSetAviso(v) { try { localStorage.setItem('rrhh_mant_aviso', String(parseInt(v, 10) || 15)); } catch (e) {} mtActualizarAvisos(); renderMtAceite(); }
+function mtPl(n, a, b) { return n + ' ' + (n === 1 ? a : b); }
+
+// ── Último cambio de aceite y filtros y su estado ──
+function mtUltimoAceite(uid) {
+  const rs = mantenimientoData.filter(r => r.unidad_id === uid && r.categoria === 'Aceite y filtros');
+  return rs.length ? rs.reduce((m, r) => licDia(r.fecha) >= licDia(m.fecha) ? r : m) : null;
+}
+function mtEstadoAceite(r) {
+  const falta = { k: 'falta', dias: null, prox: '', cls: 'badge-gray', txt: 'Sin cambio registrado', rank: 2 };
+  if (!r) return falta;
+  const v = parseInt(r.vigencia_dias, 10);
+  const prox = licDia(r.proximo) || (v > 0 ? mtSumarDias(r.fecha, v) : '');
+  if (!prox) return falta;
+  const dias = mtDiasHasta(prox);
+  if (dias < 0) return { k: 'venc', dias, prox, cls: 'badge-red', txt: 'Vencido hace ' + mtPl(-dias, 'día', 'días'), rank: 0 };
+  if (dias === 0) return { k: 'pronto', dias, prox, cls: 'badge-orange', txt: 'Vence hoy', rank: 1 };
+  if (dias <= mtAviso()) return { k: 'pronto', dias, prox, cls: 'badge-orange', txt: 'Vence en ' + mtPl(dias, 'día', 'días'), rank: 1 };
+  return { k: 'ok', dias, prox, cls: 'badge-green', txt: 'Vigente · ' + dias + ' días', rank: 3 };
+}
+function mtFilasAceite() { return mtUnidades().map(u => { const r = mtUltimoAceite(u.id); return { u, r, e: mtEstadoAceite(r) }; }); }
+function mtCmpUrg(a, b) { return a.e.rank - b.e.rank || (a.e.dias == null ? 99999 : a.e.dias) - (b.e.dias == null ? 99999 : b.e.dias); }
+function mtUnit(u) { return u.tipo === 'camion' ? 'km' : 'hs'; }
+
+// ── Avisos: contador en el menú + cartel al abrir el sistema ──
+function mtActualizarAvisos() {
+  const f = mtFilasAceite();
+  const venc = f.filter(x => x.e.k === 'venc').length, pronto = f.filter(x => x.e.k === 'pronto').length, n = venc + pronto;
+  const b = $a('mtTabBadge');
+  if (b) { b.textContent = n || ''; b.style.display = n ? '' : 'none'; b.className = 'tab-badge' + (venc ? '' : ' amber'); }
+  if (n && !mtToastHecho) {
+    mtToastHecho = true;
+    const p = [];
+    if (venc) p.push(mtPl(venc, 'cambio de aceite vencido', 'cambios de aceite vencidos'));
+    if (pronto) p.push(mtPl(pronto, 'por vencer', 'por vencer'));
+    showToast('🛢️ Mantenimiento: ' + p.join(' y '), venc ? 'error' : '');
+  }
+}
+
+// ── Pestaña ──
+function mtTab(t, el) {
+  document.querySelectorAll('#mtTabs .dtab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.mt-p').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  $a('mtp-' + t).classList.add('active');
+  renderMantenimiento();
+}
+function renderMantenimiento() {
+  if (!$a('panel-mantenimiento')) return;
+  renderMtAceite(); renderMtReg(); mtActualizarAvisos();
+}
+
+// ── Aceite y filtros ──
+function mtFiltrosAceite() {
+  const q = ($a('mtASearch') ? $a('mtASearch').value : '').trim().toLowerCase();
+  const f = $a('mtAFiltro') ? $a('mtAFiltro').value : '';
+  const todas = mtFilasAceite();
+  const ord = $a('mtAOrden') ? $a('mtAOrden').value : 'urg';
+  const base = ord === 'urg' ? todas.slice().sort(mtCmpUrg) : todas;
+  const vista = base.filter(x => {
+    if (q && !(String(x.u.nombre).toLowerCase().includes(q) || String(x.u.patente).toLowerCase().includes(q))) return false;
+    return !f || x.e.k === f;
+  });
+  return { todas, vista };
+}
+function renderMtAceite() {
+  const tb = $a('mtATbody'); if (!tb) return;
+  if ($a('mtAviso')) $a('mtAviso').value = String(mtAviso());
+  const { todas, vista } = mtFiltrosAceite();
+  const cnt = k => todas.filter(x => x.e.k === k).length;
+  const venc = cnt('venc'), pronto = cnt('pronto'), falta = cnt('falta');
+  $a('mtAStats').innerHTML = sgCard('🚚', todas.length, 'Unidades controladas') +
+    sgCard('⛔', venc, 'Cambios vencidos', venc ? '#B91C1C' : '') +
+    sgCard('⏳', pronto, 'Vencen en ' + mtAviso() + ' días o menos', pronto ? '#B45309' : '') +
+    sgCard('📂', falta, 'Sin cambio registrado');
+  const crit = todas.filter(x => x.e.k === 'venc' || x.e.k === 'pronto').sort(mtCmpUrg);
+  const bn = $a('mtBanner');
+  if (crit.length) {
+    bn.innerHTML = '<div class="mt-banner ' + (venc ? 'red' : 'amber') + '"><strong>' + (venc ? '⛔ ATENCIÓN: ' : '⏳ AVISO: ') +
+      [venc ? mtPl(venc, 'unidad con el cambio de aceite y filtros VENCIDO', 'unidades con el cambio de aceite y filtros VENCIDO') : '', pronto ? mtPl(pronto, 'unidad por vencer', 'unidades por vencer') : ''].filter(Boolean).join(' · ') + '</strong><ul>' +
+      crit.map(x => '<li><b>' + licEsc(x.u.nombre) + '</b>: ' + (x.e.k === 'venc' ? 'venció el ' : 'vence el ') + fmtDate(x.e.prox) + ' (' + licEsc(x.e.txt.toLowerCase()) + ')</li>').join('') + '</ul></div>';
+  } else if (todas.length && !falta) {
+    bn.innerHTML = '<div class="mt-banner green"><strong>✅ Todos los cambios de aceite y filtros están al día.</strong></div>';
+  } else bn.innerHTML = '';
+  if (!todas.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="icon">🚚</div><p>Primero cargá los camiones en “Checklist Camiones” (y el autoelevador en “Equipos de Manipuleo”, con tipo Autoelevador)</p></div></td></tr>'; return; }
+  if (!vista.length) { tb.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="icon">🔍</div><p>No hay unidades para ese filtro</p></div></td></tr>'; return; }
+  tb.innerHTML = vista.map(x => {
+    const r = x.r, u = x.u, e = x.e;
+    const unidad = u.tipo === 'camion'
+      ? '<strong>N° ' + licEsc(u.numero) + '</strong><div class="vd-f" style="font-size:12px;color:var(--text3)">' + licEsc(u.patente) + '</div>'
+      : '<strong>' + licEsc(u.nombre) + '</strong><div class="vd-f" style="font-size:12px;color:var(--text3)">Autoelevador</div>';
+    return '<tr><td class="vd-n-' + e.k + '">' + unidad + '</td>' +
+      '<td>' + (r ? fmtDate(r.fecha) + (r.km_horas ? '<div class="vd-f" style="font-size:12px;color:var(--text3)">' + licEsc(r.km_horas) + ' ' + mtUnit(u) + '</div>' : '') : '—') + '</td>' +
+      '<td style="font-size:12.5px;max-width:260px">' + (r ? licEsc(r.filtros || '—') : '—') + '</td>' +
+      '<td>' + (r && r.vigencia_dias ? licEsc(r.vigencia_dias) + ' días' : '—') + '</td>' +
+      '<td><strong>' + (e.prox ? fmtDate(e.prox) : '—') + '</strong></td>' +
+      '<td class="vd-c-' + e.k + '"><span class="badge ' + e.cls + '">' + licEsc(e.txt) + '</span></td>' +
+      '<td style="white-space:nowrap"><button class="btn btn-primary btn-sm" onclick="mtAbrir(\'\',\'' + licEsc(u.id) + '\',\'Aceite y filtros\')">+ Cambio</button> ' +
+      '<button class="btn btn-secondary btn-sm" onclick="mtVerHistorial(\'' + licEsc(u.id) + '\')">📜 Historial</button></td></tr>';
+  }).join('');
+}
+function mtVerHistorial(uid) {
+  mtTab('reg', document.querySelectorAll('#mtTabs .dtab')[1]);
+  $a('mtRFUnidad').value = uid; $a('mtRFCat').value = '';
+  renderMtReg();
+}
+function mtExportAceiteCSV() {
+  const { vista } = mtFiltrosAceite();
+  sgCSV('mantenimiento_aceite_filtros.csv', ['Unidad', 'Patente', 'Último cambio', 'Km / horas', 'Qué se cambió', 'Vigencia (días)', 'Próximo cambio', 'Días restantes', 'Estado'],
+    vista.map(x => [x.u.nombre, x.u.patente, x.r ? fmtDate(x.r.fecha) : '', x.r ? x.r.km_horas : '', x.r ? x.r.filtros : '', x.r ? x.r.vigencia_dias : '', x.e.prox ? fmtDate(x.e.prox) : '', x.e.dias == null ? '' : x.e.dias, x.e.txt]));
+}
+
+// ── Registro de trabajos ──
+function mtRegFiltrados() {
+  const u = $a('mtRFUnidad').value, c = $a('mtRFCat').value, q = kioskNormalizar($a('mtRFTexto').value || ''), d1 = $a('mtRFDesde').value, d2 = $a('mtRFHasta').value;
+  return sgOrdenFecha(mantenimientoData).filter(r => {
+    const d = licDia(r.fecha);
+    return (!u || r.unidad_id === u) && (!c || r.categoria === c) && (!d1 || d >= d1) && (!d2 || d <= d2) &&
+      (!q || kioskNormalizar([r.trabajo, r.detalle, r.taller, r.unidad].join(' ')).includes(q));
+  });
+}
+function renderMtReg() {
+  const tb = $a('mtRTbody'); if (!tb) return;
+  const fu = $a('mtRFUnidad'), fc = $a('mtRFCat'), pu = fu.value, pc = fc.value;
+  const ids = new Map(); mtUnidades().forEach(u => ids.set(u.id, u.nombre)); mantenimientoData.forEach(r => { if (!ids.has(r.unidad_id)) ids.set(r.unidad_id, r.unidad); });
+  fu.innerHTML = '<option value="">Todas las unidades</option>' + [...ids].map(([id, n]) => '<option value="' + licEsc(id) + '">' + licEsc(n) + '</option>').join('');
+  fc.innerHTML = '<option value="">Todos los tipos de trabajo</option>' + Object.keys(MT_CATS).map(k => '<option value="' + licEsc(k) + '">' + MT_CATS[k].ico + ' ' + licEsc(k) + '</option>').join('');
+  fu.value = pu; fc.value = pc;
+  const rs = mtRegFiltrados();
+  const cnt = k => rs.filter(r => r.categoria === k).length;
+  $a('mtRStats').innerHTML = sgCard('📋', rs.length, 'Trabajos registrados') + sgCard('🛢️', cnt('Aceite y filtros'), 'Aceite y filtros') +
+    sgCard('🛠️', cnt('Rotura / reparación'), 'Roturas / reparaciones') + sgCard('🛞', cnt('Cubiertas'), 'Cubiertas') + sgCard('🧰', cnt('Mantenimiento general'), 'Mant. general');
+  if (!rs.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">🔧</div><p>No hay trabajos registrados con ese filtro</p></div></td></tr>'; return; }
+  tb.innerHTML = rs.map(r => {
+    const c = MT_CATS[r.categoria] || { ico: '🔧', bg: '#EEE', fg: '#333' };
+    const esEq = String(r.unidad_id).indexOf('eq-') === 0;
+    return '<tr><td>' + fmtDate(r.fecha) + '</td><td><strong>' + licEsc(r.unidad) + '</strong></td>' +
+      '<td><span class="mt-cat" style="background:' + c.bg + ';color:' + c.fg + '">' + c.ico + ' ' + licEsc(r.categoria) + '</span></td>' +
+      '<td style="max-width:260px">' + licEsc(r.trabajo || '') + (r.categoria === 'Aceite y filtros' && r.filtros ? '<div class="vd-f" style="font-size:12px;color:var(--text3)">' + licEsc(r.filtros) + (r.vigencia_dias ? ' · vigencia ' + licEsc(r.vigencia_dias) + ' días' : '') + '</div>' : '') + '</td>' +
+      '<td style="max-width:240px;font-size:12.5px">' + licEsc(r.detalle || '') + '</td>' +
+      '<td>' + (r.km_horas ? licEsc(r.km_horas) + ' ' + (esEq ? 'hs' : 'km') : '') + '</td><td>' + licEsc(r.taller || '') + '</td>' +
+      '<td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="mtAbrir(\'' + licEsc(r.__ID__) + '\')">✏️</button> <button class="btn btn-secondary btn-sm" onclick="mtEliminar(\'' + licEsc(r.__ID__) + '\')">🗑️</button></td></tr>';
+  }).join('');
+}
+function mtExportRegCSV() {
+  sgCSV('mantenimiento_vehiculos.csv', ['Fecha', 'Unidad', 'Tipo', 'Trabajo', 'Qué se cambió', 'Vigencia (días)', 'Próximo cambio', 'Detalle', 'Km / horas', 'Taller'],
+    mtRegFiltrados().map(r => [fmtDate(r.fecha), r.unidad, r.categoria, r.trabajo, r.filtros || '', r.vigencia_dias || '', r.proximo ? fmtDate(r.proximo) : '', r.detalle || '', r.km_horas || '', r.taller || '']));
+}
+
+// ── Formulario ──
+function mtVigDefault(uid) { const r = mtUltimoAceite(uid); return r && parseInt(r.vigencia_dias, 10) > 0 ? parseInt(r.vigencia_dias, 10) : MT_VIG_DEF; }
+function mtAbrir(id, uid, cat) {
+  mtEditId = id || null;
+  const r = id ? mantenimientoData.find(x => String(x.__ID__) === String(id)) : null;
+  if (id && !r) return;
+  const us = mtUnidades(), op = u => '<option value="' + licEsc(u.id) + '">' + licEsc(u.nombre) + '</option>';
+  let h = '<option value="">Elegí la unidad...</option>';
+  const cams = us.filter(u => u.tipo === 'camion'), eqs = us.filter(u => u.tipo === 'equipo');
+  if (cams.length) h += '<optgroup label="Camiones">' + cams.map(op).join('') + '</optgroup>';
+  if (eqs.length) h += '<optgroup label="Autoelevador">' + eqs.map(op).join('') + '</optgroup>';
+  if (r && !us.some(u => u.id === r.unidad_id)) h += '<option value="' + licEsc(r.unidad_id) + '">' + licEsc(r.unidad) + ' (dado de baja)</option>';
+  $a('mt_unidad').innerHTML = h;
+  $a('mt_unidad').value = r ? r.unidad_id : (uid || '');
+  $a('mt_fecha').value = r ? licDia(r.fecha) : licHoyISO();
+  $a('mt_cat').value = r ? r.categoria : (cat || 'Aceite y filtros');
+  $a('mt_km').value = r ? (r.km_horas || '') : '';
+  $a('mt_taller').value = r ? (r.taller || '') : '';
+  $a('mt_detalle').value = r ? (r.detalle || '') : '';
+  mtTipoActual = '';
+  mtCambioCat(r);
+  $a('mtModalTitle').textContent = r ? '✏️ Editar trabajo de mantenimiento' : '🔧 Registrar trabajo de mantenimiento';
+  $a('mtModal').classList.add('open');
+}
+function mtCerrar() { $a('mtModal').classList.remove('open'); }
+function mtTipoSel() { const u = mtUnidadPorId($a('mt_unidad').value); return u ? u.tipo : 'camion'; }
+function mtCambioUnidad() {
+  const t = mtTipoSel();
+  if (t !== mtTipoActual) { mtCambioCat(); return; }
+  if ($a('mt_cat').value === 'Aceite y filtros' && $a('mt_vig') && !mtEditId) { $a('mt_vig').value = mtVigDefault($a('mt_unidad').value); mtCalcProx(); }
+}
+function mtCalcProx() {
+  const el = $a('mt_prox'), v = $a('mt_vig'); if (!el || !v) return;
+  const n = parseInt(v.value, 10), f = $a('mt_fecha').value;
+  el.textContent = n > 0 && f ? fmtDate(mtSumarDias(f, n)) : '—';
+}
+function mtCambioCat(r) {
+  if (r && r.type) r = null;   // viene de un evento "onchange"
+  const cat = $a('mt_cat').value, tipo = mtTipoSel(), box = $a('mt_dyn');
+  mtTipoActual = tipo;
+  $a('mt_km_lbl').textContent = tipo === 'camion' ? 'Kilometraje (opcional)' : 'Horas del horómetro (opcional)';
+  const sel = (lista) => '<select id="mt_trab" onchange="mtOtro()">' + lista.map(x => '<option value="' + licEsc(x) + '">' + licEsc(x) + '</option>').join('') + '</select>' +
+    '<input type="text" id="mt_trab_otro" placeholder="Detallá el trabajo / la parte" style="display:none;margin-top:6px">';
+  let det = 'Detalle';
+  if (cat === 'Aceite y filtros') {
+    box.innerHTML = '<label>¿Qué se cambió? *</label><div class="mt-checks">' +
+      MT_FILTROS[tipo].map((f, i) => '<label class="mt-chk"><input type="checkbox" name="mt_f" value="' + licEsc(f) + '"' + (i < 2 ? ' checked' : '') + '> ' + licEsc(f) + '</label>').join('') + '</div>' +
+      '<div class="form-grid" style="margin-top:12px"><div class="form-group"><label>Vigencia: días hasta el próximo cambio *</label><input type="number" id="mt_vig" min="1" oninput="mtCalcProx()"></div>' +
+      '<div class="form-group"><label>Próximo cambio</label><div class="mt-prox" id="mt_prox">—</div></div></div>';
+    $a('mt_vig').value = mtVigDefault($a('mt_unidad').value);
+    det = 'Observaciones';
+  } else if (cat === 'Rotura / reparación') {
+    box.innerHTML = '<label>¿Qué se rompió / qué parte se reparó? *</label>' + sel(MT_ROTURAS);
+    det = 'Qué pasó / detalle de la reparación';
+  } else if (cat === 'Cubiertas') {
+    box.innerHTML = '<label>Trabajo realizado *</label>' + sel(MT_CUBIERTAS);
+    det = 'Posición y cantidad (ej: delantera izquierda, 2 traseras)';
+  } else {
+    box.innerHTML = '<label>Trabajos realizados (podés marcar varios) *</label><div class="mt-checks">' +
+      MT_GENERAL[tipo].map(f => '<label class="mt-chk"><input type="checkbox" name="mt_g" value="' + licEsc(f) + '"> ' + licEsc(f) + '</label>').join('') + '</div>' +
+      '<input type="text" id="mt_g_otro" placeholder="Otro trabajo (opcional)" style="margin-top:8px">';
+    det = 'Observaciones';
+  }
+  $a('mt_det_lbl').textContent = det;
+  if (r) {   // edición: completa lo guardado
+    if (cat === 'Aceite y filtros') {
+      const fs = String(r.filtros || '').split(', ');
+      document.querySelectorAll('input[name="mt_f"]').forEach(c => { c.checked = fs.includes(c.value); });
+      $a('mt_vig').value = r.vigencia_dias || MT_VIG_DEF;
+    } else if (cat === 'Mantenimiento general') {
+      const its = String(r.trabajo || '').split(' · '), otros = [];
+      its.forEach(t => { const c = [...document.querySelectorAll('input[name="mt_g"]')].find(x => x.value === t); if (c) c.checked = true; else if (t) otros.push(t); });
+      $a('mt_g_otro').value = otros.join(' · ');
+    } else {
+      const s = $a('mt_trab');
+      if ([...s.options].some(o => o.value === r.trabajo)) s.value = r.trabajo; else { s.value = 'Otro'; $a('mt_trab_otro').value = r.trabajo || ''; }
+      mtOtro();
+    }
+  }
+  mtCalcProx();
+}
+function mtOtro() { const s = $a('mt_trab'), o = $a('mt_trab_otro'); if (s && o) o.style.display = s.value === 'Otro' ? '' : 'none'; }
+async function mtGuardar() {
+  const fecha = $a('mt_fecha').value, uid = $a('mt_unidad').value, cat = $a('mt_cat').value, u = mtUnidadPorId(uid);
+  if (!fecha || !u) { showToast('Completá la fecha y la unidad', 'error'); return; }
+  let trabajo = '', filtros = '', vig = '', prox = '';
+  if (cat === 'Aceite y filtros') {
+    const sel = [...document.querySelectorAll('input[name="mt_f"]:checked')].map(x => x.value);
+    if (!sel.length) { showToast('Marcá qué se cambió', 'error'); return; }
+    const n = parseInt($a('mt_vig').value, 10);
+    if (!(n > 0)) { showToast('Indicá los días de vigencia hasta el próximo cambio', 'error'); return; }
+    const ac = sel.some(s => s.indexOf('Aceite') === 0), fi = sel.some(s => s.indexOf('Filtro') === 0);
+    trabajo = ac && fi ? 'Cambio de aceite y filtros' : ac ? 'Cambio de aceite' : 'Cambio de filtros';
+    filtros = sel.join(', '); vig = n; prox = mtSumarDias(fecha, n);
+  } else if (cat === 'Mantenimiento general') {
+    const sel = [...document.querySelectorAll('input[name="mt_g"]:checked')].map(x => x.value);
+    const otro = $a('mt_g_otro').value.trim(); if (otro) sel.push(otro);
+    if (!sel.length) { showToast('Marcá al menos un trabajo realizado', 'error'); return; }
+    trabajo = sel.join(' · ');
+  } else {
+    trabajo = $a('mt_trab').value;
+    if (trabajo === 'Otro') { trabajo = $a('mt_trab_otro').value.trim(); if (!trabajo) { showToast('Detallá el trabajo realizado', 'error'); return; } }
+  }
+  const data = { fecha, unidad_id: uid, unidad: u.nombre, categoria: cat, trabajo, detalle: $a('mt_detalle').value.trim(), km_horas: $a('mt_km').value.trim(),
+    filtros, vigencia_dias: vig, proximo: prox, taller: $a('mt_taller').value.trim() };
+  const btn = $a('mtSaveBtn'); btn.disabled = true;
+  try {
+    if (API_URL) {
+      const res = await apiCall(mtEditId ? 'updateMantenimiento' : 'addMantenimiento', mtEditId ? { id: mtEditId, data } : { data });
+      if (!res || res.error || !res.success) { showToast('Error: ' + ((res && res.error) || 'sin conexión'), 'error'); return; }
+      if (!mtEditId) data.__ID__ = res.id;
+    } else if (!mtEditId) data.__ID__ = sgLocalId();
+    if (mtEditId) { const ix = mantenimientoData.findIndex(r => String(r.__ID__) === String(mtEditId)); if (ix > -1) mantenimientoData[ix] = { ...mantenimientoData[ix], ...data }; }
+    else mantenimientoData.push(data);
+    sgSave(); mtCerrar(); renderMantenimiento(); showToast('Mantenimiento guardado ✓', 'success');
+  } finally { btn.disabled = false; }
+}
+async function mtEliminar(id) {
+  if (!confirm('¿Eliminar este registro de mantenimiento?')) return;
+  if (API_URL) { const res = await apiCall('deleteMantenimiento', { id }); if (res && res.error) { showToast('Error: ' + res.error, 'error'); return; } }
+  mantenimientoData = mantenimientoData.filter(r => String(r.__ID__) !== String(id));
+  sgSave(); renderMantenimiento(); showToast('Registro eliminado ✓', 'success');
+}
+
+// ── Imagen de alerta para WhatsApp: aceite y filtros ──
+async function mtGenerarImagen() {
+  const filas = mtFilasAceite().sort(mtCmpUrg);
+  let venc = 0, pronto = 0, falta = 0;
+  const items = [];
+  filas.filter(x => x.e.rank < 3).forEach(x => {
+    const e = x.e, r = x.r, u = x.u;
+    let color, pill, nota;
+    if (e.k === 'venc') { venc++; color = '#B91C1C'; pill = ['VENCIDO', '#DC2626', '#FFFFFF']; nota = 'Cambio de aceite y filtros VENCIDO hace ' + mtPl(-e.dias, 'día', 'días') + ' (venció el ' + fmtDate(e.prox) + ')'; }
+    else if (e.k === 'pronto') { pronto++; color = '#B45309'; pill = ['POR VENCER', '#D97706', '#FFFFFF']; nota = e.dias === 0 ? 'El cambio de aceite y filtros vence HOY' : 'El cambio de aceite y filtros vence en ' + mtPl(e.dias, 'día', 'días') + ' (' + fmtDate(e.prox) + ')'; }
+    else { falta++; color = '#6B7280'; pill = ['SIN REGISTRO', '#6B7280', '#FFFFFF']; nota = 'Todavía no tiene un cambio de aceite y filtros registrado'; }
+    const it = { num: u.numero, patente: u.patente, color, pill, notas: [{ t: nota, c: color, b: true }],
+      rows: r ? [[['Último cambio', fmtDate(r.fecha) + (r.km_horas ? ' · ' + r.km_horas + ' ' + mtUnit(u) : ''), ''], ['Próximo cambio', e.prox ? fmtDate(e.prox) : '—', color]]] : [] };
+    if (u.tipo === 'equipo') it.titulo = u.nombre.toUpperCase();
+    items.push(it);
+  });
+  const partes = [];
+  if (venc) partes.push(mtPl(venc, 'cambio vencido', 'cambios vencidos'));
+  if (pronto) partes.push(mtPl(pronto, 'por vencer', 'por vencer'));
+  if (falta) partes.push(mtPl(falta, 'sin registro', 'sin registro'));
+  const cfg = {
+    tono: venc ? 'red' : (pronto || falta) ? 'amber' : 'green',
+    titulo: 'ALERTA CAMBIO DE ACEITE Y FILTROS',
+    sub: 'AVISO INTERNO DE MANTENIMIENTO',
+    pie: 'Comunicar cualquier novedad al área de Mantenimiento / RRHH',
+    fechaTxt: alDiaTxt(licHoyISO()),
+    mensaje: !filas.length ? 'No hay vehículos cargados' : partes.length ? 'ATENCIÓN: ' + partes.join(' · ') : 'TODOS LOS CAMBIOS DE ACEITE Y FILTROS ESTÁN AL DÍA',
+    chips: [
+      { n: filas.length, label: 'Unidades controladas', color: '#111827' },
+      { n: venc, label: 'Cambios vencidos', color: venc ? '#DC2626' : '#9CA3AF' },
+      { n: pronto, label: 'Vencen en ' + mtAviso() + ' días o menos', color: pronto ? '#D97706' : '#9CA3AF' },
+      { n: falta, label: 'Sin registro', color: falta ? '#374151' : '#9CA3AF' }
+    ],
+    seccion: 'DETALLE POR VEHÍCULO',
+    items, vacio: 'Todos los cambios de aceite y filtros están vigentes'
+  };
+  const cv = await alListaCanvas(cfg);
+  alPreviewCanvas(cv, 'alerta_aceite_filtros_' + licHoyISO() + '.png');
 }
 </script>
 </body>
