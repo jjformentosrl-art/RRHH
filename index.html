@@ -682,6 +682,15 @@
   #mtScreen .mt-checks { grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
   #mtScreen .mt-chk { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 14px; }
   #mtScreen .mt-chk input { width: 20px; height: 20px; flex-shrink: 0; }
+  #mtScreen .mt-hist { margin-top: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 10px 12px; }
+  #mtScreen .mt-hist summary { cursor: pointer; font-weight: 700; font-size: 14px; }
+  #mtScreen .mt-hist-scroll { max-height: 340px; overflow-y: auto; margin-top: 8px; -webkit-overflow-scrolling: touch; }
+  #mtScreen .mt-hist-g { font-size: 12px; font-weight: 700; color: var(--text3); margin: 12px 0 2px; text-transform: uppercase; letter-spacing: .4px; }
+  #mtScreen .mt-hist-row { padding: 8px 0; border-top: 1px solid var(--border); font-size: 13.5px; }
+  #mtScreen .mt-hist-row small { display: block; color: var(--text2); font-size: 12px; margin-top: 2px; line-height: 1.35; }
+  #mtScreen .mt-venc-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 13.5px; cursor: pointer; }
+  #mtScreen .mt-venc-row small { display: block; color: var(--text2); font-size: 12px; margin-top: 2px; }
+  #mtScreen .mt-venc-row .badge { white-space: nowrap; flex-shrink: 0; }
   .sg-wrap { display: flex; flex-wrap: wrap; margin: -4px; }
   .sg-wrap > * { margin: 4px; }
   .sg-pas { flex: 1 1 84px; min-width: 84px; padding: 14px 8px; border: 2px solid var(--border-strong); border-radius: 12px; background: var(--surface); font-weight: 700; font-size: 19px; line-height: 1.1; font-family: inherit; text-align: center; cursor: pointer; color: var(--text); }
@@ -2894,6 +2903,10 @@
       <h2>Registro de Mantenimiento</h2>
       <p id="mtPubFecha"></p>
     </div>
+    <details class="mt-hist" id="mtPubVencBox" open style="display:none">
+      <summary>🛢️ Próximos vencimientos de aceite y filtros</summary>
+      <div class="mt-hist-scroll" id="mtPubVenc"></div>
+    </details>
     <div id="mtPubForm">
       <div class="kiosk-field kiosk-combo">
         <label>Tu nombre</label>
@@ -2905,6 +2918,10 @@
         <select id="mtPubUnidad" onchange="mtPubElegirUnidad()"></select>
       </div>
       <div id="mtPubAviso" style="display:none;margin-top:12px"></div>
+      <details class="mt-hist" id="mtPubHistBox" open style="display:none">
+        <summary id="mtPubHistTit">📋 Últimos trabajos de este vehículo</summary>
+        <div class="mt-hist-scroll" id="mtPubHist"></div>
+      </details>
       <div id="mtPubBody" style="display:none">
         <div class="kiosk-field" style="margin-top:16px"><label>Fecha del trabajo</label><input type="date" id="mtPubFechaTrab" onchange="mtPubCalcProx()"></div>
         <div class="kiosk-field" style="margin-top:16px"><label>Tipo de trabajo</label>
@@ -6125,17 +6142,49 @@ function mtUnidadesServidor() {
   return out;
 }
 
+function mtSumarDiasSrv(iso, n) {
+  var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n);
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+// Datos del enlace público: vehículos, nómina y, por vehículo, el estado del aceite y el ÚLTIMO registro de cada tipo de trabajo
 function getMantenimientoKiosk() {
   var unidades = mtUnidadesServidor();
-  var ult = {};
+  var porUnidad = {};
   sheetToJson(sgSheet('MANTENIMIENTO', MANT_HEADERS)).forEach(function(r) {
-    var v = parseInt(r.vigencia_dias, 10);
-    if (String(r.categoria) === 'Aceite y filtros' && v > 0) {
-      var f = String(r.fecha);
-      if (!ult[r.unidad_id] || f >= ult[r.unidad_id].f) ult[r.unidad_id] = { f: f, v: v };
-    }
+    var id = String(r.unidad_id);
+    if (!porUnidad[id]) porUnidad[id] = [];
+    porUnidad[id].push(r);
   });
-  unidades.forEach(function(u) { u.vig = ult[u.id] ? ult[u.id].v : 0; });
+  unidades.forEach(function(u) {
+    var ultimos = {}, aceite = null;
+    (porUnidad[u.id] || []).forEach(function(r) {
+      var f = String(r.fecha).substring(0, 10), cat = String(r.categoria), claves = [];
+      if (cat === 'Aceite y filtros') claves = String(r.filtros || '').split(', ');
+      else if (cat === 'Mantenimiento general') claves = String(r.trabajo || '').split(' · ');
+      else claves = [String(r.trabajo || '')];
+      if (cat === 'Aceite y filtros' && !String(r.filtros || '').trim()) claves = [String(r.trabajo || '')];
+      claves.forEach(function(t) {
+        t = String(t).trim();
+        if (!t) return;
+        var k = cat + '|' + t;
+        if (!ultimos[k] || f >= ultimos[k].fecha) {
+          ultimos[k] = { cat: cat, trabajo: t, fecha: f, km: String(r.km_horas === undefined || r.km_horas === null ? '' : r.km_horas), detalle: String(r.detalle || ''), taller: String(r.taller || ''), quien: String(r.registrado_por || '') };
+        }
+      });
+      if (cat === 'Aceite y filtros' && (!aceite || f >= aceite.fecha)) {
+        var v = parseInt(r.vigencia_dias, 10) || 0;
+        var prox = String(r.proximo || '').substring(0, 10);
+        if (!prox && v > 0) prox = mtSumarDiasSrv(f, v);
+        aceite = { fecha: f, proximo: prox, vig: v, km: String(r.km_horas === undefined || r.km_horas === null ? '' : r.km_horas), filtros: String(r.filtros || ''), quien: String(r.registrado_por || '') };
+      }
+    });
+    var lista = Object.keys(ultimos).map(function(k) { return ultimos[k]; });
+    lista.sort(function(a, b) { return a.fecha < b.fecha ? 1 : (a.fecha > b.fecha ? -1 : 0); });
+    u.vig = aceite ? aceite.vig : 0;
+    u.aceite = aceite;
+    u.ultimos = lista.slice(0, 80);
+  });
   return { employees: sgNomina(), unidades: unidades };
 }
 
@@ -17299,6 +17348,7 @@ async function initMtPublic(apiUrl) {
   if (eqs.length) h += '<optgroup label="Autoelevador">' + eqs.map(op).join('') + '</optgroup>';
   $a('mtPubUnidad').innerHTML = h;
   if (!mtPub.unidades.length) mtPubAviso('warn', 'Todavía no hay vehículos cargados. Avisá al administrador.');
+  mtPubRenderVenc();
 }
 function mtPubFiltrar(txt) {
   const n = kioskNormalizar(txt);
@@ -17314,10 +17364,11 @@ function mtPubCerrar() { $a('mtPubDrop').classList.remove('open'); }
 function mtPubElegirUnidad() {
   const u = mtPub.unidades.find(x => x.id === $a('mtPubUnidad').value);
   mtPub.sel = u || null; mtPubMsg('', '');
-  if (!u) { $a('mtPubBody').style.display = 'none'; return; }
+  if (!u) { $a('mtPubBody').style.display = 'none'; mtPubRenderHist(); return; }
   $a('mtPubFechaTrab').value = licHoyISO(); $a('mtPubFechaTrab').max = licHoyISO();
   $a('mtPubKm').value = ''; $a('mtPubTaller').value = ''; $a('mtPubDetalle').value = '';
   $a('mtPubBody').style.display = 'block';
+  mtPubRenderHist();
   mtPubCambioCat();
 }
 function mtPubCalcProx() {
@@ -17353,6 +17404,71 @@ function mtPubCambioCat() {
   }
   $a('mtPubDetLbl').textContent = det;
   mtPubCalcProx(); mtPubMsg('', '');
+}
+
+// ── Vencimientos de aceite y último registro de cada trabajo (vista del enlace público) ──
+const MT_PUB_AVISO = 15;   // días de anticipación para marcar "por vencer"
+function mtPubEstadoAceite(a) {
+  if (!a || !a.proximo) return { rank: 2, dias: null, cls: 'badge-gray', txt: 'Sin cambio registrado' };
+  const dias = mtDiasHasta(a.proximo);
+  if (dias < 0) return { rank: 0, dias, cls: 'badge-red', txt: 'Vencido hace ' + mtPl(-dias, 'día', 'días') };
+  if (dias === 0) return { rank: 1, dias, cls: 'badge-orange', txt: 'Vence hoy' };
+  if (dias <= MT_PUB_AVISO) return { rank: 1, dias, cls: 'badge-orange', txt: 'Vence en ' + mtPl(dias, 'día', 'días') };
+  return { rank: 3, dias, cls: 'badge-green', txt: 'Vigente · ' + dias + ' días' };
+}
+function mtPubKm(v, tipo) {
+  if (v === '' || v == null) return '';
+  const n = Number(v);
+  return (isNaN(n) ? String(v) : n.toLocaleString('es-AR')) + ' ' + (tipo === 'camion' ? 'km' : 'hs');
+}
+function mtPubRenderVenc() {
+  const box = $a('mtPubVencBox'), cont = $a('mtPubVenc');
+  if (!mtPub.unidades.length) { box.style.display = 'none'; return; }
+  const filas = mtPub.unidades.map(u => ({ u, e: mtPubEstadoAceite(u.aceite) }))
+    .sort((a, b) => a.e.rank - b.e.rank || (a.e.dias == null ? 99999 : a.e.dias) - (b.e.dias == null ? 99999 : b.e.dias));
+  cont.innerHTML = filas.map(x => {
+    const a = x.u.aceite;
+    const sub = a ? 'Próximo: <b>' + fmtDate(a.proximo) + '</b> · Último cambio: ' + fmtDate(a.fecha) + (a.km ? ' (' + licEsc(mtPubKm(a.km, x.u.tipo)) + ')' : '') : 'Todavía no se registró un cambio';
+    return '<div class="mt-venc-row" data-id="' + licEsc(x.u.id) + '" onclick="mtPubIr(this.dataset.id)"><span><b>' + licEsc(x.u.nombre) + '</b><small>' + sub + '</small></span><span class="badge ' + x.e.cls + '">' + licEsc(x.e.txt) + '</span></div>';
+  }).join('');
+  box.style.display = '';
+}
+function mtPubIr(id) {
+  $a('mtPubUnidad').value = id; mtPubElegirUnidad();
+  try { $a('mtPubHistBox').scrollIntoView({ block: 'start' }); } catch (e) {}
+}
+function mtPubRenderHist() {
+  const box = $a('mtPubHistBox'), cont = $a('mtPubHist'), u = mtPub.sel;
+  if (!u) { box.style.display = 'none'; cont.innerHTML = ''; return; }
+  $a('mtPubHistTit').textContent = '📋 Últimos trabajos · ' + u.nombre;
+  let h = '';
+  const e = mtPubEstadoAceite(u.aceite);
+  h += '<div class="mt-hist-g">🛢️ Estado del aceite y filtros</div><div class="mt-hist-row" style="border-top:0">' +
+    '<span class="badge ' + e.cls + '">' + licEsc(e.txt) + '</span>' +
+    (u.aceite ? '<small>Último cambio: ' + fmtDate(u.aceite.fecha) + (u.aceite.km ? ' · ' + licEsc(mtPubKm(u.aceite.km, u.tipo)) : '') + (u.aceite.filtros ? ' · ' + licEsc(u.aceite.filtros) : '') + '<br>Próximo cambio: <b>' + fmtDate(u.aceite.proximo) + '</b></small>' : '<small>Todavía no tiene un cambio de aceite registrado.</small>') + '</div>';
+  const orden = ['Aceite y filtros', 'Rotura / reparación', 'Cubiertas', 'Mantenimiento general'];
+  const ult = u.ultimos || [];
+  if (!ult.length) h += '<div class="mt-hist-row" style="color:var(--text2)">Este vehículo todavía no tiene trabajos registrados.</div>';
+  else {
+    h += '<div style="font-size:12px;color:var(--text2);margin-top:10px">Se muestra el <b>último</b> registro de cada trabajo: comparalo con los km / horas actuales.</div>';
+    orden.forEach(cat => {
+      const items = ult.filter(x => x.cat === cat); if (!items.length) return;
+      const c = MT_CATS[cat] || { ico: '🔧' };
+      h += '<div class="mt-hist-g">' + c.ico + ' ' + licEsc(cat) + '</div>' + items.map(x => {
+        const extra = [x.detalle, x.taller ? 'Taller: ' + x.taller : '', x.quien ? '📱 ' + x.quien : ''].filter(Boolean).map(licEsc).join(' · ');
+        return '<div class="mt-hist-row"><b>' + licEsc(x.trabajo) + '</b> — ' + fmtDate(x.fecha) + (x.km ? ' · <b>' + licEsc(mtPubKm(x.km, u.tipo)) + '</b>' : '') + (extra ? '<small>' + extra + '</small>' : '') + '</div>';
+      }).join('');
+    });
+  }
+  cont.innerHTML = h; box.style.display = '';
+}
+async function mtPubRefrescar() {
+  const res = await kioskApiCall('getMantenimientoKiosk');
+  if (!res || res.error) return;
+  mtPub.unidades = res.unidades || [];
+  const id = mtPub.sel ? mtPub.sel.id : '';
+  mtPub.sel = mtPub.unidades.find(x => x.id === id) || null;
+  mtPubRenderVenc(); mtPubRenderHist();
 }
 async function mtPubEnviar() {
   if (mtPub.busy || !mtPub.sel) return;
@@ -17391,10 +17507,11 @@ async function mtPubEnviar() {
     (res.proximo ? '<br>Próximo cambio: <b>' + fmtDate(res.proximo) + '</b>' : '') + '</div>' +
     '<button class="sg-big neutral" style="margin-top:14px" onclick="mtPubNuevo()">➕ Registrar otro trabajo</button>';
   try { window.scrollTo(0, 0); } catch (e) {}
+  mtPubRefrescar();
 }
 function mtPubNuevo() {
   $a('mtPubDone').style.display = 'none'; $a('mtPubForm').style.display = 'block';
-  $a('mtPubUnidad').value = ''; mtPub.sel = null; $a('mtPubBody').style.display = 'none'; mtPubMsg('', '');
+  $a('mtPubUnidad').value = ''; mtPub.sel = null; $a('mtPubBody').style.display = 'none'; mtPubMsg('', ''); mtPubRenderHist();
   try { window.scrollTo(0, 0); } catch (e) {}
 }
 
