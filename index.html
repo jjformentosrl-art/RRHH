@@ -10,7 +10,7 @@
    Se detecta antes de pintar nada: se oculta toda la app de administración,
    no se descargan tipografías externas y se desactivan animaciones/sombras. */
 (function(){
-  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion|auditoria|racks|equipos|camiones)=1(&|$)/.test(location.search);
+  var lite = /[?&](fichaje|vacaciones|limpieza|capacitacion|auditoria|racks|equipos|camiones|mantenimiento)=1(&|$)/.test(location.search);
   if (lite) { document.documentElement.className += ' lite'; }
   else {
     var l = document.createElement('link');
@@ -675,10 +675,13 @@
 
 
   /* ═══ SEGURIDAD E HIGIENE: CONTROL DE RACKS Y EQUIPOS DE MANIPULEO ═══ */
-  #rackScreen, #eqScreen, #camScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
-  #rackScreen.active, #eqScreen.active, #camScreen.active { display: flex; }
-  html.lite #rackScreen, html.lite #eqScreen, html.lite #camScreen { position: static; padding: 16px 12px 32px; overflow: visible; }
-  html.lite #rackScreen.active, html.lite #eqScreen.active, html.lite #camScreen.active { display: block; }
+  #rackScreen, #eqScreen, #camScreen, #mtScreen { display: none; position: fixed; inset: 0; z-index: 999; background: var(--bg); flex-direction: column; align-items: center; justify-content: flex-start; padding: 28px 20px 40px; overflow-y: auto; }
+  #rackScreen.active, #eqScreen.active, #camScreen.active, #mtScreen.active { display: flex; }
+  html.lite #rackScreen, html.lite #eqScreen, html.lite #camScreen, html.lite #mtScreen { position: static; padding: 16px 12px 32px; overflow: visible; }
+  html.lite #rackScreen.active, html.lite #eqScreen.active, html.lite #camScreen.active, html.lite #mtScreen.active { display: block; }
+  #mtScreen .mt-checks { grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+  #mtScreen .mt-chk { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 14px; }
+  #mtScreen .mt-chk input { width: 20px; height: 20px; flex-shrink: 0; }
   .sg-wrap { display: flex; flex-wrap: wrap; margin: -4px; }
   .sg-wrap > * { margin: 4px; }
   .sg-pas { flex: 1 1 84px; min-width: 84px; padding: 14px 8px; border: 2px solid var(--border-strong); border-radius: 12px; background: var(--surface); font-weight: 700; font-size: 19px; line-height: 1.1; font-family: inherit; text-align: center; cursor: pointer; color: var(--text); }
@@ -2616,6 +2619,10 @@
         </div>
       </div>
       <div class="dpanel mt-p" id="mtp-reg">
+        <details open style="padding:12px 24px 0;flex-shrink:0">
+          <summary style="cursor:pointer;font-weight:600;font-size:13px;color:var(--text2);margin-bottom:8px">📲 Enlace para que los encargados registren desde el celular</summary>
+          <div id="mtLinkBox"></div>
+        </details>
         <div class="toolbar">
           <select class="filter-select" id="mtRFUnidad" onchange="renderMtReg()"></select>
           <select class="filter-select" id="mtRFCat" onchange="renderMtReg()"></select>
@@ -2876,6 +2883,46 @@
       </div>
     </div>
     <div id="camPubDone" style="display:none"></div>
+  </div>
+</div>
+
+<!-- MANTENIMIENTO DE VEHÍCULOS: PANTALLA MÓVIL (enlace para encargados) -->
+<div id="mtScreen">
+  <div class="kiosk-card" style="max-width:560px;width:100%">
+    <div class="kiosk-title">
+      <div class="icon">🔧</div>
+      <h2>Registro de Mantenimiento</h2>
+      <p id="mtPubFecha"></p>
+    </div>
+    <div id="mtPubForm">
+      <div class="kiosk-field kiosk-combo">
+        <label>Tu nombre</label>
+        <input type="text" id="mtPubNombre" placeholder="Elegí de la lista o escribí tu nombre..." autocomplete="off" oninput="mtPubFiltrar(this.value)" onfocus="mtPubFiltrar(this.value)" onblur="setTimeout(mtPubCerrar, 200)">
+        <div class="kiosk-combo-dropdown" id="mtPubDrop"></div>
+      </div>
+      <div class="kiosk-field" style="margin-top:16px">
+        <label>Vehículo (N° de camión o autoelevador)</label>
+        <select id="mtPubUnidad" onchange="mtPubElegirUnidad()"></select>
+      </div>
+      <div id="mtPubAviso" style="display:none;margin-top:12px"></div>
+      <div id="mtPubBody" style="display:none">
+        <div class="kiosk-field" style="margin-top:16px"><label>Fecha del trabajo</label><input type="date" id="mtPubFechaTrab" onchange="mtPubCalcProx()"></div>
+        <div class="kiosk-field" style="margin-top:16px"><label>Tipo de trabajo</label>
+          <select id="mtPubCat" onchange="mtPubCambioCat()">
+            <option value="Aceite y filtros">🛢️ Cambio de aceite y filtros</option>
+            <option value="Rotura / reparación">🛠️ Rotura / reparación</option>
+            <option value="Cubiertas">🛞 Cubiertas</option>
+            <option value="Mantenimiento general">🧰 Mantenimiento general</option>
+          </select></div>
+        <div id="mtPubDyn" style="margin-top:6px"></div>
+        <div class="kiosk-field" style="margin-top:16px"><label id="mtPubKmLbl">Kilometraje (opcional)</label><input type="number" id="mtPubKm" inputmode="decimal" min="0" placeholder="Opcional"></div>
+        <div class="kiosk-field" style="margin-top:16px"><label>Taller / quién lo hizo</label><input type="text" id="mtPubTaller" maxlength="80" placeholder="Opcional"></div>
+        <div class="kiosk-field" style="margin-top:16px"><label id="mtPubDetLbl">Detalle</label><input type="text" id="mtPubDetalle" maxlength="300" placeholder="Opcional"></div>
+        <div id="mtPubMsg" class="kiosk-result" style="display:none;margin-top:14px"></div>
+        <button class="sg-big ok" id="mtPubBtn" onclick="mtPubEnviar()" style="margin-top:16px">✅ REGISTRAR MANTENIMIENTO</button>
+      </div>
+    </div>
+    <div id="mtPubDone" style="display:none"></div>
   </div>
 </div>
 
@@ -4873,6 +4920,8 @@ function handleRequest(e) {
     else if (action === 'addMantenimiento')    result = sgAddRow('MANTENIMIENTO', MANT_HEADERS, body.data);
     else if (action === 'updateMantenimiento') result = updateRow('MANTENIMIENTO', body.id, body.data);
     else if (action === 'deleteMantenimiento') result = deleteRow('MANTENIMIENTO', body.id);
+    else if (action === 'getMantenimientoKiosk')    result = getMantenimientoKiosk();
+    else if (action === 'addMantenimientoPublico')  result = addMantenimientoPublico(body.data);
     else if (action === 'saveConfig')          result = saveConfig(body.data);
     else if (action === 'saveHorario')         result = saveHorario(body.data);
     else if (action === 'savePin')             result = savePin(body.data);
@@ -5930,7 +5979,7 @@ var VEL_HEADERS = ['fecha','camion_id','numero','patente','responsable','cantida
 var VEHDOC_HEADERS = ['camion_id','seguro_vence','seguro_foto_url','vtv_vence','vtv_foto_url','senasa_vence','senasa_foto_url'];
 
 // ── Mantenimiento de vehículos (camiones y autoelevador) ──
-var MANT_HEADERS = ['fecha','unidad_id','unidad','categoria','trabajo','detalle','km_horas','filtros','vigencia_dias','proximo','taller'];
+var MANT_HEADERS = ['fecha','unidad_id','unidad','categoria','trabajo','detalle','km_horas','filtros','vigencia_dias','proximo','taller','registrado_por'];
 var VEHDOC_TIPOS = ['seguro','vtv','senasa'];
 var VEHDOC_FOLDER_NAME = 'Documentacion Vehiculos RRHH';
 function vehDocFolder() {
@@ -6056,6 +6105,94 @@ function setCamionAsignaciones(data) {
     if (!id) rows.push({ __ID__: r.id, fecha: fecha, camion_id: cid });
   }
   return { success: true };
+}
+
+// ── Mantenimiento de vehículos: enlace público para los encargados ──
+function mtUnidadesServidor() {
+  var out = [];
+  var cams = sheetToJson(sgSheet('CAMIONES_LISTA', CAM_LISTA_HEADERS)).filter(function(c) { return (c.numero || c.patente) && String(c.activo) !== 'No'; });
+  cams.sort(function(a, b) {
+    var x = parseFloat(a.numero), y = parseFloat(b.numero);
+    if (!isNaN(x) && !isNaN(y) && x !== y) return x - y;
+    return String(a.numero).localeCompare(String(b.numero));
+  });
+  cams.forEach(function(c) {
+    out.push({ id: 'cam-' + c.__ID__, tipo: 'camion', nombre: 'Camión N° ' + (c.numero || '?') + (c.patente ? ' · ' + c.patente : '') });
+  });
+  sheetToJson(sgSheet('EQUIPOS_LISTA', EQ_LISTA_HEADERS)).forEach(function(e) {
+    if (String(e.activo) !== 'No' && e.tipo === 'Autoelevador') out.push({ id: 'eq-' + e.__ID__, tipo: 'equipo', nombre: e.nombre || 'Autoelevador' });
+  });
+  return out;
+}
+
+function getMantenimientoKiosk() {
+  var unidades = mtUnidadesServidor();
+  var ult = {};
+  sheetToJson(sgSheet('MANTENIMIENTO', MANT_HEADERS)).forEach(function(r) {
+    var v = parseInt(r.vigencia_dias, 10);
+    if (String(r.categoria) === 'Aceite y filtros' && v > 0) {
+      var f = String(r.fecha);
+      if (!ult[r.unidad_id] || f >= ult[r.unidad_id].f) ult[r.unidad_id] = { f: f, v: v };
+    }
+  });
+  unidades.forEach(function(u) { u.vig = ult[u.id] ? ult[u.id].v : 0; });
+  return { employees: sgNomina(), unidades: unidades };
+}
+
+// Si la hoja MANTENIMIENTO ya existía sin la columna "registrado_por", se la agrega al final
+function mtAsegurarColumnaQuien() {
+  var sheet = sgSheet('MANTENIMIENTO', MANT_HEADERS);
+  var last = sheet.getLastColumn();
+  var heads = sheet.getRange(1, 1, 1, last).getValues()[0];
+  if (heads.indexOf('registrado_por') === -1) {
+    sheet.getRange(1, last + 1).setValue('registrado_por').setFontWeight('bold').setBackground('#1a73e8').setFontColor('#ffffff');
+  }
+}
+
+// Guarda un trabajo de mantenimiento enviado desde el enlace público. Valida y calcula todo en el servidor.
+function addMantenimientoPublico(data) {
+  if (!data) return { error: 'Sin datos' };
+  var quien = audTexto(data.quien, 80);
+  if (!quien) return { error: 'Falta tu nombre' };
+  var uid = String(data.unidad_id || ''), unidad = null;
+  mtUnidadesServidor().forEach(function(u) { if (u.id === uid) unidad = u; });
+  if (!unidad) return { error: 'Vehículo no encontrado' };
+  var fecha = audTexto(data.fecha, 10);
+  if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha)) return { error: 'Fecha inválida' };
+  if (fecha > sgHoy()) return { error: 'La fecha no puede ser futura' };
+  var cat = String(data.categoria || '');
+  if (['Aceite y filtros', 'Rotura / reparación', 'Cubiertas', 'Mantenimiento general'].indexOf(cat) === -1) return { error: 'Tipo de trabajo inválido' };
+  var lista = Object.prototype.toString.call(data.items) === '[object Array]' ? data.items : [];
+  if (lista.length > 30) return { error: 'Demasiados ítems en un solo envío' };
+  var items = [];
+  lista.forEach(function(x) { var t = audTexto(x, 120); if (t) items.push(t); });
+  var trabajo = '', filtros = '', vig = '', prox = '';
+  if (cat === 'Aceite y filtros') {
+    if (!items.length) return { error: 'Marcá qué se cambió' };
+    var n = parseInt(data.vigencia_dias, 10);
+    if (!(n > 0 && n <= 3650)) return { error: 'Días de vigencia inválidos' };
+    var ac = items.some(function(t) { return t.indexOf('Aceite') === 0; });
+    var fi = items.some(function(t) { return t.indexOf('Filtro') === 0; });
+    trabajo = ac && fi ? 'Cambio de aceite y filtros' : (ac ? 'Cambio de aceite' : 'Cambio de filtros');
+    filtros = items.join(', '); vig = n;
+    var d = new Date(fecha + 'T12:00:00'); d.setDate(d.getDate() + n);
+    prox = Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  } else if (cat === 'Mantenimiento general') {
+    if (!items.length) return { error: 'Marcá al menos un trabajo realizado' };
+    trabajo = items.join(' · ');
+  } else {
+    trabajo = audTexto(data.trabajo, 150);
+    if (!trabajo) return { error: 'Falta indicar el trabajo realizado' };
+  }
+  var km = String(data.km_horas === undefined || data.km_horas === null ? '' : data.km_horas).replace(',', '.').trim();
+  mtAsegurarColumnaQuien();
+  var r = addRow('MANTENIMIENTO', {
+    fecha: fecha, unidad_id: uid, unidad: unidad.nombre, categoria: cat, trabajo: trabajo,
+    detalle: audTexto(data.detalle, 300), km_horas: (km !== '' && !isNaN(Number(km))) ? km : '',
+    filtros: filtros, vigencia_dias: vig, proximo: prox, taller: audTexto(data.taller, 80), registrado_por: quien
+  });
+  if (r && r.success) { r.proximo = prox; r.trabajo = trabajo; }
+  return r;
 }
 
 // Alta en una hoja de este módulo, creándola si todavía no existe
@@ -6252,12 +6389,13 @@ document.addEventListener('DOMContentLoaded', () => {
   else if (params.get('racks') === '1') initRackPublic(params.get('api') || API_URL);
   else if (params.get('equipos') === '1') initEqPublic(params.get('api') || API_URL, params.get('eq') || '');
   else if (params.get('camiones') === '1') initCamPublic(params.get('api') || API_URL, params.get('cam') || '');
+  else if (params.get('mantenimiento') === '1') initMtPublic(params.get('api') || API_URL);
 });
 
 window.onload = () => {
   const params = new URLSearchParams(location.search);
   // Kiosko y vacaciones ya arrancaron en DOMContentLoaded (modo liviano)
-  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1' || params.get('auditoria') === '1' || params.get('racks') === '1' || params.get('equipos') === '1' || params.get('camiones') === '1') return;
+  if (params.get('fichaje') === '1' || params.get('vacaciones') === '1' || params.get('limpieza') === '1' || params.get('capacitacion') === '1' || params.get('auditoria') === '1' || params.get('racks') === '1' || params.get('equipos') === '1' || params.get('camiones') === '1' || params.get('mantenimiento') === '1') return;
   const today = new Date().toISOString().split('T')[0];
   ['c_fecha','d_fecha','f_alta','f_art','r_fecha','e_fecha','p_fecha'].forEach(id => {
     const el = document.getElementById(id);
@@ -16902,6 +17040,9 @@ function mtTab(t, el) {
 }
 function renderMantenimiento() {
   if (!$a('panel-mantenimiento')) return;
+  sgLinkBox('mtLinkBox', 'Enlace para que los encargados registren mantenimientos desde el celular', mtLink(),
+    'Un solo enlace/QR: la persona elige el camión (o el autoelevador), el tipo de trabajo y lo que se hizo. Queda guardado en “Registro de trabajos” y, si es cambio de aceite, actualiza las alertas.',
+    'Registro de mantenimiento de vehículos: cargá desde este enlace el trabajo realizado:', 'Mantenimiento de Vehículos');
   renderMtAceite(); renderMtReg(); mtActualizarAvisos();
 }
 
@@ -16971,7 +17112,7 @@ function mtRegFiltrados() {
   return sgOrdenFecha(mantenimientoData).filter(r => {
     const d = licDia(r.fecha);
     return (!u || r.unidad_id === u) && (!c || r.categoria === c) && (!d1 || d >= d1) && (!d2 || d <= d2) &&
-      (!q || kioskNormalizar([r.trabajo, r.detalle, r.taller, r.unidad].join(' ')).includes(q));
+      (!q || kioskNormalizar([r.trabajo, r.detalle, r.taller, r.unidad, r.registrado_por].join(' ')).includes(q));
   });
 }
 function renderMtReg() {
@@ -16992,14 +17133,14 @@ function renderMtReg() {
     return '<tr><td>' + fmtDate(r.fecha) + '</td><td><strong>' + licEsc(r.unidad) + '</strong></td>' +
       '<td><span class="mt-cat" style="background:' + c.bg + ';color:' + c.fg + '">' + c.ico + ' ' + licEsc(r.categoria) + '</span></td>' +
       '<td style="max-width:260px">' + licEsc(r.trabajo || '') + (r.categoria === 'Aceite y filtros' && r.filtros ? '<div class="vd-f" style="font-size:12px;color:var(--text3)">' + licEsc(r.filtros) + (r.vigencia_dias ? ' · vigencia ' + licEsc(r.vigencia_dias) + ' días' : '') + '</div>' : '') + '</td>' +
-      '<td style="max-width:240px;font-size:12.5px">' + licEsc(r.detalle || '') + '</td>' +
+      '<td style="max-width:240px;font-size:12.5px">' + licEsc(r.detalle || '') + (r.registrado_por ? '<div style="font-size:11.5px;color:var(--text3)">📱 Registró: ' + licEsc(r.registrado_por) + '</div>' : '') + '</td>' +
       '<td>' + (r.km_horas ? licEsc(r.km_horas) + ' ' + (esEq ? 'hs' : 'km') : '') + '</td><td>' + licEsc(r.taller || '') + '</td>' +
       '<td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="mtAbrir(\'' + licEsc(r.__ID__) + '\')">✏️</button> <button class="btn btn-secondary btn-sm" onclick="mtEliminar(\'' + licEsc(r.__ID__) + '\')">🗑️</button></td></tr>';
   }).join('');
 }
 function mtExportRegCSV() {
-  sgCSV('mantenimiento_vehiculos.csv', ['Fecha', 'Unidad', 'Tipo', 'Trabajo', 'Qué se cambió', 'Vigencia (días)', 'Próximo cambio', 'Detalle', 'Km / horas', 'Taller'],
-    mtRegFiltrados().map(r => [fmtDate(r.fecha), r.unidad, r.categoria, r.trabajo, r.filtros || '', r.vigencia_dias || '', r.proximo ? fmtDate(r.proximo) : '', r.detalle || '', r.km_horas || '', r.taller || '']));
+  sgCSV('mantenimiento_vehiculos.csv', ['Fecha', 'Unidad', 'Tipo', 'Trabajo', 'Qué se cambió', 'Vigencia (días)', 'Próximo cambio', 'Detalle', 'Km / horas', 'Taller', 'Registró'],
+    mtRegFiltrados().map(r => [fmtDate(r.fecha), r.unidad, r.categoria, r.trabajo, r.filtros || '', r.vigencia_dias || '', r.proximo ? fmtDate(r.proximo) : '', r.detalle || '', r.km_horas || '', r.taller || '', r.registrado_por || '']));
 }
 
 // ── Formulario ──
@@ -17124,6 +17265,137 @@ async function mtEliminar(id) {
   if (API_URL) { const res = await apiCall('deleteMantenimiento', { id }); if (res && res.error) { showToast('Error: ' + res.error, 'error'); return; } }
   mantenimientoData = mantenimientoData.filter(r => String(r.__ID__) !== String(id));
   sgSave(); renderMantenimiento(); showToast('Registro eliminado ✓', 'success');
+}
+
+
+// ═══════════════════════ ENLACE PÚBLICO: REGISTRO DE MANTENIMIENTO ═══════════════════════
+function mtLink() { return sgBase() + '?mantenimiento=1&api=' + encodeURIComponent(API_URL); }
+const mtPub = { emps: [], unidades: [], sel: null, lista: [], busy: false };
+function mtPubMsg(tipo, txt) {
+  const el = $a('mtPubMsg');
+  if (!txt) { el.style.display = 'none'; return; }
+  el.className = 'kiosk-result ' + tipo; el.textContent = txt; el.style.display = 'block';
+}
+function mtPubAviso(tipo, txt) {
+  const el = $a('mtPubAviso');
+  if (!txt) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.className = 'kiosk-result ' + tipo; el.innerHTML = txt; el.style.display = 'block';
+}
+async function initMtPublic(apiUrl) {
+  kioskApiUrl = apiUrl || '';
+  $a('mtScreen').classList.add('active');
+  $a('mtPubFecha').textContent = 'Fecha: ' + fmtDate(licHoyISO());
+  try { const n = localStorage.getItem('sg_nombre'); if (n) $a('mtPubNombre').value = n; } catch (e) {}
+  $a('mtPubUnidad').innerHTML = '<option value="">Cargando vehículos...</option>';
+  if (!kioskApiUrl) { $a('mtPubUnidad').innerHTML = ''; mtPubAviso('error', 'Este enlace no es válido. Pedí uno nuevo al administrador.'); return; }
+  const res = await kioskApiCall('getMantenimientoKiosk');
+  if (!res || res.error) { $a('mtPubUnidad').innerHTML = ''; mtPubAviso('error', 'No se pudo conectar con el sistema. Revisá tu conexión y volvé a abrir el enlace.'); return; }
+  mtPub.unidades = res.unidades || [];
+  mtPub.emps = (res.employees || []).map(e => ({ nombre: e.nombre, _n: kioskNormalizar(e.nombre) })).sort((a, b) => a.nombre.localeCompare(b.nombre));
+  const op = u => '<option value="' + licEsc(u.id) + '">' + licEsc(u.nombre) + '</option>';
+  const cams = mtPub.unidades.filter(u => u.tipo === 'camion'), eqs = mtPub.unidades.filter(u => u.tipo === 'equipo');
+  let h = '<option value="">Elegí el vehículo...</option>';
+  if (cams.length) h += '<optgroup label="Camiones">' + cams.map(op).join('') + '</optgroup>';
+  if (eqs.length) h += '<optgroup label="Autoelevador">' + eqs.map(op).join('') + '</optgroup>';
+  $a('mtPubUnidad').innerHTML = h;
+  if (!mtPub.unidades.length) mtPubAviso('warn', 'Todavía no hay vehículos cargados. Avisá al administrador.');
+}
+function mtPubFiltrar(txt) {
+  const n = kioskNormalizar(txt);
+  mtPub.lista = mtPub.emps.filter(e => !n || e._n.includes(n)).slice(0, 40);
+  const dd = $a('mtPubDrop');
+  dd.innerHTML = mtPub.lista.length
+    ? mtPub.lista.map((e, i) => '<div class="kiosk-combo-option" onmousedown="mtPubElegirNombre(' + i + ')" ontouchstart="mtPubElegirNombre(' + i + ')">' + licEsc(e.nombre) + '</div>').join('')
+    : '<div class="kiosk-combo-empty">Sin coincidencias: podés usar el nombre que escribiste</div>';
+  dd.classList.add('open');
+}
+function mtPubElegirNombre(i) { const e = mtPub.lista[i]; if (!e) return; $a('mtPubNombre').value = e.nombre; mtPubCerrar(); }
+function mtPubCerrar() { $a('mtPubDrop').classList.remove('open'); }
+function mtPubElegirUnidad() {
+  const u = mtPub.unidades.find(x => x.id === $a('mtPubUnidad').value);
+  mtPub.sel = u || null; mtPubMsg('', '');
+  if (!u) { $a('mtPubBody').style.display = 'none'; return; }
+  $a('mtPubFechaTrab').value = licHoyISO(); $a('mtPubFechaTrab').max = licHoyISO();
+  $a('mtPubKm').value = ''; $a('mtPubTaller').value = ''; $a('mtPubDetalle').value = '';
+  $a('mtPubBody').style.display = 'block';
+  mtPubCambioCat();
+}
+function mtPubCalcProx() {
+  const el = $a('mtPubProx'), v = $a('mtPubVig'); if (!el || !v) return;
+  const n = parseInt(v.value, 10), f = $a('mtPubFechaTrab').value;
+  el.textContent = n > 0 && f ? fmtDate(mtSumarDias(f, n)) : '—';
+}
+function mtPubOtro() { const s = $a('mtPubTrab'), o = $a('mtPubOtroBox'); if (s && o) o.style.display = s.value === 'Otro' ? '' : 'none'; }
+function mtPubCambioCat() {
+  const cat = $a('mtPubCat').value, tipo = mtPub.sel ? mtPub.sel.tipo : 'camion', box = $a('mtPubDyn');
+  $a('mtPubKmLbl').textContent = tipo === 'camion' ? 'Kilometraje (opcional)' : 'Horas del horómetro (opcional)';
+  const sel = (lbl, lista) => '<label class="sg-lbl">' + lbl + '</label><div class="kiosk-field"><select id="mtPubTrab" onchange="mtPubOtro()">' + lista.map(x => '<option value="' + licEsc(x) + '">' + licEsc(x) + '</option>').join('') + '</select></div>' +
+    '<div class="kiosk-field" id="mtPubOtroBox" style="display:none;margin-top:8px"><input type="text" id="mtPubTrabOtro" maxlength="150" placeholder="Detallá el trabajo / la parte"></div>';
+  let det = 'Detalle';
+  if (cat === 'Aceite y filtros') {
+    const vig = (mtPub.sel && mtPub.sel.vig > 0) ? mtPub.sel.vig : MT_VIG_DEF;
+    box.innerHTML = '<label class="sg-lbl">¿Qué se cambió?</label><div class="mt-checks">' +
+      MT_FILTROS[tipo].map((f, i) => '<label class="mt-chk"><input type="checkbox" name="mtp_f" value="' + licEsc(f) + '"' + (i < 2 ? ' checked' : '') + '> ' + licEsc(f) + '</label>').join('') + '</div>' +
+      '<div class="kiosk-field" style="margin-top:16px"><label>Vigencia: días hasta el próximo cambio</label><input type="number" id="mtPubVig" min="1" inputmode="numeric" value="' + vig + '" oninput="mtPubCalcProx()"></div>' +
+      '<label class="sg-lbl">Próximo cambio</label><div class="mt-prox" id="mtPubProx">—</div>';
+    det = 'Observaciones';
+  } else if (cat === 'Rotura / reparación') {
+    box.innerHTML = sel('¿Qué se rompió / qué parte se reparó?', MT_ROTURAS);
+    det = 'Qué pasó / detalle de la reparación';
+  } else if (cat === 'Cubiertas') {
+    box.innerHTML = sel('Trabajo realizado', MT_CUBIERTAS);
+    det = 'Posición y cantidad (ej: delantera izquierda, 2 traseras)';
+  } else {
+    box.innerHTML = '<label class="sg-lbl">Trabajos realizados (podés marcar varios)</label><div class="mt-checks">' +
+      MT_GENERAL[tipo].map(f => '<label class="mt-chk"><input type="checkbox" name="mtp_g" value="' + licEsc(f) + '"> ' + licEsc(f) + '</label>').join('') + '</div>' +
+      '<div class="kiosk-field" style="margin-top:10px"><input type="text" id="mtPubGOtro" maxlength="120" placeholder="Otro trabajo (opcional)"></div>';
+    det = 'Observaciones';
+  }
+  $a('mtPubDetLbl').textContent = det;
+  mtPubCalcProx(); mtPubMsg('', '');
+}
+async function mtPubEnviar() {
+  if (mtPub.busy || !mtPub.sel) return;
+  const nombre = ($a('mtPubNombre').value || '').trim();
+  if (!nombre) { mtPubMsg('error', 'Elegí o escribí tu nombre.'); try { $a('mtPubNombre').scrollIntoView({ block: 'center' }); $a('mtPubNombre').focus(); } catch (e) {} return; }
+  const fecha = $a('mtPubFechaTrab').value;
+  if (!fecha) { mtPubMsg('error', 'Indicá la fecha del trabajo.'); return; }
+  if (fecha > licHoyISO()) { mtPubMsg('error', 'La fecha no puede ser futura.'); return; }
+  const cat = $a('mtPubCat').value;
+  const data = { quien: nombre, unidad_id: mtPub.sel.id, fecha, categoria: cat, km_horas: $a('mtPubKm').value.trim(), taller: $a('mtPubTaller').value.trim(), detalle: $a('mtPubDetalle').value.trim() };
+  if (cat === 'Aceite y filtros') {
+    const sel = [...document.querySelectorAll('input[name="mtp_f"]:checked')].map(x => x.value);
+    if (!sel.length) { mtPubMsg('error', 'Marcá qué se cambió.'); return; }
+    const n = parseInt($a('mtPubVig').value, 10);
+    if (!(n > 0)) { mtPubMsg('error', 'Indicá los días de vigencia hasta el próximo cambio.'); return; }
+    data.items = sel; data.vigencia_dias = n;
+  } else if (cat === 'Mantenimiento general') {
+    const sel = [...document.querySelectorAll('input[name="mtp_g"]:checked')].map(x => x.value);
+    const otro = ($a('mtPubGOtro').value || '').trim(); if (otro) sel.push(otro);
+    if (!sel.length) { mtPubMsg('error', 'Marcá al menos un trabajo realizado.'); return; }
+    data.items = sel;
+  } else {
+    let t = $a('mtPubTrab').value;
+    if (t === 'Otro') { t = ($a('mtPubTrabOtro').value || '').trim(); if (!t) { mtPubMsg('error', 'Detallá el trabajo realizado.'); return; } }
+    data.trabajo = t;
+  }
+  mtPub.busy = true; $a('mtPubBtn').disabled = true; $a('mtPubBtn').textContent = 'Enviando...';
+  const res = await kioskApiCall('addMantenimientoPublico', { data });
+  mtPub.busy = false; $a('mtPubBtn').disabled = false; $a('mtPubBtn').textContent = '✅ REGISTRAR MANTENIMIENTO';
+  if (!res || res.error || !res.success) { mtPubMsg('error', 'No se pudo guardar: ' + ((res && res.error) || 'sin conexión') + '. Probá de nuevo.'); return; }
+  try { localStorage.setItem('sg_nombre', nombre); } catch (e) {}
+  if (cat === 'Aceite y filtros') mtPub.sel.vig = data.vigencia_dias;
+  $a('mtPubForm').style.display = 'none';
+  const done = $a('mtPubDone'); done.style.display = 'block';
+  done.innerHTML = '<div class="kiosk-result ok" style="font-size:15px;padding:18px">✅ <b>¡Mantenimiento registrado!</b><br>' + licEsc(mtPub.sel.nombre) + '<br>' + licEsc(res.trabajo || data.trabajo || cat) +
+    (res.proximo ? '<br>Próximo cambio: <b>' + fmtDate(res.proximo) + '</b>' : '') + '</div>' +
+    '<button class="sg-big neutral" style="margin-top:14px" onclick="mtPubNuevo()">➕ Registrar otro trabajo</button>';
+  try { window.scrollTo(0, 0); } catch (e) {}
+}
+function mtPubNuevo() {
+  $a('mtPubDone').style.display = 'none'; $a('mtPubForm').style.display = 'block';
+  $a('mtPubUnidad').value = ''; mtPub.sel = null; $a('mtPubBody').style.display = 'none'; mtPubMsg('', '');
+  try { window.scrollTo(0, 0); } catch (e) {}
 }
 
 // ── Imagen de alerta para WhatsApp: aceite y filtros ──
