@@ -3447,6 +3447,10 @@
             <option>A confirmar</option>
           </select>
         </div>
+        <div class="form-group">
+          <label>Días de baja médica <span style="font-weight:400;color:var(--text3)">(ausente por este motivo; vacío o 0 = sin baja)</span></label>
+          <input type="number" id="al_dias_baja" min="0" step="1" placeholder="Ej: 5">
+        </div>
         <div class="form-group full">
           <label>Equipo asociado (con qué equipo se accidentó)</label>
           <input type="text" id="al_equipo" list="alEquipoList" placeholder="Ej: Autoelevador, zorra hidráulica, camión...">
@@ -5000,7 +5004,7 @@ function getAllData() {
   var cSheet = getOrCreateSheet('CONDUCTA',     conductaHeaders);
   ensureColumns(cSheet, ['con_baja','dias_baja','lugar']); // migración: agrega la columna a la hoja ya existente
   var alertasSheet = getOrCreateSheet('ALERTAS', ALERTAS_HEADERS);
-  ensureColumns(alertasSheet, ['lugar']); // migración: agrega la columna a la hoja ya existente
+  ensureColumns(alertasSheet, ['lugar','dias_baja']); // migración: agrega la columna a la hoja ya existente
   var dSheet = getOrCreateSheet('DESEMPENO',    desempenoHeaders);
   ensureColumns(dSheet, ['reclamos']); // migración: agrega la columna a la hoja ya existente
   var rSheet = getOrCreateSheet('DISTRIBUCION', distribHeaders);
@@ -5245,7 +5249,7 @@ function guardarCertificado(base64, mime, empleado, desde) {
   return getCertFolder().createFile(blob).getUrl();
 }
 // Alertas de incidente / accidente: hoja propia + foto de los daños en carpeta PRIVADA de Drive
-var ALERTAS_HEADERS = ['tipo','empleado','puesto','relacion','hora','causalidad','forma','parte_cuerpo','asistencia','supervisor','distribuidora','fecha','contexto','antiguedad','jornada','turno','equipo','descripcion','foto_url','registro_id','lugar'];
+var ALERTAS_HEADERS = ['tipo','empleado','puesto','relacion','hora','causalidad','forma','parte_cuerpo','asistencia','supervisor','distribuidora','fecha','contexto','antiguedad','jornada','turno','equipo','descripcion','foto_url','registro_id','lugar','dias_baja'];
 var ALERTAS_FOLDER_NAME = 'Alertas Incidentes RRHH';
 function getAlertasFolder() {
   var it = DriveApp.getFoldersByName(ALERTAS_FOLDER_NAME);
@@ -5253,7 +5257,7 @@ function getAlertasFolder() {
 }
 function addAlerta(data) {
   if (!data) return { error: 'Sin datos' };
-  ensureColumns(getOrCreateSheet('ALERTAS', ALERTAS_HEADERS), ['lugar']);
+  ensureColumns(getOrCreateSheet('ALERTAS', ALERTAS_HEADERS), ['lugar','dias_baja']);
   if (data.foto_base64) {
     try {
       var bytes = Utilities.base64Decode(data.foto_base64);
@@ -8445,6 +8449,26 @@ function alAntiguedadTexto(emp) {
   return n ? n + (n === 1 ? ' año' : ' años') : '';
 }
 
+// Días de baja médica tomados del registro de Conducta vinculado (si lo hay)
+function alRegistroVinculado(a) {
+  if (!a || !a.registro_id || typeof conductaData === 'undefined') return null;
+  return conductaData.find(x => x.__ID__ == a.registro_id) || null;
+}
+function alDiasBajaRegistro(a) {
+  const c = alRegistroVinculado(a);
+  const n = c && c.con_baja === 'Sí' ? parseInt(c.dias_baja) : 0;
+  return n > 0 ? n : '';
+}
+// Texto para la imagen: null = no mostrar la fila (incidente sin baja)
+function alBajaTexto(a) {
+  let n = parseInt(a.dias_baja);
+  if (!(n > 0)) n = parseInt(alDiasBajaRegistro(a)) || 0;
+  if (n > 0) return n + (n === 1 ? ' día' : ' días') + ' de baja médica';
+  const c = alRegistroVinculado(a);
+  if (c && c.con_baja === 'Sí') return 'Con baja médica (días a confirmar)';
+  return a.tipo === 'Accidente' ? 'Sin baja médica' : null;
+}
+
 function alHoraToggle() {
   const c = document.getElementById('al_hora_conf').checked;
   const h = document.getElementById('al_hora');
@@ -8536,6 +8560,8 @@ function alPrefillDesdeRegistro(id) {
   alSetEmpleado(c.empleado || '');
   document.getElementById('al_desc').value = c.descripcion || '';
   lugarSet('al', c.lugar);
+  const dB = parseInt(c.dias_baja);
+  document.getElementById('al_dias_baja').value = (c.tipo === 'Accidente' && c.con_baja === 'Sí' && dB > 0) ? dB : '';
 }
 
 function openAlertaModal(registroId) {
@@ -8555,6 +8581,7 @@ function openAlertaModal(registroId) {
   document.getElementById('al_jornada').value = 'Completa';
   document.getElementById('al_asistencia').value = 'No requirió';
   document.getElementById('al_causalidad').value = '';
+  document.getElementById('al_dias_baja').value = '';
   lugarSet('al', '');
   document.getElementById('al_distribuidora').value = 'Juan Jose Formento S.R.L';
   alFotoQuitar();
@@ -8599,6 +8626,7 @@ async function openAlertaEdit(id) {
   lugarSet('al', a.lugar);
   document.getElementById('al_parte').value = a.parte_cuerpo || '';
   document.getElementById('al_asistencia').value = a.asistencia || 'No requirió';
+  document.getElementById('al_dias_baja').value = (parseInt(a.dias_baja) > 0) ? parseInt(a.dias_baja) : alDiasBajaRegistro(a);
   document.getElementById('al_equipo').value = a.equipo || '';
   document.getElementById('al_forma').value = a.forma || '';
   document.getElementById('al_contexto').value = a.contexto || '';
@@ -8639,6 +8667,7 @@ async function saveAlerta() {
     forma: document.getElementById('al_forma').value.trim(),
     parte_cuerpo: document.getElementById('al_parte').value.trim(),
     asistencia: document.getElementById('al_asistencia').value,
+    dias_baja: Math.max(0, parseInt(document.getElementById('al_dias_baja').value) || 0),
     supervisor: document.getElementById('al_supervisor').value.trim(),
     distribuidora: document.getElementById('al_distribuidora').value.trim() || 'Juan Jose Formento S.R.L',
     fecha,
@@ -8717,6 +8746,7 @@ function renderAlertas() {
         <span><span class="badge ${acc ? 'badge-red' : 'badge-yellow'}">${alEsc(a.tipo)}</span></span>
         <span>📅 ${alEsc(alFecha(a.fecha))}</span>
         <span>🕒 ${alEsc(a.hora || 'A confirmar')}</span>
+        ${alBajaTexto(a) ? '<span class="badge ' + (parseInt(a.dias_baja) > 0 || alDiasBajaRegistro(a) ? 'badge-red' : 'badge-gray') + '">🩺 ' + alEsc(alBajaTexto(a)) + '</span>' : ''}
       </div>
       <div class="conduct-body"><strong>${alEsc(a.causalidad)}</strong>${a.equipo ? '<br>🔧 ' + alEsc(a.equipo) : ''}${a.forma ? '<br>' + alEsc(a.forma) : ''}</div>
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
@@ -8865,6 +8895,8 @@ function alRender(ctx, a, img) {
   row([['Lugar de ocurrencia', a.lugar || 'En el establecimiento', 2]]);
   row([['Tipo de causalidad (9c)', a.causalidad, 2]]);
   row([['Parte del cuerpo afectada', a.parte_cuerpo], ['Asistencia médica', a.asistencia]]);
+  const bajaTxt = alBajaTexto(a);
+  if (bajaTxt) row([['Días de ausencia por baja médica', bajaTxt, 2, 30]]);
   row([['Equipo asociado', a.equipo, 2]]);
   if (a.forma) row([['Forma de ocurrencia', a.forma, 2, 26]]);
   if (a.contexto) row([['Contexto', a.contexto, 2, 26]]);
