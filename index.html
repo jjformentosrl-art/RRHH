@@ -15791,6 +15791,16 @@ function camLink(id) { return sgBase() + '?camiones=1' + (id ? '&cam=' + encodeU
 function camNom(c) { return 'N° ' + (c.numero || '?') + (c.patente ? ' · ' + c.patente : ''); }
 function camOrden(arr) { return [...arr].sort((a, b) => String(a.numero).localeCompare(String(b.numero), undefined, { numeric: true })); }
 function camAsignDe(id, dia) { return camAsignData.find(a => String(a.camion_id) === String(id) && licDia(a.fecha) === dia) || { chofer: '', ayudante: '' }; }
+// Rol de quien completó el checklist, según la asignación ACTUAL de ese día (si se corrige la asignación después, se actualiza solo).
+// Si ese día ya no hay ninguna asignación cargada, se usa el rol que quedó guardado al enviarse.
+function camRolDe(k) {
+  if (!k) return '';
+  const a = camAsignDe(k.camion_id, licDia(k.fecha)), q = kioskNormalizar(k.quien);
+  if (!a.chofer && !a.ayudante) return k.rol || '';
+  if (q && a.chofer && kioskNormalizar(a.chofer) === q) return 'Chofer';
+  if (q && a.ayudante && kioskNormalizar(a.ayudante) === q) return 'Ayudante';
+  return '';
+}
 function camMananaISO() {
   const d = new Date(licHoyISO() + 'T00:00:00'); d.setDate(d.getDate() + 1);
   const p = n => (n < 10 ? '0' : '') + n;
@@ -15852,7 +15862,7 @@ function renderCamEstado() {
     const k = f.k, fl = k ? eqFallas(k) : [];
     const est = k ? '<span class="badge badge-green">✅ Check completado</span>' : f.st === 'pend' ? '<span class="badge badge-red">❌ Sin completar</span>' : '<span class="badge badge-gray">Sin reparto asignado</span>';
     const obs = k ? (fl.map(x => `<div style="font-size:12px;color:${x.critico ? 'var(--danger)' : '#8A5A00'}">${x.critico ? '⛔' : '⚠️'} ${licEsc(x.item)}${x.nota ? ': ' + licEsc(x.nota) : ''}</div>`).join('') + (k.observaciones ? `<div style="font-size:12px">💬 ${licEsc(k.observaciones)}</div>` : '') || '<span style="color:var(--text3);font-size:12px">Sin observaciones</span>') : '—';
-    const quien = k ? licEsc(k.hora || '') + ' · ' + licEsc(k.quien) + (k.rol ? ' <span style="color:var(--text3)">(' + k.rol + ')</span>' : (f.asig ? ' <span style="color:var(--warning)">(no es el asignado)</span>' : '')) : '—';
+    const quien = k ? licEsc(k.hora || '') + ' · ' + licEsc(k.quien) + (camRolDe(k) ? ' <span style="color:var(--text3)">(' + camRolDe(k) + ')</span>' : (f.asig ? ' <span style="color:var(--warning)">(no es el asignado)</span>' : '')) : '—';
     return `<tr${f.st === 'pend' ? ' style="background:rgba(220,38,38,.06)"' : ''}>
       <td><strong>N° ${licEsc(f.c.numero)}</strong><div style="font-size:11px;color:var(--text3)">${licEsc(f.c.patente || '')}</div></td>
       <td>${nom(f.a.chofer)}</td><td>${nom(f.a.ayudante)}</td><td>${est}</td><td>${quien}</td>
@@ -15924,7 +15934,7 @@ function renderCamControles() {
   tb.innerHTML = listSlice('camc', rows).map(c => {
     const res = c.resolucion === 'Abierto' ? '<span class="badge badge-red">Abierta</span>' : c.resolucion === 'Resuelto' ? '<span class="badge badge-green">Resuelta</span>' : '—';
     return `<tr><td>${fmtDate(c.fecha)}</td><td>${licEsc(c.hora || '')}</td><td><strong>${licEsc(camNom(c))}</strong></td>
-      <td>${licEsc(c.quien)}${c.rol ? ' <span style="color:var(--text3)">(' + c.rol + ')</span>' : ''}</td>
+      <td>${licEsc(c.quien)}${camRolDe(c) ? ' <span style="color:var(--text3)">(' + camRolDe(c) + ')</span>' : ''}</td>
       <td><span class="badge ${camBadgeRes(c.resultado)}">${licEsc(c.resultado)}</span></td><td>${Number(c.cant_fallas) || 0}</td><td>${res}</td>
       <td style="white-space:nowrap"><button class="btn btn-secondary btn-sm" onclick="camVer('${c.__ID__}')">👁 Ver</button>
         <button class="btn btn-danger btn-sm" onclick="deleteCamControl('${c.__ID__}')">🗑️</button></td></tr>`;
@@ -15943,7 +15953,7 @@ function camVer(id) {
   $a('camDetailBody').innerHTML = `<div style="display:flex;flex-wrap:wrap;margin:-4px;font-size:13px">
       <span style="margin:4px"><span class="badge ${camBadgeRes(c.resultado)}">${licEsc(c.resultado)}</span></span>
       <span style="margin:4px">📅 ${fmtDate(c.fecha)} ${licEsc(c.hora || '')}</span>
-      <span style="margin:4px">👤 ${licEsc(c.quien)}${c.rol ? ' (' + c.rol + ')' : ''}</span>
+      <span style="margin:4px">👤 ${licEsc(c.quien)}${camRolDe(c) ? ' (' + camRolDe(c) + ')' : ''}</span>
       ${c.km ? `<span style="margin:4px">🛣️ ${licEsc(c.km)} km</span>` : ''}</div>
     ${fl.length ? '<div style="margin-top:12px;font-weight:700;font-size:13px">Fallas informadas</div>' + fl.map(f => `<div class="sg-hall" style="border-left-color:${f.critico ? 'var(--danger)' : 'var(--warning)'}"><b>${licEsc(f.item)}</b>${f.critico ? '<span class="sg-crit">CRÍTICO</span>' : ''}${f.nota ? '<div style="margin-top:4px">' + licEsc(f.nota) + '</div>' : ''}</div>`).join('')
       : '<div style="margin-top:12px;color:var(--success);font-weight:600">✅ Sin fallas: todos los puntos estaban bien.</div>'}
@@ -15961,7 +15971,7 @@ async function camResolucion(id, estado) {
 }
 function exportCamCSV() {
   sgCSV('checklists_camiones.csv', ['Fecha', 'Hora', 'N° vehículo', 'Patente', 'Lo completó', 'Rol', 'Km', 'Resultado', 'Cant. fallas', 'Fallas', 'Observaciones', 'Resolución'],
-    camCtrlFiltrados().map(c => [c.fecha, c.hora, c.numero, c.patente, c.quien, c.rol, c.km, c.resultado, c.cant_fallas, c.fallas, c.observaciones, c.resolucion]));
+    camCtrlFiltrados().map(c => [c.fecha, c.hora, c.numero, c.patente, c.quien, camRolDe(c), c.km, c.resultado, c.cant_fallas, c.fallas, c.observaciones, c.resolucion]));
 }
 
 // ── Cumplimiento mensual por persona ──
@@ -16844,7 +16854,7 @@ async function camGenerarImagen() {
       it.notas.push({ t: 'Checklist pendiente: no se puede confirmar el estado del camión', c: '#B91C1C', b: true });
     } else {
       it.pill = ['COMPLETADO', '#16A34A', '#FFFFFF'];
-      it.extra = 'Enviado ' + (k.hora ? 'a las ' + k.hora + ' ' : '') + 'por ' + k.quien + (k.rol ? ' (' + k.rol + ')' : (f.asig ? ' (no es el asignado)' : ''));
+      it.extra = 'Enviado ' + (k.hora ? 'a las ' + k.hora + ' ' : '') + 'por ' + k.quien + (camRolDe(k) ? ' (' + camRolDe(k) + ')' : (f.asig ? ' (no es el asignado)' : ''));
       if (k.resultado === 'Fuera de servicio') { it.color = '#B91C1C'; it.notas.push({ t: 'FUERA DE SERVICIO: no debe salir a reparto', c: '#B91C1C', b: true }); }
       else if (k.resultado === 'Con observaciones') it.color = '#D97706';
       else it.color = '#16A34A';
