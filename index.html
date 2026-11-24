@@ -3264,6 +3264,18 @@
           <label>Días de baja médica * <span style="font-weight:400;color:var(--text3)">(días corridos que estuvo de baja por este accidente)</span></label>
           <input type="number" id="c_dias_baja" min="1" step="1" placeholder="Ej: 15">
         </div>
+        <div class="form-group full" id="c_lugar_group" style="display:none">
+          <label>Lugar de ocurrencia <span style="font-weight:400;color:var(--text3)">(¿es in itinere u otro lugar?)</span></label>
+          <select id="c_lugar" onchange="lugarToggle('c')">
+            <option value="En el establecimiento">En el establecimiento (depósito / oficinas)</option>
+            <option value="In itinere">In itinere (trayecto domicilio ↔ trabajo)</option>
+            <option value="En la vía pública (reparto)">En la vía pública (durante el reparto)</option>
+            <option value="En el domicilio / local del cliente">En el domicilio / local del cliente (entrega / descarga)</option>
+            <option value="En otra dependencia">En otra dependencia o establecimiento</option>
+            <option value="__otro__">Otro lugar (especificar)...</option>
+          </select>
+          <input type="text" id="c_lugar_otro" placeholder="Especificar el lugar..." style="display:none;margin-top:6px">
+        </div>
         <div class="form-group full">
           <label>Descripción</label>
           <textarea id="c_desc" rows="3" style="resize:vertical"></textarea>
@@ -3383,6 +3395,19 @@
         </div>
 
         <div class="form-group full">
+          <label>Lugar de ocurrencia <span style="font-weight:400;color:var(--text3)">(in itinere u otro lugar)</span></label>
+          <select id="al_lugar" onchange="lugarToggle('al')">
+            <option value="En el establecimiento">En el establecimiento (depósito / oficinas)</option>
+            <option value="In itinere">In itinere (trayecto domicilio ↔ trabajo)</option>
+            <option value="En la vía pública (reparto)">En la vía pública (durante el reparto)</option>
+            <option value="En el domicilio / local del cliente">En el domicilio / local del cliente (entrega / descarga)</option>
+            <option value="En otra dependencia">En otra dependencia o establecimiento</option>
+            <option value="__otro__">Otro lugar (especificar)...</option>
+          </select>
+          <input type="text" id="al_lugar_otro" placeholder="Especificar el lugar..." style="display:none;margin-top:6px">
+        </div>
+
+        <div class="form-group full">
           <label>Tipo de causalidad 9c *</label>
           <select id="al_causalidad">
             <option value="">Seleccionar...</option>
@@ -3395,6 +3420,8 @@
             <option>Atrapamiento por o entre objetos</option>
             <option>Atrapamiento por vuelco de máquinas o vehículos</option>
             <option>Atropellos golpes con o contra vehículos</option>
+            <option>Esfuerzo excesivo o Falso Movimiento</option>
+            <option>Otros</option>
           </select>
         </div>
         <div class="form-group">
@@ -4956,7 +4983,7 @@ function handleRequest(e) {
 
 function getAllData() {
   var nominaHeaders   = ['nombre','genero','cuil','dni','tel','localidad','nacimiento','edad','art','alta','antiguedad','sector'];
-  var conductaHeaders = ['empleado','fecha','tipo','descripcion','con_baja','dias_baja'];
+  var conductaHeaders = ['empleado','fecha','tipo','descripcion','con_baja','dias_baja','lugar'];
   var desempenoHeaders = ['empleado','fecha','pedidos','lect_ok','lect_fail','tpedido','consolidados','tpickeo','errores','items','reclamos'];
   var distribHeaders  = ['empleado','fecha','excesos_vel','checklist_pct','errores_caja','nc_no_realizadas','kg_transportados','km_recorridos','cant_viajes','clientes','bultos'];
   var reclamosHeaders = ['empleado','fecha','motivo','observaciones','estado','fecha_solucion'];
@@ -4971,8 +4998,9 @@ function getAllData() {
   var ropaIngresosHeaders = ['fecha','prenda','talle','cantidad','observaciones'];
   var nSheet = getOrCreateSheet('NOMINA',       nominaHeaders);
   var cSheet = getOrCreateSheet('CONDUCTA',     conductaHeaders);
-  ensureColumns(cSheet, ['con_baja','dias_baja']); // migración: agrega la columna a la hoja ya existente
+  ensureColumns(cSheet, ['con_baja','dias_baja','lugar']); // migración: agrega la columna a la hoja ya existente
   var alertasSheet = getOrCreateSheet('ALERTAS', ALERTAS_HEADERS);
+  ensureColumns(alertasSheet, ['lugar']); // migración: agrega la columna a la hoja ya existente
   var dSheet = getOrCreateSheet('DESEMPENO',    desempenoHeaders);
   ensureColumns(dSheet, ['reclamos']); // migración: agrega la columna a la hoja ya existente
   var rSheet = getOrCreateSheet('DISTRIBUCION', distribHeaders);
@@ -5217,7 +5245,7 @@ function guardarCertificado(base64, mime, empleado, desde) {
   return getCertFolder().createFile(blob).getUrl();
 }
 // Alertas de incidente / accidente: hoja propia + foto de los daños en carpeta PRIVADA de Drive
-var ALERTAS_HEADERS = ['tipo','empleado','puesto','relacion','hora','causalidad','forma','parte_cuerpo','asistencia','supervisor','distribuidora','fecha','contexto','antiguedad','jornada','turno','equipo','descripcion','foto_url','registro_id'];
+var ALERTAS_HEADERS = ['tipo','empleado','puesto','relacion','hora','causalidad','forma','parte_cuerpo','asistencia','supervisor','distribuidora','fecha','contexto','antiguedad','jornada','turno','equipo','descripcion','foto_url','registro_id','lugar'];
 var ALERTAS_FOLDER_NAME = 'Alertas Incidentes RRHH';
 function getAlertasFolder() {
   var it = DriveApp.getFoldersByName(ALERTAS_FOLDER_NAME);
@@ -5225,7 +5253,7 @@ function getAlertasFolder() {
 }
 function addAlerta(data) {
   if (!data) return { error: 'Sin datos' };
-  getOrCreateSheet('ALERTAS', ALERTAS_HEADERS);
+  ensureColumns(getOrCreateSheet('ALERTAS', ALERTAS_HEADERS), ['lugar']);
   if (data.foto_base64) {
     try {
       var bytes = Utilities.base64Decode(data.foto_base64);
@@ -6882,6 +6910,7 @@ function renderConducta() {
         <span>${tipoConductaBadge(c.tipo)}</span>
         <span>📅 ${fmtDate(c.fecha)}</span>
         ${c.tipo === 'Accidente' ? (c.con_baja === 'Sí' ? '<span class="badge badge-red">Con baja' + (parseInt(c.dias_baja) > 0 ? ' · ' + parseInt(c.dias_baja) + (parseInt(c.dias_baja) === 1 ? ' día' : ' días') : '') + '</span>' : c.con_baja === 'No' ? '<span class="badge badge-green">Sin baja</span>' : '<span class="badge badge-gray">Baja sin definir</span>') : ''}
+        ${(c.tipo === 'Accidente' || c.tipo === 'Incidente') && c.lugar ? '<span class="badge ' + (c.lugar === 'In itinere' ? 'badge-purple' : 'badge-gray') + '">📍 ' + String(c.lugar).replace(/&/g,'&amp;').replace(/</g,'&lt;') + '</span>' : ''}
       </div>
       <div class="conduct-body">${c.descripcion||'Sin descripción'}</div>
       <div style="margin-top:10px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap">
@@ -8112,6 +8141,31 @@ function updateConductaEmpleadoRequired() {
   if (bg) bg.style.display = tipo === 'Accidente' ? '' : 'none';
   const dg = document.getElementById('c_dias_baja_group');
   if (dg) dg.style.display = (tipo === 'Accidente' && document.getElementById('c_baja').value === 'Sí') ? '' : 'none';
+  const lg = document.getElementById('c_lugar_group');
+  if (lg) lg.style.display = (tipo === 'Accidente' || tipo === 'Incidente') ? '' : 'none';
+}
+
+// Lugar de ocurrencia (in itinere u otros): compartido por el registro de conducta ('c') y la alerta ('al')
+function lugarToggle(pre) {
+  const sel = document.getElementById(pre + '_lugar'), otro = document.getElementById(pre + '_lugar_otro');
+  if (!sel || !otro) return;
+  otro.style.display = sel.value === '__otro__' ? '' : 'none';
+  if (sel.value !== '__otro__') otro.value = '';
+}
+function lugarSet(pre, val) {
+  const sel = document.getElementById(pre + '_lugar'), otro = document.getElementById(pre + '_lugar_otro');
+  if (!sel || !otro) return;
+  val = String(val || '').trim();
+  if (!val) { sel.value = 'En el establecimiento'; otro.value = ''; }
+  else if ([...sel.options].some(o => o.value === val)) { sel.value = val; otro.value = ''; }
+  else { sel.value = '__otro__'; otro.value = val; }
+  lugarToggle(pre);
+  if (sel.value === '__otro__') otro.value = val;
+}
+function lugarGet(pre) {
+  const sel = document.getElementById(pre + '_lugar'), otro = document.getElementById(pre + '_lugar_otro');
+  if (!sel) return '';
+  return sel.value === '__otro__' ? (otro.value.trim() || 'Otro lugar') : sel.value;
 }
 let conductaEditId = null;
 function openConductaModal() {
@@ -8121,6 +8175,7 @@ function openConductaModal() {
   if (f && !f.value) f.value = new Date().toISOString().split('T')[0];
   document.getElementById('c_baja').value = '';
   document.getElementById('c_dias_baja').value = '';
+  lugarSet('c', '');
   updateConductaEmpleadoRequired();
   document.getElementById('conductaModal').classList.add('open');
 }
@@ -8135,6 +8190,7 @@ function openConductaEdit(id) {
   document.getElementById('c_desc').value = c.descripcion || '';
   document.getElementById('c_baja').value = c.con_baja || '';
   document.getElementById('c_dias_baja').value = c.dias_baja || '';
+  lugarSet('c', c.lugar);
   updateConductaEmpleadoRequired();
   document.getElementById('conductaModal').classList.add('open');
 }
@@ -8148,7 +8204,8 @@ async function saveConducta() {
     tipo,
     descripcion: document.getElementById('c_desc').value,
     con_baja: tipo === 'Accidente' ? document.getElementById('c_baja').value : '',
-    dias_baja: ''
+    dias_baja: '',
+    lugar: (tipo === 'Accidente' || tipo === 'Incidente') ? lugarGet('c') : ''
   };
   if (tipo === 'Accidente' && data.con_baja === 'Sí') {
     const d = parseInt(document.getElementById('c_dias_baja').value);
@@ -8478,6 +8535,7 @@ function alPrefillDesdeRegistro(id) {
   if (c.fecha) document.getElementById('al_fecha').value = String(c.fecha).split('T')[0];
   alSetEmpleado(c.empleado || '');
   document.getElementById('al_desc').value = c.descripcion || '';
+  lugarSet('al', c.lugar);
 }
 
 function openAlertaModal(registroId) {
@@ -8497,6 +8555,7 @@ function openAlertaModal(registroId) {
   document.getElementById('al_jornada').value = 'Completa';
   document.getElementById('al_asistencia').value = 'No requirió';
   document.getElementById('al_causalidad').value = '';
+  lugarSet('al', '');
   document.getElementById('al_distribuidora').value = 'Juan Jose Formento S.R.L';
   alFotoQuitar();
   alFotoQuitada = false;
@@ -8537,6 +8596,7 @@ async function openAlertaEdit(id) {
   document.getElementById('al_supervisor').value = a.supervisor || '';
   document.getElementById('al_distribuidora').value = a.distribuidora || 'Juan Jose Formento S.R.L';
   document.getElementById('al_causalidad').value = a.causalidad || '';
+  lugarSet('al', a.lugar);
   document.getElementById('al_parte').value = a.parte_cuerpo || '';
   document.getElementById('al_asistencia').value = a.asistencia || 'No requirió';
   document.getElementById('al_equipo').value = a.equipo || '';
@@ -8575,6 +8635,7 @@ async function saveAlerta() {
     relacion: document.getElementById('al_relacion').value,
     hora: (horaConf || !horaVal) ? 'A confirmar' : horaVal,
     causalidad,
+    lugar: lugarGet('al'),
     forma: document.getElementById('al_forma').value.trim(),
     parte_cuerpo: document.getElementById('al_parte').value.trim(),
     asistencia: document.getElementById('al_asistencia').value,
@@ -8801,6 +8862,7 @@ function alRender(ctx, a, img) {
   secTitle('DATOS DEL SUCESO');
   row([['Fecha del suceso', alFecha(a.fecha)], ['Hora del suceso', hora + (hora !== 'A confirmar' ? ' hs' : '')]]);
   row([['Turno de trabajo', a.turno], ['Supervisor a cargo', a.supervisor]]);
+  row([['Lugar de ocurrencia', a.lugar || 'En el establecimiento', 2]]);
   row([['Tipo de causalidad (9c)', a.causalidad, 2]]);
   row([['Parte del cuerpo afectada', a.parte_cuerpo], ['Asistencia médica', a.asistencia]]);
   row([['Equipo asociado', a.equipo, 2]]);
