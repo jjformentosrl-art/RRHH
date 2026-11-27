@@ -2420,14 +2420,14 @@
           </div>
           <div class="stats" id="camStats"></div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Camión</th><th>Chofer</th><th>Ayudante</th><th>Checklist de seguridad</th><th>Hora / Lo completó</th><th>Resultado</th><th>Observaciones</th><th></th></tr></thead>
+            <thead><tr><th>Camión</th><th>Chofer</th><th>Ayudante</th><th>Pueblo</th><th>Checklist de seguridad</th><th>Hora / Lo completó</th><th>Resultado</th><th>Observaciones</th><th></th></tr></thead>
             <tbody id="camETbody"></tbody>
           </table></div>
         </div>
       </div>
       <div class="dpanel cam-p" id="camp-asig">
         <div class="aud-scroll">
-          <div class="link-box" style="font-family:inherit">📅 Elegí la fecha del reparto y asigná el chofer y el ayudante de cada camión: ellos son quienes deben completar el checklist ese día. Los cambios se guardan solos.</div>
+          <div class="link-box" style="font-family:inherit">📅 Elegí la fecha del reparto y asigná el chofer, el ayudante y el pueblo de cada camión: ellos son quienes deben completar el checklist ese día. Los cambios se guardan solos.</div>
           <div class="toolbar" style="padding-left:0">
             <label style="font-size:13px;color:var(--text2);font-weight:600">📅 Fecha:</label>
             <input type="date" class="filter-select" id="camADia" onchange="renderCamAsig()" style="max-width:160px">
@@ -2436,9 +2436,10 @@
             <button class="btn btn-secondary" style="margin-left:auto" onclick="camAsignCopiar()">📋 Copiar asignación anterior</button>
           </div>
           <div class="table-wrap"><table>
-            <thead><tr><th>Camión</th><th>Chofer</th><th>Ayudante</th></tr></thead>
+            <thead><tr><th>Camión</th><th>Chofer</th><th>Ayudante</th><th>Pueblo / destino</th></tr></thead>
             <tbody id="camATbody"></tbody>
           </table></div>
+          <datalist id="camPuebloList"></datalist>
         </div>
       </div>
       <div class="dpanel cam-p" id="camp-ctrl">
@@ -5035,6 +5036,7 @@ function getAllData() {
   var camListaSheet = sgSheet('CAMIONES_LISTA', CAM_LISTA_HEADERS);
   var camCtrlSheet = sgSheet('CAMIONES_CONTROLES', CAM_CTRL_HEADERS);
   var camAsignSheet = sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS);
+  ensureColumns(camAsignSheet, ['pueblo']); // migración: agrega la columna a la hoja ya existente
   var velSheet = sgSheet('VELOCIDAD_REPORTES', VEL_HEADERS);
   var vehDocSheet = sgSheet('VEHICULOS_DOCS', VEHDOC_HEADERS);
   var mantSheet = sgSheet('MANTENIMIENTO', MANT_HEADERS);
@@ -6019,7 +6021,7 @@ function addEquipoControl(data) {
 
 // ── Checklist diario de camiones ──
 var CAM_LISTA_HEADERS = ['numero','patente','activo','observaciones'];
-var CAM_ASIGN_HEADERS = ['fecha','camion_id','chofer','ayudante'];
+var CAM_ASIGN_HEADERS = ['fecha','camion_id','chofer','ayudante','pueblo'];
 var CAM_CTRL_HEADERS = ['fecha','hora','camion_id','numero','patente','quien','rol','km','resultado','cant_fallas','fallas','fallas_json','observaciones','resolucion','origen'];
 
 var VEL_HEADERS = ['fecha','camion_id','numero','patente','responsable','cantidad','observaciones'];
@@ -6098,7 +6100,7 @@ function getCamionesKiosk() {
     var id = String(c.__ID__), a = null, hecho = false;
     asign.forEach(function(x) { if (String(x.camion_id) === id) a = x; });
     ctrls.forEach(function(k) { if (String(k.camion_id) === id && k.fecha === hoy) hecho = true; });
-    return { id: id, numero: c.numero, patente: c.patente, hoy: hecho, chofer: a ? a.chofer : '', ayudante: a ? a.ayudante : '' };
+    return { id: id, numero: c.numero, patente: c.patente, hoy: hecho, chofer: a ? a.chofer : '', ayudante: a ? a.ayudante : '', pueblo: a ? (a.pueblo || '') : '' };
   });
   return { employees: sgNomina(), camiones: camiones };
 }
@@ -6142,11 +6144,12 @@ function addCamionControl(data) {
 function setCamionAsignaciones(data) {
   var items = data && Object.prototype.toString.call(data.items) === '[object Array]' ? data.items : [];
   if (!items.length || items.length > 100) return { error: 'Sin datos' };
+  ensureColumns(sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS), ['pueblo']); // migración: agrega la columna a la hoja ya existente
   var rows = sheetToJson(sgSheet('CAMIONES_ASIGN', CAM_ASIGN_HEADERS));
   for (var i = 0; i < items.length; i++) {
     var fecha = audTexto(items[i].fecha, 10), cid = audTexto(items[i].camion_id, 40);
     if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(fecha) || !cid) return { error: 'Datos inválidos' };
-    var fila = { fecha: fecha, camion_id: cid, chofer: audTexto(items[i].chofer, 80), ayudante: audTexto(items[i].ayudante, 80) };
+    var fila = { fecha: fecha, camion_id: cid, chofer: audTexto(items[i].chofer, 80), ayudante: audTexto(items[i].ayudante, 80), pueblo: audTexto(items[i].pueblo, 80) };
     var id = null;
     rows.forEach(function(x) { if (x.fecha === fecha && String(x.camion_id) === cid) id = x.__ID__; });
     var r = id ? updateRow('CAMIONES_ASIGN', id, fila) : addRow('CAMIONES_ASIGN', fila);
@@ -15884,7 +15887,7 @@ const CAM_ITEMS = [
 function camLink(id) { return sgBase() + '?camiones=1' + (id ? '&cam=' + encodeURIComponent(id) : '') + '&api=' + encodeURIComponent(API_URL); }
 function camNom(c) { return 'N° ' + (c.numero || '?') + (c.patente ? ' · ' + c.patente : ''); }
 function camOrden(arr) { return [...arr].sort((a, b) => String(a.numero).localeCompare(String(b.numero), undefined, { numeric: true })); }
-function camAsignDe(id, dia) { return camAsignData.find(a => String(a.camion_id) === String(id) && licDia(a.fecha) === dia) || { chofer: '', ayudante: '' }; }
+function camAsignDe(id, dia) { return camAsignData.find(a => String(a.camion_id) === String(id) && licDia(a.fecha) === dia) || { chofer: '', ayudante: '', pueblo: '' }; }
 // Rol de quien completó el checklist, según la asignación ACTUAL de ese día (si se corrige la asignación después, se actualiza solo).
 // Si ese día ya no hay ninguna asignación cargada, se usa el rol que quedó guardado al enviarse.
 function camRolDe(k) {
@@ -15949,8 +15952,8 @@ function renderCamEstado() {
     sgCard('⚠️', obs, 'Con observaciones', obs ? 'var(--warning)' : '') +
     sgCard('⛔', n('fs'), 'Fuera de servicio', n('fs') ? 'var(--danger)' : '') +
     sgCard('👤', sinAsig, 'Sin chofer asignado', sinAsig ? 'var(--warning)' : '');
-  if (!filas.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">🚚</div><p>Todavía no cargaste camiones. Andá a la pestaña “Camiones”.</p></div></td></tr>'; return; }
-  if (!vista.length) { tb.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="icon">🔎</div><p>No hay camiones con ese filtro</p></div></td></tr>'; return; }
+  if (!filas.length) { tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="icon">🚚</div><p>Todavía no cargaste camiones. Andá a la pestaña “Camiones”.</p></div></td></tr>'; return; }
+  if (!vista.length) { tb.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="icon">🔎</div><p>No hay camiones con ese filtro</p></div></td></tr>'; return; }
   const nom = v => v ? licEsc(v) : '<span style="color:var(--warning)">Sin asignar</span>';
   tb.innerHTML = vista.map(f => {
     const k = f.k, fl = k ? eqFallas(k) : [];
@@ -15959,16 +15962,16 @@ function renderCamEstado() {
     const quien = k ? licEsc(k.hora || '') + ' · ' + licEsc(k.quien) + (camRolDe(k) ? ' <span style="color:var(--text3)">(' + camRolDe(k) + ')</span>' : (f.asig ? ' <span style="color:var(--warning)">(no es el asignado)</span>' : '')) : '—';
     return `<tr${f.st === 'pend' ? ' style="background:rgba(220,38,38,.06)"' : ''}>
       <td><strong>N° ${licEsc(f.c.numero)}</strong><div style="font-size:11px;color:var(--text3)">${licEsc(f.c.patente || '')}</div></td>
-      <td>${nom(f.a.chofer)}</td><td>${nom(f.a.ayudante)}</td><td>${est}</td><td>${quien}</td>
+      <td>${nom(f.a.chofer)}</td><td>${nom(f.a.ayudante)}</td><td>${f.a.pueblo ? licEsc(f.a.pueblo) : '<span style="color:var(--text3)">—</span>'}</td><td>${est}</td><td>${quien}</td>
       <td>${k ? `<span class="badge ${camBadgeRes(k.resultado)}">${licEsc(k.resultado)}</span>` : '—'}</td>
       <td>${obs}</td>
       <td>${k ? `<button class="btn btn-secondary btn-sm" onclick="camVer('${k.__ID__}')">👁 Ver</button>` : ''}</td></tr>`;
-  }).join('') + `<tr><td colspan="8" style="font-size:11.5px;color:var(--text3)">Día mostrado: ${fmtDate(dia)}. Un camión cuenta como “Sin completar” si tiene chofer o ayudante asignado ese día y todavía no se envió el checklist. Si se envió más de uno, se muestra el último.</td></tr>`;
+  }).join('') + `<tr><td colspan="9" style="font-size:11.5px;color:var(--text3)">Día mostrado: ${fmtDate(dia)}. Un camión cuenta como “Sin completar” si tiene chofer o ayudante asignado ese día y todavía no se envió el checklist. Si se envió más de uno, se muestra el último.</td></tr>`;
 }
 function exportCamEstadoCSV() {
   const { dia, vista } = camFilas();
-  sgCSV('checklist_camiones_' + dia + '.csv', ['Fecha', 'N° vehículo', 'Patente', 'Chofer', 'Ayudante', 'Checklist', 'Hora', 'Lo completó', 'Resultado', 'Observaciones'],
-    vista.map(f => [dia, f.c.numero, f.c.patente, f.a.chofer, f.a.ayudante, f.k ? 'Check completado' : f.st === 'pend' ? 'Sin completar' : 'Sin reparto asignado',
+  sgCSV('checklist_camiones_' + dia + '.csv', ['Fecha', 'N° vehículo', 'Patente', 'Chofer', 'Ayudante', 'Pueblo', 'Checklist', 'Hora', 'Lo completó', 'Resultado', 'Observaciones'],
+    vista.map(f => [dia, f.c.numero, f.c.patente, f.a.chofer, f.a.ayudante, f.a.pueblo || '', f.k ? 'Check completado' : f.st === 'pend' ? 'Sin completar' : 'Sin reparto asignado',
       f.k ? f.k.hora : '', f.k ? f.k.quien : '', f.k ? f.k.resultado : '', f.k ? [f.k.fallas, f.k.observaciones].filter(Boolean).join(' | ') : '']));
 }
 
@@ -15977,7 +15980,10 @@ function renderCamAsig() {
   const tb = $a('camATbody'); if (!tb) return;
   const inp = $a('camADia'); if (!inp.value) inp.value = licHoyISO();
   const dia = inp.value, act = camOrden(camListaData.filter(c => c.activo !== 'No'));
-  if (!act.length) { tb.innerHTML = '<tr><td colspan="3"><div class="empty-state"><div class="icon">🚚</div><p>Todavía no cargaste camiones</p></div></td></tr>'; return; }
+  if (!act.length) { tb.innerHTML = '<tr><td colspan="4"><div class="empty-state"><div class="icon">🚚</div><p>Todavía no cargaste camiones</p></div></td></tr>'; return; }
+  // Sugerencias: pueblos ya escritos antes (sin repetir, ignorando mayúsculas)
+  const dl = $a('camPuebloList');
+  if (dl) { const vistos = {}; camAsignData.forEach(x => { const t = String(x.pueblo || '').trim(); if (t) vistos[t.toLowerCase()] = vistos[t.toLowerCase()] || t; }); dl.innerHTML = Object.values(vistos).sort((a, b) => a.localeCompare(b)).map(t => '<option value="' + licEsc(t) + '">').join(''); }
   const cuenta = {};
   act.forEach(c => { const a = camAsignDe(c.__ID__, dia); [a.chofer, a.ayudante].forEach(v => { if (v) cuenta[v] = (cuenta[v] || 0) + 1; }); });
   const dup = v => v && cuenta[v] > 1 ? '<div style="font-size:11px;color:var(--warning)">⚠️ Está asignado en más de un camión</div>' : '';
@@ -15985,7 +15991,8 @@ function renderCamAsig() {
     const a = camAsignDe(c.__ID__, dia), id = licEsc(String(c.__ID__));
     return `<tr><td><strong>N° ${licEsc(c.numero)}</strong><div style="font-size:11px;color:var(--text3)">${licEsc(c.patente || '')}</div></td>
       <td><select class="filter-select" style="min-width:180px" onchange="camAsignSet('${id}','chofer',this.value)">${camOpts(a.chofer)}</select>${dup(a.chofer)}</td>
-      <td><select class="filter-select" style="min-width:180px" onchange="camAsignSet('${id}','ayudante',this.value)">${camOpts(a.ayudante)}</select>${dup(a.ayudante)}</td></tr>`;
+      <td><select class="filter-select" style="min-width:180px" onchange="camAsignSet('${id}','ayudante',this.value)">${camOpts(a.ayudante)}</select>${dup(a.ayudante)}</td>
+      <td><input type="text" class="filter-select" list="camPuebloList" maxlength="80" placeholder="Ej: Monte Buey" style="min-width:170px" value="${licEsc(a.pueblo || '')}" onchange="camAsignSet('${id}','pueblo',this.value)"></td></tr>`;
   }).join('');
 }
 async function camAsignGuardar(items) {
@@ -16001,7 +16008,7 @@ async function camAsignGuardar(items) {
 }
 async function camAsignSet(id, campo, valor) {
   const dia = $a('camADia').value || licHoyISO(), prev = camAsignDe(id, dia);
-  const ok = await camAsignGuardar([{ fecha: dia, camion_id: String(id), chofer: prev.chofer || '', ayudante: prev.ayudante || '', [campo]: valor }]);
+  const ok = await camAsignGuardar([{ fecha: dia, camion_id: String(id), chofer: prev.chofer || '', ayudante: prev.ayudante || '', pueblo: prev.pueblo || '', [campo]: campo === 'pueblo' ? String(valor || '').trim() : valor }]);
   if (ok) showToast('Asignación guardada ✓', 'success');
 }
 async function camAsignCopiar() {
@@ -16010,7 +16017,7 @@ async function camAsignCopiar() {
   if (!prev) { showToast('No hay una asignación anterior para copiar', 'error'); return; }
   const items = camListaData.filter(c => c.activo !== 'No').map(c => {
     const o = camAsignDe(c.__ID__, prev), a = camAsignDe(c.__ID__, dia);
-    return { fecha: dia, camion_id: String(c.__ID__), chofer: a.chofer || o.chofer || '', ayudante: a.ayudante || o.ayudante || '' };
+    return { fecha: dia, camion_id: String(c.__ID__), chofer: a.chofer || o.chofer || '', ayudante: a.ayudante || o.ayudante || '', pueblo: a.pueblo || '' };
   }).filter(i => i.chofer || i.ayudante);
   if (!items.length) { showToast('La asignación anterior estaba vacía', 'error'); return; }
   if (await camAsignGuardar(items)) showToast('Asignación copiada del ' + fmtDate(prev) + ' ✓ (no pisa lo ya cargado)', 'success');
@@ -16461,7 +16468,9 @@ function camPubElegir(id) {
   if (!c) { camPub.sel = null; $a('camPubCheck').style.display = 'none'; camPubAviso('', ''); return; }
   camPub.sel = c;
   camPub.resp = new Array(CAM_ITEMS.length).fill(null); camPub.notas = new Array(CAM_ITEMS.length).fill('');
-  camPubAviso(c.hoy ? 'warn' : '', c.hoy ? 'ℹ️ Este camión ya tiene el checklist completado hoy. Podés enviar otro si hace falta.' : '');
+  const pu = c.pueblo ? '📍 Pueblo asignado hoy: <b>' + licEsc(c.pueblo) + '</b>' : '';
+  const ya = c.hoy ? 'ℹ️ Este camión ya tiene el checklist completado hoy. Podés enviar otro si hace falta.' : '';
+  camPubAviso(c.hoy ? 'warn' : (pu ? 'ok' : ''), [ya, pu].filter(Boolean).join('<br>'));
   $a('camPubKm').value = ''; $a('camPubObs').value = '';
   $a('camPubItems').innerHTML = CAM_ITEMS.map((_, i) => camPubItemHTML(i)).join('');
   $a('camPubCheck').style.display = 'block';
@@ -16942,6 +16951,7 @@ async function camGenerarImagen() {
     const k = f.k, fl = k ? eqFallas(k) : [];
     const it = { num: f.c.numero, patente: f.c.patente || '', notas: [],
       rows: [[['Chofer', sinAs(f.a.chofer), f.a.chofer ? '' : '#B45309'], ['Ayudante', sinAs(f.a.ayudante), f.a.ayudante ? '' : '#B45309']]] };
+    if (f.a.pueblo) it.rows.push([['Pueblo', f.a.pueblo, '']]);
     if (!k) {
       it.color = '#DC2626'; it.pill = ['SIN COMPLETAR', '#DC2626', '#FFFFFF'];
       it.extra = 'Nadie envió el checklist de seguridad de este camión';
